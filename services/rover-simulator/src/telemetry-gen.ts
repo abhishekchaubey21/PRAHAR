@@ -54,6 +54,12 @@ export const DEMO_ZONE_PROFILES: Record<string, ZoneProfile> = {
   },
 };
 
+export function updateZoneMoisture(zoneId: string, newMoisturePct: number): void {
+  if (DEMO_ZONE_PROFILES[zoneId]) {
+    DEMO_ZONE_PROFILES[zoneId].base_moisture_pct = Number(newMoisturePct.toFixed(1));
+  }
+}
+
 /**
  * Add random Gaussian-like jitter around a base value.
  */

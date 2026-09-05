@@ -19,12 +19,13 @@ export default function RootLayout({
           <div className="nav-brand">
             <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span>PRAHAR</span>
-              <span className="badge">Console v0.1</span>
+              <span className="badge">Console v0.2</span>
             </Link>
           </div>
           <div className="nav-links">
             <Link href="/" className="nav-link">Overview</Link>
             <Link href="/queue" className="nav-link">Triage Queue</Link>
+            <Link href="/closed-loop" className="nav-link">Closed-Loop</Link>
             <Link href="/fleet" className="nav-link">Fleet Telemetry</Link>
           </div>
         </nav>

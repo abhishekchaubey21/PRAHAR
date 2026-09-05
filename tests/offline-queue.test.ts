@@ -27,7 +27,7 @@ test('Offline Queue - buffers events when offline and flushes upon reconnection'
     command_id: 'cmd-offline-01',
     rover_id: engine.getRoverId(),
     command_type: 'IRRIGATE',
-    payload: { zone_id: 'DEMO-ZONE-02', duration_seconds: 20 },
+    payload: { zone_id: 'DEMO-ZONE-02', duration_seconds: 20, approved_by: 'demo-farmer' },
     issued_at: new Date().toISOString(),
   };
   await engine.executeCommand(cmd);

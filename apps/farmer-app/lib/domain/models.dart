@@ -1,5 +1,5 @@
 /// PRAHAR Farmer App — Domain Models
-/// Aligned with PRAHAR Engineering Specification v1.0 Section 6, 8 & 9.
+/// Aligned with PRAHAR Engineering Specification v1.0 Section 6, 8, 9 & 12.
 
 class ZoneModel {
   final String id;
@@ -47,20 +47,26 @@ class AlertModel {
   final HazardType type;
   final AlertSeverity severity;
   final String message;
+  final String messageHi;
   final String recommendedAction;
-  final AlertStatus status;
+  final String recommendedActionHi;
+  AlertStatus status;
   final DateTime timestamp;
+  bool isApproved;
 
-  const AlertModel({
+  AlertModel({
     required this.id,
     required this.zoneId,
     required this.zoneName,
     required this.type,
     required this.severity,
     required this.message,
+    required this.messageHi,
     required this.recommendedAction,
+    required this.recommendedActionHi,
     required this.status,
     required this.timestamp,
+    this.isApproved = false,
   });
 }
 
@@ -77,5 +83,25 @@ class RoverStatusModel {
     required this.batteryPct,
     required this.currentZone,
     required this.isOffline,
+  });
+}
+
+class RemediationVerificationModel {
+  final String zoneId;
+  final double preMoisture;
+  final double postMoisture;
+  final double moistureDelta;
+  final bool resolved;
+  final String summaryEn;
+  final String summaryHi;
+
+  const RemediationVerificationModel({
+    required this.zoneId,
+    required this.preMoisture,
+    required this.postMoisture,
+    required this.moistureDelta,
+    required this.resolved,
+    required this.summaryEn,
+    required this.summaryHi,
   });
 }

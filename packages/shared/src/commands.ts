@@ -35,6 +35,8 @@ export interface IrrigatePayload {
   zone_id: string;
   duration_seconds: number; // Simulated solenoid activation time
   volume_liters?: number;
+  approved_by: string; // Safety gate: mandatory attribution ('farmer' | 'expert' | actor ID)
+  approval_token?: string;
 }
 
 export type StatusPayload = Record<string, never>;
@@ -107,6 +109,12 @@ export function validateCommand(command: Partial<RoverCommand>): { valid: boolea
     case 'IRRIGATE':
       if (!payload.zone_id || typeof payload.zone_id !== 'string') {
         return { valid: false, error: 'IRRIGATE requires a valid zone_id.' };
+      }
+      if (!payload.approved_by || typeof payload.approved_by !== 'string' || payload.approved_by.trim() === '') {
+        return {
+          valid: false,
+          error: 'Safety Gate Violation: IRRIGATE requires explicit approved_by attribution (farmer or expert approval). Autonomous execution blocked.',
+        };
       }
       if (
         payload.duration_seconds === undefined ||

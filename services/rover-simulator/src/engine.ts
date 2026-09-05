@@ -18,6 +18,7 @@ import {
   bundleToReadings,
   generateZoneGps,
   DEMO_ZONE_PROFILES,
+  updateZoneMoisture,
 } from './telemetry-gen.js';
 import { generateDetections } from './detection-gen.js';
 import { OfflineEventStore, OfflineEvent } from './offline-store.js';
@@ -180,6 +181,9 @@ export class RoverEngine {
     const moistureBefore = currentBundle.moisture_pct;
     const moistureIncrease = Math.min(25.0, (durationSeconds / 60.0) * 12.0);
     const moistureAfter = Number(Math.min(65.0, moistureBefore + moistureIncrease).toFixed(1));
+
+    // Update physical zone baseline so subsequent re-scans reflect real-world remediation
+    updateZoneMoisture(zoneId, moistureAfter);
 
     const result = {
       zone_id: zoneId,

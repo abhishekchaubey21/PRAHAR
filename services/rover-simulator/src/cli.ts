@@ -81,7 +81,7 @@ async function handleInput(line: string) {
         command_id: `cli-irrigate-${Date.now()}`,
         rover_id: engine.getRoverId(),
         command_type: 'IRRIGATE',
-        payload: { zone_id: zone, duration_seconds: 30, volume_liters: 7.5 },
+        payload: { zone_id: zone, duration_seconds: 30, volume_liters: 7.5, approved_by: 'cli_operator' },
         issued_at: new Date().toISOString(),
       };
       const ack = await engine.executeCommand(command);

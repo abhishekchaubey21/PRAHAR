@@ -10,7 +10,9 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  // Demo State (Phase 1 Skeleton)
+  // Language toggle: true = Hindi ('hi'), false = English ('en')
+  bool _isHindi = false;
+
   final RoverStatusModel _rover = const RoverStatusModel(
     roverId: 'ROVER-DEMO-01',
     state: 'IDLE',
@@ -26,10 +28,13 @@ class _HomeScreenState extends State<HomeScreen> {
       zoneName: 'Zone 2 (East Sector)',
       type: HazardType.waterStress,
       severity: AlertSeverity.high,
-      message: 'Moisture dropped to 17.5%. Micro-irrigation recommended.',
-      recommendedAction: 'Trigger simulated irrigation (30s)',
+      message: 'High Water Stress: Soil moisture at 17.5% (below 20% critical threshold).',
+      messageHi: 'गंभीर जल तनाव: मिट्टी की नमी 17.5% है (20% गंभीर सीमा से कम)।',
+      recommendedAction: 'Micro-irrigation recommended for 30s. Awaiting your approval.',
+      recommendedActionHi: '30 सेकंड सूक्ष्म-सिंचाई की सिफारिश। आपकी स्वीकृति आवश्यक है।',
       status: AlertStatus.newAlert,
       timestamp: DateTime.now().subtract(const Duration(minutes: 15)),
+      isApproved: false,
     ),
     AlertModel(
       id: 'alert-02',
@@ -37,28 +42,78 @@ class _HomeScreenState extends State<HomeScreen> {
       zoneName: 'Zone 3 (South Sector)',
       type: HazardType.disease,
       severity: AlertSeverity.medium,
-      message: 'Suspected Early Blight detected on basal leaves.',
-      recommendedAction: 'Expert verification in progress.',
+      message: 'Suspected Early Blight on basal leaves under high humidity (78%).',
+      messageHi: 'उच्च आर्द्रता (78%) में निचली पत्तियों पर संदिग्ध Early Blight।',
+      recommendedAction: 'Isolate affected plot. Expert agronomist review requested.',
+      recommendedActionHi: 'प्रभावित क्षेत्र अलग करें। विशेषज्ञ समीक्षा का अनुरोध किया गया।',
       status: AlertStatus.newAlert,
       timestamp: DateTime.now().subtract(const Duration(minutes: 45)),
+      isApproved: false,
     ),
   ];
+
+  RemediationVerificationModel? _latestVerification;
+
+  void _approveAndIrrigate(AlertModel alert) {
+    setState(() {
+      alert.isApproved = true;
+      alert.status = AlertStatus.actionTaken;
+
+      // Simulate closed-loop remediation verification
+      _latestVerification = RemediationVerificationModel(
+        zoneId: alert.zoneId,
+        preMoisture: 17.5,
+        postMoisture: 28.2,
+        moistureDelta: 10.7,
+        resolved: true,
+        summaryEn: 'Zone 2 remediation verified: Moisture improved from 17.5% to 28.2% (+10.7%). Solved!',
+        summaryHi: 'ज़ोन 2 उपचार का सत्यापन: नमी 17.5% से बढ़कर 28.2% हो गई (+10.7%)। समस्या हल!',
+      );
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          _isHindi
+            ? 'सिंचाई स्वीकृत! रोवर ने 30s सूक्ष्म-सिंचाई शुरू की। (सुरक्षा द्वार संतुष्ट)'
+            : 'Irrigation Approved! Rover dispatched 30s micro-irrigation. (Safety Gate Satisfied)',
+        ),
+        backgroundColor: PraharTheme.primaryGreen,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Row(
+        title: Row(
           children: [
-            Text('PRAHAR'),
-            SizedBox(width: 8),
+            const Text('PRAHAR'),
+            const SizedBox(width: 8),
             Chip(
-              label: Text('Farmer v0.1', style: TextStyle(fontSize: 10, color: Colors.white)),
+              label: Text(_isHindi ? 'किसान v0.2' : 'Farmer v0.2', style: const TextStyle(fontSize: 10, color: Colors.white)),
               backgroundColor: PraharTheme.borderGreen,
               padding: EdgeInsets.zero,
             ),
           ],
         ),
+        actions: [
+          // Language Switcher Toggle (Requirement 9)
+          TextButton.icon(
+            icon: const Icon(Icons.language, color: PraharTheme.primaryGreen, size: 18),
+            label: Text(
+              _isHindi ? 'English' : 'हिन्दी',
+              style: const TextStyle(color: PraharTheme.primaryGreen, fontWeight: FontWeight.bold),
+            ),
+            onPressed: () {
+              setState(() {
+                _isHindi = !_isHindi;
+              });
+            },
+          ),
+          const SizedBox(width: 8),
+        ],
       ),
       body: ListView(
         padding: const EdgeInsets.all(16.0),
@@ -70,22 +125,24 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Demo Farm Alpha',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  Text(
+                    _isHindi ? 'डेमो खेत अल्फा' : 'Demo Farm Alpha',
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Crop: Tomato • 3.5 Acres • 4 Monitored Zones',
+                    _isHindi
+                      ? 'फसल: टमाटर • 3.5 एकड़ • 4 निगरानी वाले ज़ोन'
+                      : 'Crop: Tomato • 3.5 Acres • 4 Monitored Zones',
                     style: TextStyle(color: Colors.grey[400], fontSize: 13),
                   ),
                   const Divider(height: 24, color: PraharTheme.borderGreen),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      _buildMetric('Active Alerts', '${_alerts.length}', PraharTheme.alertAmber),
-                      _buildMetric('Soil Moisture', '28% avg', PraharTheme.primaryGreen),
-                      _buildMetric('Rover Battery', '${_rover.batteryPct.toInt()}%', PraharTheme.primaryGreen),
+                      _buildMetric(_isHindi ? 'सक्रिय अलर्ट' : 'Active Alerts', '${_alerts.length}', PraharTheme.alertAmber),
+                      _buildMetric(_isHindi ? 'औसत नमी' : 'Soil Moisture', '28% avg', PraharTheme.primaryGreen),
+                      _buildMetric(_isHindi ? 'रोवर बैटरी' : 'Rover Battery', '${_rover.batteryPct.toInt()}%', PraharTheme.primaryGreen),
                     ],
                   ),
                 ],
@@ -94,48 +151,68 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           const SizedBox(height: 16),
 
-          // Rover Control Banner
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Row(
-                children: [
-                  const CircleAvatar(
-                    backgroundColor: PraharTheme.borderGreen,
-                    child: Icon(Icons.precision_manufacturing, color: PraharTheme.primaryGreen),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+          // Closed-Loop Verification Result Card (if verified)
+          if (_latestVerification != null) ...[
+            Card(
+              color: const Color(0xFF132A22),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: const BorderSide(color: PraharTheme.primaryGreen, width: 1.5),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text('Rover: ${_rover.roverId}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                        Text('Status: ${_rover.state} • At ${_rover.currentZone}', style: TextStyle(color: Colors.grey[400], fontSize: 12)),
+                        Row(
+                          children: [
+                            const Icon(Icons.check_circle, color: PraharTheme.primaryGreen, size: 20),
+                            const SizedBox(width: 8),
+                            Text(
+                              _isHindi ? 'उपचार सत्यापन सफल' : 'Remediation Verified (Closed-Loop)',
+                              style: const TextStyle(fontWeight: FontWeight.bold, color: PraharTheme.primaryGreen),
+                            ),
+                          ],
+                        ),
+                        Chip(
+                          label: Text(_isHindi ? 'सत्यापित' : 'RESOLVED', style: const TextStyle(fontSize: 10, color: Colors.black)),
+                          backgroundColor: PraharTheme.primaryGreen,
+                        ),
                       ],
                     ),
-                  ),
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: PraharTheme.primaryGreen,
-                      foregroundColor: Colors.black,
+                    const SizedBox(height: 10),
+                    Text(
+                      _isHindi ? _latestVerification!.summaryHi : _latestVerification!.summaryEn,
+                      style: const TextStyle(fontSize: 13),
                     ),
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Scan requested: dispatching to simulator via API...')),
-                      );
-                    },
-                    child: const Text('Scan Now'),
-                  ),
-                ],
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Text(
+                          '${_isHindi ? "पहले" : "Pre"}: ${_latestVerification!.preMoisture}%  →  ${_isHindi ? "बाद में" : "Post"}: ${_latestVerification!.postMoisture}%',
+                          style: TextStyle(color: Colors.grey[300], fontWeight: FontWeight.w600, fontSize: 13),
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          '(+${_latestVerification!.moistureDelta}%)',
+                          style: const TextStyle(color: PraharTheme.primaryGreen, fontWeight: FontWeight.bold, fontSize: 13),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 20),
+            const SizedBox(height: 16),
+          ],
 
-          // Alert Feed Header
-          const Text(
-            'Active Field Alerts',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          // Active Field Alerts Header
+          Text(
+            _isHindi ? 'सक्रिय खेत अलर्ट और सिफारिशें' : 'Active Field Alerts & Recommendations',
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 10),
 
@@ -181,12 +258,70 @@ class _HomeScreenState extends State<HomeScreen> {
                         ],
                       ),
                       const SizedBox(height: 10),
-                      Text(alert.message, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
-                      const SizedBox(height: 6),
                       Text(
-                        'Recommended: ${alert.recommendedAction}',
-                        style: TextStyle(color: Colors.grey[400], fontSize: 12),
+                        _isHindi ? alert.messageHi : alert.message,
+                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
                       ),
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF101B17),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(Icons.lightbulb, size: 16, color: PraharTheme.alertAmber),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                _isHindi ? alert.recommendedActionHi : alert.recommendedAction,
+                                style: TextStyle(color: Colors.grey[300], fontSize: 12),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Safety Gate Approval Action
+                      if (alert.type == HazardType.waterStress) ...[
+                        if (!alert.isApproved)
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
+                              icon: const Icon(Icons.water_drop, size: 16),
+                              label: Text(
+                                _isHindi ? 'सिंचाई स्वीकृत करें (30 सेकंड)' : 'Approve Micro-Irrigation (30s)',
+                                style: const TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: PraharTheme.primaryGreen,
+                                foregroundColor: Colors.black,
+                              ),
+                              onPressed: () => _approveAndIrrigate(alert),
+                            ),
+                          )
+                        else
+                          Container(
+                            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 10),
+                            decoration: BoxDecoration(
+                              color: PraharTheme.borderGreen,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.check, size: 16, color: PraharTheme.primaryGreen),
+                                const SizedBox(width: 6),
+                                Text(
+                                  _isHindi ? 'स्वीकृत - रोवर द्वारा उपचार पूरा' : 'Approved - Remediated by Rover',
+                                  style: const TextStyle(fontSize: 12, color: PraharTheme.primaryGreen),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
                     ],
                   ),
                 ),

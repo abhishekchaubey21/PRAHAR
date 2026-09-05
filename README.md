@@ -1,41 +1,44 @@
-# PRAHAR — Engineering Foundation + Rover Simulator v0.1
-
-> **Precision Rover for Agricultural Hazard Analysis & Remediation**  
+# PRAHAR — Precision Rover for Agricultural Hazard Analysis & Remediation
 > *Smart India Hackathon (SIH) 2026 — PS #26180*  
-> **Phase 1 Deliverable**: Engineering Foundation, Monorepo, Shared Domain Schemas, Database Migrations, Frontend Skeletons, and Autonomous Rover Simulator (v0.1).
+> **Phase 1 & Phase 2 Delivered**: Engineering Foundation, Monorepo, Shared Domain Schemas, Database Migrations, Frontend Skeletons, Autonomous Rover Simulator, **AI Decision Layer (Rule-Based Fusion Engine)**, **Alert Ingestion & Deduplication**, and **Closed-Loop Remediation Workflow**.
 
 ---
 
 ## 1. Architecture Overview
 
-PRAHAR combines autonomous ground-rover robotics with precision agricultural decision support. Phase 1 establishes the runnable engineering bedrock:
+PRAHAR combines autonomous ground-rover robotics with precision agricultural decision support.
 
 ```
 d:/PRAHAR/
 ├── apps/
-│   ├── farmer-app/              # Flutter mobile app skeleton (Dart 3 / Flutter 3)
+│   ├── farmer-app/              # Flutter mobile app (Dart 3 / Flutter 3)
 │   │   ├── lib/core/            # Theme, offline storage & queue abstractions
-│   │   ├── lib/domain/          # Shared domain models (Zone, Reading, Detection, Alert)
-│   │   ├── lib/screens/         # Home screen with farm status & rover scan action
-│   │   └── test/                # Automated Flutter widget & smoke tests
+│   │   ├── lib/domain/          # Shared domain models (Zone, Alert, Verification)
+│   │   ├── lib/screens/         # Home screen with EN/HI toggle, actionable alerts & verification card
+│   │   └── test/                # Automated Flutter widget & verification tests
 │   │
-│   └── expert-console/          # Next.js 14 (App Router) expert/admin console skeleton
+│   └── expert-console/          # Next.js 14 (App Router) expert/admin console
 │       ├── app/layout.tsx       # Shell layout & responsive navigation
 │       ├── app/page.tsx         # Farm overview & quick metrics
-│       ├── app/queue/page.tsx   # Expert triage review queue for flagged detections
+│       ├── app/queue/page.tsx   # Expert triage queue (Confirm, Correct, Escalate, Approve)
+│       ├── app/closed-loop/     # Before/After remediation verification dashboard
 │       └── app/fleet/page.tsx   # Fleet telemetry & live command simulator
 │
 ├── packages/
 │   └── shared/                  # Shared TypeScript contracts & validation schemas
 │       ├── src/telemetry.ts     # Telemetry, GPS, sensor bundle types & validators
 │       ├── src/detection.ts     # AI hazard detection types (Disease, Pest, Weed, etc.)
-│       ├── src/commands.ts      # START_SCAN, STOP, RE_SCAN, IRRIGATE, STATUS contracts
-│       ├── src/alert.ts         # Ingestion payload & alert lifecycle schemas
+│       ├── src/commands.ts      # Command contracts & safety gate validation
+│       ├── src/alert.ts         # Bilingual alert templates (EN/HI) & ingestion contracts
+│       ├── src/decision.ts      # Centralized decision thresholds & verification models
 │       └── src/domain.ts        # Farmer, Farm, Zone entities
 │
 ├── services/
-│   └── rover-simulator/         # Autonomous Rover Simulator v0.1 (Node.js / TypeScript)
+│   └── rover-simulator/         # Autonomous Rover Simulator & Decision Gateway (v0.2)
 │       ├── src/engine.ts        # Rover state machine & cycle coordinator
+│       ├── src/decision-engine.ts # Rule-based fusion engine & confidence gating
+│       ├── src/closed-loop.ts   # Closed-loop remediation & verification coordinator
+│       ├── src/alert-store.ts   # In-memory store with 24h deduplication & audit trail
 │       ├── src/telemetry-gen.ts # Agronomic sensor generator (Moisture, Temp, Humidity, pH)
 │       ├── src/detection-gen.ts # Synthetic vision AI hazard detection generator
 │       ├── src/command-proc.ts  # Idempotency cache & physical safety enforcer
@@ -48,11 +51,13 @@ d:/PRAHAR/
 │   ├── seed.sql                 # Synthetic demo data (Demo Farmer, 4 Zones, Rover-01)
 │   └── config.toml              # Supabase CLI configuration
 │
-├── tests/                       # Automated test suite (12 tests)
+├── tests/                       # Automated test suite (19 tests)
 │   ├── rover-engine.test.ts     # State transitions & telemetry agronomic bounds
 │   ├── command-idempotency.test.ts # Duplicate command ID rejection & safety checks
 │   ├── offline-queue.test.ts    # Store-and-forward offline event buffering
-│   └── shared-contracts.test.ts # Contract schema validators
+│   ├── shared-contracts.test.ts # Contract schema validators
+│   ├── decision-engine.test.ts  # Rule fusion, confidence gating & deduplication
+│   └── closed-loop-workflow.test.ts # Closed-loop remediation & verification
 │
 ├── package.json                 # Monorepo workspaces & development scripts
 └── README.md                    # Local setup and developer guide
@@ -66,147 +71,120 @@ Ensure the following tools are installed on your machine:
 - **Node.js**: v20.x or v24.x (`node -v`)
 - **npm**: v10.x or v11.x (`npm -v`)
 - **Flutter**: v3.24+ or v3.47+ (`flutter --version`)
-- **Docker / Supabase CLI** (optional for running local Postgres database)
-
-> [!NOTE]
-> On Windows systems where PowerShell script execution (`npm.ps1`) is restricted, invoke commands using `npm.cmd` or standard cmd.
+- **Docker / Supabase CLI** (optional for local Postgres database)
 
 ---
 
 ## 3. Step-by-Step Local Setup
 
 ### Step 1: Install Dependencies
-From the repository root:
 ```bash
 npm install
 ```
 
 ### Step 2: Build Shared Domain Contracts
-Compile the shared TypeScript contracts:
 ```bash
 npm run build:shared
 ```
 
-### Step 3: Run Automated Test Suite
-Run the 12 automated unit and integration tests covering telemetry generation, state machine transitions, command idempotency, safety bounds, and offline event queueing:
+### Step 3: Run Automated Test Suite (19 Tests)
 ```bash
 npm test
 ```
+Runs 19 unit & integration tests covering telemetry bounds, command idempotency, safety gates, decision rules, confidence gating, alert deduplication, and closed-loop verification.
 
-Run the Flutter widget test suite:
+Run Flutter tests:
 ```bash
 npm run flutter:test
 ```
 
 ---
 
-## 4. Running the Rover Simulator (v0.1)
+## 4. Phase 2 Features & The Closed-Loop Workflow
 
-The simulator models an autonomous agricultural rover operating across 4 farm zones (`DEMO-ZONE-01` through `DEMO-ZONE-04`).
+### The Closed-Loop Flow
+```
+SCAN → INGEST → DECISION → RECOMMENDATION → APPROVAL GATE → SAFETY VALIDATION → IRRIGATE → RE-SCAN → VERIFY
+```
 
-### Mode A: HTTP REST & Streaming Server (Default)
-Starts the simulator daemon on `http://localhost:3001`:
+1. **Safety Gate — No Autonomous Irrigation**:
+   - The decision engine **never** auto-triggers physical actions.
+   - Any physical action (`IRRIGATE`) requires explicit `approved_by` attribution (Farmer or Expert), duration limit ($\le 180$s), volume limit ($\le 50$L), and battery health check ($> 10\%$).
+2. **Confidence Gating**:
+   - Detections with `confidence < 0.70` suppress action recommendations and route to the Expert Review Queue.
+3. **Alert Deduplication**:
+   - Active alerts in the same zone for the same hazard are deduplicated over a 24-hour window, updating timestamp and counts rather than creating duplicate spam.
+4. **Bilingual Advisory Engine**:
+   - Advisory messages and recommended actions are generated in both English and Hindi.
+5. **Auditable Expert Actions**:
+   - Expert triage actions (`CONFIRM`, `CORRECT`, `ESCALATE`, `APPROVE_INTERVENTION`) record `actor`, `timestamp`, `zone_id`, `alert_id`, `action`, `previous_state`, `new_state`, and `expert_note`.
+6. **Genuine Before/After Verification**:
+   - Post-remediation re-scan measures pre- vs. post-intervention state and computes `moisture_delta` and resolution status.
+
+---
+
+## 5. Running the Services Locally
+
+### 1. Rover Simulator & Decision Gateway (Port 3001)
 ```bash
 npm run dev:simulator
 ```
 
-#### Available HTTP Endpoints:
+#### Key API Endpoints:
 | Method | Endpoint | Description |
 |---|---|---|
-| `GET` | `/api/rover/status` | Current state, battery level, active zone, and offline queue count |
-| `GET` | `/api/rover/telemetry/latest` | Real-time GPS, sensor readings (moisture, temp, humidity, pH), tilt, battery |
-| `POST` | `/api/rover/command` | Dispatch rover command (`START_SCAN`, `STOP`, `RE_SCAN`, `IRRIGATE`, `STATUS`) |
-| `POST` | `/api/rover/simulate-scan` | Trigger a complete simulated scan cycle for a target zone |
-| `POST` | `/api/rover/offline-mode` | Toggle offline mode (`{ "enabled": true/false }`) |
-| `GET` | `/api/rover/queue` | Inspect buffered offline events |
-| `POST` | `/api/rover/flush-queue` | Flush and sync offline buffer upon reconnect |
-| `POST` | `/api/rover/recharge` | Reset rover battery to target percentage |
-| `GET` | `/api/rover/telemetry-stream` | Server-Sent Events (SSE) live telemetry stream |
+| `POST` | `/api/ingest/scan` | Ingest scan cycle & evaluate decision rules |
+| `GET` | `/api/alerts` | List active & historical alerts (bilingual) |
+| `POST` | `/api/alerts/:id/triage` | Expert triage: `CONFIRM`, `CORRECT`, `ESCALATE` with audit log |
+| `POST` | `/api/remediation/approve` | Safety Gate: Approve intervention (`approved_by`) |
+| `POST` | `/api/remediation/execute` | Execute approved action with rover safety checks |
+| `POST` | `/api/remediation/verify` | Trigger re-scan and compute before/after verification delta |
+| `GET` | `/api/remediation/verifications` | List all verified closed-loop remediation records |
+| `GET` | `/api/audit/history` | Inspect expert triage audit trail |
+| `GET` | `/api/rover/status` | Current rover state, battery, active zone |
+| `POST` | `/api/rover/command` | Dispatch rover command (Idempotent via `command_id`) |
 
-#### Testing Commands via Curl / PowerShell:
-```powershell
-# 1. Query Status
-Invoke-RestMethod -Uri "http://localhost:3001/api/rover/status"
-
-# 2. Dispatch START_SCAN with an Idempotency Token (command_id)
-$cmd = @{ command_id="scan-001"; command_type="START_SCAN"; payload=@{ zone_id="DEMO-ZONE-01" } } | ConvertTo-Json
-Invoke-RestMethod -Uri "http://localhost:3001/api/rover/command" -Method Post -Body $cmd -ContentType "application/json"
-
-# 3. Re-send identical command_id (verifies duplicate rejection)
-Invoke-RestMethod -Uri "http://localhost:3001/api/rover/command" -Method Post -Body $cmd -ContentType "application/json"
-
-# 4. Dispatch Simulated Micro-Irrigation (30s)
-$irrigate = @{ command_id="irr-001"; command_type="IRRIGATE"; payload=@{ zone_id="DEMO-ZONE-02"; duration_seconds=30 } } | ConvertTo-Json
-Invoke-RestMethod -Uri "http://localhost:3001/api/rover/command" -Method Post -Body $irrigate -ContentType "application/json"
-```
-
-### Mode B: Interactive Terminal Controller (CLI)
-For rapid local testing without HTTP requests:
-```bash
-npm run dev:simulator:cli
-```
-Interactive commands available:
-- `status` — View rover state and battery
-- `scan [zone]` — Initiate scan on zone (default `DEMO-ZONE-01`)
-- `irrigate [zone]` — Simulate micro-irrigation (30s)
-- `stop` — Emergency halt
-- `offline on` / `offline off` — Toggle disconnected mode
-- `queue` — Inspect buffered events
-- `flush` — Flush offline store to simulated cloud
-
----
-
-## 5. Running the Frontend Skeletons
-
-### Expert Triage Web Console (Next.js 14)
-Starts the console on `http://localhost:3000`:
+### 2. Expert Web Console (Port 3000)
 ```bash
 npm run dev:expert
 ```
-- **Overview** (`/`): Health metrics, zone overview, connected rover indicator.
-- **Triage Queue** (`/queue`): Expert review queue with flagged cases (Early Blight, Water Stress), sensor context, and Confirm/Correct/Escalate actions.
-- **Fleet Telemetry** (`/fleet`): Real-time rover telemetry and command dispatch controls connected directly to the simulator on `:3001`.
+- **Overview** (`/`): Farm precision overview and rover state.
+- **Triage Queue** (`/queue`): Review flagged AI detections, confirm diagnoses, approve interventions.
+- **Closed-Loop Verification** (`/closed-loop`): Execute approved actions, trigger verification re-scans, view before/after comparison delta table.
+- **Fleet Monitor** (`/fleet`): Real-time rover telemetry and command dispatch.
 
-### Farmer Mobile App Skeleton (Flutter)
+### 3. Farmer Mobile App (Flutter)
 ```bash
 cd apps/farmer-app
 flutter run
 ```
-Provides:
-- Farm health overview card
-- Live rover state & battery monitor
-- One-tap "Scan Now" request trigger
-- Plain-language alert feed for smallholder farmers
+- English / Hindi language toggle switch.
+- Actionable alert feed with plain-language recommendations.
+- One-tap "Approve Micro-Irrigation (30s)" button (Safety Gate satisfied).
+- Closed-Loop Remediation Verified before/after card.
 
 ---
 
-## 6. Supabase Database & Migrations
+## 6. End-to-End Demo Workflow via CLI / PowerShell
 
-Local database migrations and demo seed data are pre-configured:
-- **Migration**: `supabase/migrations/20260905000000_prahar_core_schema.sql`
-  - Creates relational tables: `farmers`, `farms`, `zones`, `sensor_readings`, `detections`, `alerts`, `rover_commands`, `rover_telemetry`, and `offline_sync_events`.
-  - Enforces unique `command_id` primary keys for command idempotency.
-- **Seed Data**: `supabase/seed.sql`
-  - Synthetic demo farmer (`Demo Farmer Alpha`, `+91-00000-00001`).
-  - Synthetic plot (`Demo Precision Field Alpha`, 3.5 acres, Tomato).
-  - 4 Zones: `DEMO-ZONE-01` (Optimal), `DEMO-ZONE-02` (Water Stressed), `DEMO-ZONE-03` (Disease Prone), `DEMO-ZONE-04` (Alkaline).
+```powershell
+# 1. Ingest a simulated scan on dry Zone 2
+$body = @{ zone_id = "DEMO-ZONE-02" } | ConvertTo-Json
+$res = Invoke-RestMethod -Uri "http://localhost:3001/api/ingest/scan" -Method Post -Body $body -ContentType "application/json"
 
-To apply using local Supabase CLI:
-```bash
-npx supabase start
-npx supabase db reset
+# 2. Inspect generated bilingual alert & recommendation requiring approval
+Invoke-RestMethod -Uri "http://localhost:3001/api/alerts" | ConvertTo-Json -Depth 3
+
+# 3. Farmer / Expert Approves Intervention (Safety Gate)
+$approveBody = @{ zone_id = "DEMO-ZONE-02"; approved_by = "farmer-demo"; duration_seconds = 30 } | ConvertTo-Json
+$appRes = Invoke-RestMethod -Uri "http://localhost:3001/api/remediation/approve" -Method Post -Body $approveBody -ContentType "application/json"
+$actionId = $appRes.data.action_id
+
+# 4. Execute Approved Remediation
+$execBody = @{ action_id = $actionId } | ConvertTo-Json
+Invoke-RestMethod -Uri "http://localhost:3001/api/remediation/execute" -Method Post -Body $execBody -ContentType "application/json"
+
+# 5. Trigger Verification Re-Scan & Compare Pre vs Post State
+$verifBody = @{ action_id = $actionId } | ConvertTo-Json
+Invoke-RestMethod -Uri "http://localhost:3001/api/remediation/verify" -Method Post -Body $verifBody -ContentType "application/json" | ConvertTo-Json -Depth 3
 ```
-
----
-
-## 7. Explicit Phase 1 Boundary Guarantees
-
-In accordance with the PRAHAR Engineering Specification v1.0, the following items are intentionally **out of scope** for Phase 1 and will be built in subsequent phases:
-- ❌ No voice interaction / TTS / STT.
-- ❌ No government scheme discovery.
-- ❌ No external weather API integrations.
-- ❌ No drone workflows.
-- ❌ No advanced predictive yield analytics.
-- ❌ No open-domain conversational chatbots.
-- ❌ No physical actuators or chemical spraying (IRRIGATE is simulated only).
-- ❌ No production cloud deployments.
