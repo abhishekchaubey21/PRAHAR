@@ -1,0 +1,21 @@
+{
+  "name": "@prahar/shared",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "PRAHAR shared domain contracts, data models, and schemas",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./src/index.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0"
+  }
+}

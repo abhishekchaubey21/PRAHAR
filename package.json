@@ -1,0 +1,34 @@
+{
+  "name": "prahar-monorepo",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "description": "PRAHAR — Precision Rover for Agricultural Hazard Analysis & Remediation (Engineering Foundation)",
+  "workspaces": [
+    "packages/*",
+    "services/*",
+    "apps/expert-console"
+  ],
+  "scripts": {
+    "test": "tsx --test tests/rover-engine.test.ts tests/command-idempotency.test.ts tests/offline-queue.test.ts tests/shared-contracts.test.ts",
+    "dev:simulator": "tsx services/rover-simulator/src/server.ts",
+    "dev:simulator:cli": "tsx services/rover-simulator/src/cli.ts",
+    "dev:expert": "npm --workspace=@prahar/expert-console run dev",
+    "build:shared": "tsc -p packages/shared/tsconfig.json",
+    "flutter:test": "cmd /c \"cd apps\\farmer-app && flutter test\""
+  },
+  "devDependencies": {
+    "@types/node": "^26.4.1",
+    "tsx": "^4.23.13",
+    "typescript": "^5.9.3"
+  },
+  "keywords": [
+    "agriculture",
+    "rover",
+    "precision-farming",
+    "prahar",
+    "sih2026"
+  ],
+  "author": "PRAHAR Software Engineering Team",
+  "license": "UNLICENSED"
+}

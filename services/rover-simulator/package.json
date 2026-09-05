@@ -1,0 +1,18 @@
+{
+  "name": "@prahar/rover-simulator",
+  "version": "0.1.0",
+  "description": "PRAHAR Autonomous Rover Simulator v0.1",
+  "type": "module",
+  "main": "dist/server.js",
+  "scripts": {
+    "start": "node --experimental-strip-types src/server.ts",
+    "cli": "node --experimental-strip-types src/cli.ts",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@prahar/shared": "*"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0"
+  }
+}
