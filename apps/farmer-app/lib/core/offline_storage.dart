@@ -238,4 +238,10 @@ class OfflineStorageService {
     _memoryActions.clear();
     _store.clear();
   }
+
+  Future<void> clearAll() async {
+    _memoryActions.clear();
+    _memoryCache.clear();
+    await _store.clear();
+  }
 }

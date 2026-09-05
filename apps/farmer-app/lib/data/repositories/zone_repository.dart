@@ -26,35 +26,17 @@ class ZoneRepository {
         await _offlineStore.cacheData(cacheKey, response['zones']);
         return list;
       }
+      return [];
     } on NetworkUnavailableException {
+      // Manager Amendment: NetworkUnavailableException may use cached data when available, and otherwise show offline/empty state
       final cached = await _offlineStore.getCachedData(cacheKey);
-      if (cached is List) {
+      if (cached is List && cached.isNotEmpty) {
         return cached
             .map((item) => ZoneModel.fromJson(item as Map<String, dynamic>))
             .toList();
       }
+      return [];
     }
-
-    // Default fallback
-    return const [
-      ZoneModel(
-        id: 'ZONE-A1',
-        name: 'Zone 1 (North Plot)',
-        soilType: 'Black Cotton',
-        moisturePct: 32.5,
-        temperatureC: 28.4,
-        humidityPct: 62.0,
-        ph: 6.8,
-      ),
-      ZoneModel(
-        id: 'DEMO-ZONE-02',
-        name: 'Zone 2 (East Sector)',
-        soilType: 'Sandy Loam',
-        moisturePct: 17.5,
-        temperatureC: 34.2,
-        humidityPct: 45.0,
-        ph: 7.1,
-      ),
-    ];
+    // ApiException (401/403/400/422/500) will propagate directly to caller
   }
 }

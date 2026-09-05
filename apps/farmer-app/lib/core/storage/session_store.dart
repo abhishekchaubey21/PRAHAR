@@ -98,7 +98,7 @@ class SecureFileSessionStore implements ISessionStore {
         user: user,
       );
       final file = File(filePath);
-      await file.writeAsString(jsonEncode(session.toJson()), flush: true);
+      file.writeAsStringSync(jsonEncode(session.toJson()), flush: true);
     } catch (e) {
       // Platform fallback / logging
     }
@@ -108,8 +108,8 @@ class SecureFileSessionStore implements ISessionStore {
   Future<FarmerSession?> loadSession() async {
     try {
       final file = File(filePath);
-      if (!await file.exists()) return null;
-      final content = await file.readAsString();
+      if (!file.existsSync()) return null;
+      final content = file.readAsStringSync();
       if (content.trim().isEmpty) return null;
       final json = jsonDecode(content) as Map<String, dynamic>;
       return FarmerSession.fromJson(json);
@@ -122,8 +122,8 @@ class SecureFileSessionStore implements ISessionStore {
   Future<void> clearSession() async {
     try {
       final file = File(filePath);
-      if (await file.exists()) {
-        await file.delete();
+      if (file.existsSync()) {
+        file.deleteSync();
       }
     } catch (e) {
       // Fallback

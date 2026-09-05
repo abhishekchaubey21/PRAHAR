@@ -44,6 +44,8 @@ class FarmerUser {
   }
 }
 
+typedef AuthService = FarmerAuthService;
+
 class FarmerAuthService {
   static FarmerAuthService? _instance;
   final ISessionStore _sessionStore;
@@ -64,22 +66,19 @@ class FarmerAuthService {
     return _instance!;
   }
 
-  FarmerAuthService._internal(this._sessionStore, this._apiClient) {
-    // Default demo session for immediate offline/test availability
-    _currentUser = const FarmerUser(
-      id: 'usr-farmer-ramesh-01',
-      email: 'farmer.ramesh@kisan.in',
-      fullName: 'Ramesh Patel (रमेश पटेल)',
-      farmerId: 'FARMER-DEMO-01',
-    );
-    _accessToken = 'mock-jwt-farmer-usr-farmer-ramesh-01';
-  }
+  FarmerAuthService._internal(this._sessionStore, this._apiClient);
 
   bool get isAuthenticated => _accessToken != null && _currentUser != null;
   FarmerUser? get currentUser => _currentUser;
   String? get accessToken => _accessToken;
   ISessionStore get sessionStore => _sessionStore;
   ApiClient get apiClient => _apiClient;
+
+  /// Helper for test fixtures to explicitly set a test session
+  void setTestSession({required String token, required FarmerUser user}) {
+    _accessToken = token;
+    _currentUser = user;
+  }
 
   /// Initializes session from storage
   Future<void> init() async {
@@ -90,17 +89,21 @@ class FarmerAuthService {
     }
   }
 
-  /// Authenticates farmer with email and password against Gateway / Supabase Auth
+  /// Authenticates farmer with email and password against Gateway / Supabase Auth.
+  /// Throws NetworkUnavailableException on genuine network issues.
+  /// Throws ApiException on 401/403/400/500 errors.
   Future<bool> login(String email, String password) async {
-    try {
-      final response = await _apiClient.post('/api/auth/login', body: {
-        'email': email,
-        'password': password,
-      });
+    final response = await _apiClient.post('/api/auth/login', body: {
+      'email': email,
+      'password': password,
+    });
 
-      if (response != null && response['token'] != null) {
-        final token = response['token'] as String;
-        final userMap = response['user'] as Map<String, dynamic>? ?? {};
+    if (response != null) {
+      final sessionMap = (response['session'] as Map<String, dynamic>?) ?? response;
+      final token = (sessionMap['access_token'] ?? sessionMap['token']) as String?;
+
+      if (token != null) {
+        final userMap = sessionMap['user'] as Map<String, dynamic>? ?? {};
         final user = FarmerUser(
           id: userMap['id'] as String? ?? 'usr-farmer-${email.hashCode.abs()}',
           email: userMap['email'] as String? ?? email,
@@ -114,53 +117,37 @@ class FarmerAuthService {
 
         await _sessionStore.saveSession(
           accessToken: token,
-          refreshToken: null,
+          refreshToken: sessionMap['refresh_token'] as String?,
           user: user,
         );
         return true;
       }
-    } on NetworkUnavailableException {
-      // If network unreachable, check if password format is valid for mock offline test
-      if (password.length >= 6) {
-        _currentUser = FarmerUser(
-          id: 'usr-farmer-${email.hashCode.abs().toString().substring(0, 5)}',
-          email: email,
-          fullName: email.split('@')[0],
-          farmerId: 'FARMER-DEMO-01',
-        );
-        _accessToken = 'mock-jwt-farmer-${_currentUser!.id}';
-        await _sessionStore.saveSession(
-          accessToken: _accessToken!,
-          refreshToken: null,
-          user: _currentUser!,
-        );
-        return true;
-      }
-      return false;
-    } catch (e) {
-      // ApiException (e.g. 401, 403, 400) - NEVER fallback silently
-      return false;
     }
 
     return false;
   }
 
-  /// Registers farmer — strictly creates FARMER role via Gateway / Supabase Auth
+  /// Registers farmer — strictly creates FARMER role via Gateway / Supabase Auth.
+  /// Never sends a client-selected role.
+  /// Throws NetworkUnavailableException on genuine network issues.
+  /// Throws ApiException on backend errors.
   Future<bool> register({
     required String email,
     required String password,
     required String fullName,
   }) async {
-    try {
-      final response = await _apiClient.post('/api/auth/register', body: {
-        'email': email,
-        'password': password,
-        'full_name': fullName,
-      });
+    final response = await _apiClient.post('/api/auth/register', body: {
+      'email': email,
+      'password': password,
+      'full_name': fullName,
+    });
 
-      if (response != null && response['token'] != null) {
-        final token = response['token'] as String;
-        final userMap = response['user'] as Map<String, dynamic>? ?? {};
+    if (response != null) {
+      final sessionMap = (response['session'] as Map<String, dynamic>?) ?? response;
+      final token = (sessionMap['access_token'] ?? sessionMap['token']) as String?;
+
+      if (token != null) {
+        final userMap = sessionMap['user'] as Map<String, dynamic>? ?? {};
         final user = FarmerUser(
           id: userMap['id'] as String? ?? 'usr-farmer-${email.hashCode.abs()}',
           email: userMap['email'] as String? ?? email,
@@ -174,36 +161,17 @@ class FarmerAuthService {
 
         await _sessionStore.saveSession(
           accessToken: token,
-          refreshToken: null,
+          refreshToken: sessionMap['refresh_token'] as String?,
           user: user,
         );
         return true;
       }
-    } on NetworkUnavailableException {
-      if (password.length >= 6 && email.contains('@')) {
-        _currentUser = FarmerUser(
-          id: 'usr-farmer-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}',
-          email: email,
-          fullName: fullName,
-          farmerId: 'FARMER-${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}',
-        );
-        _accessToken = 'mock-jwt-farmer-${_currentUser!.id}';
-        await _sessionStore.saveSession(
-          accessToken: _accessToken!,
-          refreshToken: null,
-          user: _currentUser!,
-        );
-        return true;
-      }
-      return false;
-    } catch (e) {
-      return false;
     }
 
     return false;
   }
 
-  /// Logout clears access token and stored session
+  /// Logout clears access token, current user, and stored session
   Future<void> logout() async {
     try {
       await _apiClient.post('/api/auth/logout');

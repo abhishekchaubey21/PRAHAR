@@ -33,6 +33,7 @@ class RemediationRepository {
             .map((item) => RemediationVerificationModel.fromJson(item as Map<String, dynamic>))
             .toList();
       }
+    } catch (_) {
     }
 
     return [];

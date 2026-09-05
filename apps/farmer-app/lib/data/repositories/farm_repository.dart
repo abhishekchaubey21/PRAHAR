@@ -24,25 +24,17 @@ class FarmRepository {
         await _offlineStore.cacheData('farms', response['farms']);
         return list;
       }
+      return [];
     } on NetworkUnavailableException {
-      // Mandatory Amendment 1: Fallback ONLY when network is genuinely unavailable
+      // Manager Amendment: NetworkUnavailableException may use cached data when available, and otherwise show offline/empty state
       final cached = await _offlineStore.getCachedData('farms');
-      if (cached is List) {
+      if (cached is List && cached.isNotEmpty) {
         return cached
             .map((item) => FarmModel.fromJson(item as Map<String, dynamic>))
             .toList();
       }
+      return [];
     }
-
-    // Default demo fallback if no network and no cache
-    return const [
-      FarmModel(
-        id: 'FARM-DEMO-01',
-        name: 'Demo Farm Alpha',
-        location: 'Indore, Madhya Pradesh',
-        totalHectares: 4.2,
-        farmerId: 'FARMER-DEMO-01',
-      ),
-    ];
+    // ApiException (401/403/400/422/500) will propagate directly to caller
   }
 }

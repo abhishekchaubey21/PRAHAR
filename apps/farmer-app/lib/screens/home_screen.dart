@@ -3,14 +3,34 @@ import '../domain/models.dart';
 import '../core/theme.dart';
 import '../core/offline_storage.dart';
 import '../core/api_client.dart';
+import '../core/auth_service.dart';
 import '../core/storage/session_store.dart';
+import '../core/storage/offline_store.dart';
 import '../data/repositories/farm_repository.dart';
 import '../data/repositories/zone_repository.dart';
 import '../data/repositories/alert_repository.dart';
 import '../data/repositories/remediation_repository.dart';
+import 'login_screen.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final ApiClient? apiClient;
+  final AuthService? authService;
+  final FarmRepository? farmRepository;
+  final ZoneRepository? zoneRepository;
+  final AlertRepository? alertRepository;
+  final RemediationRepository? remediationRepository;
+  final IOfflineStore? offlineStore;
+
+  const HomeScreen({
+    super.key,
+    this.apiClient,
+    this.authService,
+    this.farmRepository,
+    this.zoneRepository,
+    this.alertRepository,
+    this.remediationRepository,
+    this.offlineStore,
+  });
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -20,30 +40,82 @@ class _HomeScreenState extends State<HomeScreen> {
   // Language toggle: true = Hindi ('hi'), false = English ('en')
   bool _isHindi = false;
 
-  final OfflineStorageService _offlineStorage = OfflineStorageService();
+  late final OfflineStorageService _offlineStorage;
   late final ApiClient _apiClient;
+  late final AuthService _authService;
   late final FarmRepository _farmRepo;
   late final ZoneRepository _zoneRepo;
   late final AlertRepository _alertRepo;
   late final RemediationRepository _remediationRepo;
 
+  bool _isLoading = false;
+  String? _backendError;
+  List<FarmModel> _farms = [];
+  FarmModel? _selectedFarm;
+  List<ZoneModel> _zones = [];
+  final List<AlertModel> _alerts = [];
+
   @override
   void initState() {
     super.initState();
+    _offlineStorage = OfflineStorageService(store: widget.offlineStore);
     final sessionStore = SecureFileSessionStore();
-    _apiClient = ApiClient(sessionStore: sessionStore);
-    _farmRepo = FarmRepository(apiClient: _apiClient, offlineStore: _offlineStorage.store);
-    _zoneRepo = ZoneRepository(apiClient: _apiClient, offlineStore: _offlineStorage.store);
-    _alertRepo = AlertRepository(apiClient: _apiClient, offlineStore: _offlineStorage.store);
-    _remediationRepo = RemediationRepository(apiClient: _apiClient, offlineStore: _offlineStorage.store);
+    _apiClient = widget.apiClient ??
+        (widget.authService != null
+            ? widget.authService!.apiClient
+            : ApiClient(sessionStore: sessionStore));
+    _authService = widget.authService ??
+        AuthService(sessionStore: sessionStore, apiClient: _apiClient);
+    _farmRepo = widget.farmRepository ??
+        FarmRepository(apiClient: _apiClient, offlineStore: _offlineStorage.store);
+    _zoneRepo = widget.zoneRepository ??
+        ZoneRepository(apiClient: _apiClient, offlineStore: _offlineStorage.store);
+    _alertRepo = widget.alertRepository ??
+        AlertRepository(apiClient: _apiClient, offlineStore: _offlineStorage.store);
+    _remediationRepo = widget.remediationRepository ??
+        RemediationRepository(
+            apiClient: _apiClient, offlineStore: _offlineStorage.store);
 
     _loadRemoteData();
   }
 
   Future<void> _loadRemoteData() async {
+    if (!mounted) return;
+    setState(() {
+      _isLoading = true;
+      _backendError = null;
+    });
+
     try {
+      final remoteFarms = await _farmRepo.getFarms();
+      if (!mounted) return;
+
+      setState(() {
+        _farms = remoteFarms;
+        if (_farms.isNotEmpty) {
+          _selectedFarm = _farms.first;
+        } else {
+          _selectedFarm = null;
+        }
+      });
+
+      if (_selectedFarm != null) {
+        final remoteZones = await _zoneRepo.getZones(farmId: _selectedFarm!.id);
+        if (mounted) {
+          setState(() {
+            _zones = remoteZones;
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _zones = [];
+          });
+        }
+      }
+
       final remoteAlerts = await _alertRepo.getAlerts();
-      if (remoteAlerts.isNotEmpty && mounted) {
+      if (mounted) {
         setState(() {
           _alerts.clear();
           _alerts.addAll(remoteAlerts);
@@ -56,8 +128,100 @@ class _HomeScreenState extends State<HomeScreen> {
           _latestVerification = verifs.first;
         });
       }
+    } on ApiException catch (e) {
+      if (mounted) {
+        setState(() {
+          _backendError = 'Server error (${e.statusCode}): ${e.message}';
+        });
+      }
+    } on NetworkUnavailableException {
+      // Degraded offline mode handled by offline repository cache
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _backendError = 'Unexpected error: $e';
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _selectFarm(FarmModel farm) async {
+    setState(() {
+      _selectedFarm = farm;
+      _isLoading = true;
+      _backendError = null;
+    });
+
+    try {
+      final remoteZones = await _zoneRepo.getZones(farmId: farm.id);
+      if (mounted) {
+        setState(() {
+          _zones = remoteZones;
+        });
+      }
+    } on ApiException catch (e) {
+      if (mounted) {
+        setState(() {
+          _backendError = 'Server error (${e.statusCode}): ${e.message}';
+        });
+      }
     } catch (_) {
-      // Graceful offline fallback
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _handleLogout() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF131F19),
+        title: Text(_isHindi ? 'लॉग आउट पुष्टि' : 'Confirm Logout'),
+        content: Text(
+          _isHindi
+              ? 'क्या आप सुनिश्चित हैं कि आप लॉग आउट करना चाहते हैं? स्थानीय डेटा साफ़ हो जाएगा।'
+              : 'Are you sure you want to log out? Local cached user data will be cleared.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(_isHindi ? 'रद्द करें' : 'Cancel'),
+          ),
+          ElevatedButton(
+            key: const Key('confirm_logout_button'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: PraharTheme.alertRose,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(_isHindi ? 'लॉग आउट' : 'Log Out'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      await _authService.logout();
+      // Manager Amendment: Preserve user-scoped offline/cache isolation on logout.
+      await _offlineStorage.clearAll();
+      if (!mounted) return;
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(
+          builder: (_) => LoginScreen(authService: _authService),
+        ),
+        (route) => false,
+      );
     }
   }
 
@@ -68,37 +232,6 @@ class _HomeScreenState extends State<HomeScreen> {
     currentZone: 'Zone 1 (North Plot)',
     isOffline: false,
   );
-
-  final List<AlertModel> _alerts = [
-    AlertModel(
-      id: 'alert-01',
-      zoneId: 'DEMO-ZONE-02',
-      zoneName: 'Zone 2 (East Sector)',
-      type: HazardType.waterStress,
-      severity: AlertSeverity.high,
-      message: 'High Water Stress: Soil moisture at 17.5% (below 20% critical threshold).',
-      messageHi: 'गंभीर जल तनाव: मिट्टी की नमी 17.5% है (20% गंभीर सीमा से कम)।',
-      recommendedAction: 'Micro-irrigation recommended for 30s. Awaiting your approval.',
-      recommendedActionHi: '30 सेकंड सूक्ष्म-सिंचाई की सिफारिश। आपकी स्वीकृति आवश्यक है।',
-      status: AlertStatus.newAlert,
-      timestamp: DateTime.now().subtract(const Duration(minutes: 15)),
-      isApproved: false,
-    ),
-    AlertModel(
-      id: 'alert-02',
-      zoneId: 'DEMO-ZONE-03',
-      zoneName: 'Zone 3 (South Sector)',
-      type: HazardType.disease,
-      severity: AlertSeverity.medium,
-      message: 'Suspected Early Blight on basal leaves under high humidity (78%).',
-      messageHi: 'उच्च आर्द्रता (78%) में निचली पत्तियों पर संदिग्ध Early Blight।',
-      recommendedAction: 'Isolate affected plot. Expert agronomist review requested.',
-      recommendedActionHi: 'प्रभावित क्षेत्र अलग करें। विशेषज्ञ समीक्षा का अनुरोध किया गया।',
-      status: AlertStatus.newAlert,
-      timestamp: DateTime.now().subtract(const Duration(minutes: 45)),
-      isApproved: false,
-    ),
-  ];
 
   RemediationVerificationModel? _latestVerification;
   final Map<String, bool> _expandedWhy = {};
@@ -545,6 +678,12 @@ class _HomeScreenState extends State<HomeScreen> {
               });
             },
           ),
+          IconButton(
+            key: const Key('logout_button'),
+            icon: const Icon(Icons.logout, color: Colors.grey, size: 20),
+            tooltip: _isHindi ? 'लॉग आउट' : 'Log Out',
+            onPressed: _handleLogout,
+          ),
           const SizedBox(width: 8),
         ],
       ),
@@ -632,90 +771,201 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
 
-          // Farm Health Status Card with Phase 4 Composite Indicator & Simulation Weather
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+          // Backend Error Banner
+          if (_backendError != null)
+            Container(
+              key: const Key('backend_error_banner'),
+              padding: const EdgeInsets.all(12),
+              margin: const EdgeInsets.only(bottom: 14),
+              decoration: BoxDecoration(
+                color: PraharTheme.alertRose.withOpacity(0.15),
+                border: Border.all(color: PraharTheme.alertRose),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        _isHindi ? 'डेमो खेत अल्फा' : 'Demo Farm Alpha',
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: PraharTheme.primaryGreen.withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: PraharTheme.primaryGreen),
-                        ),
-                        child: Text(
-                          _isHindi ? 'समग्र सूचकांक: 74/100' : 'Demo Composite: 74/100',
-                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: PraharTheme.primaryGreen),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    _isHindi
-                        ? 'फसल: टमाटर • 3.5 एकड़ • 4 निगरानी वाले ज़ोन'
-                        : 'Crop: Tomato • 3.5 Acres • 4 Monitored Zones',
-                    style: TextStyle(color: Colors.grey[400], fontSize: 13),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    _isHindi
-                        ? 'PRAHAR समग्र सूचकांक — डेमो मीट्रिक (नमी 35%, रोग 25%, कीट 20%, ताप 20%)'
-                        : 'PRAHAR Composite Indicator — Demo Metric (Moisture 35%, Disease 25%, Pest 20%, Heat 20%)',
-                    style: TextStyle(color: Colors.grey[400], fontSize: 10, fontStyle: FontStyle.italic),
-                  ),
-                  const Divider(height: 18, color: PraharTheme.borderGreen),
-                  // Phase 4: Weather Risk Indicator with Mandatory Simulation/Demo Label
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    margin: const EdgeInsets.only(bottom: 12),
-                    decoration: BoxDecoration(
-                      color: PraharTheme.alertAmber.withOpacity(0.12),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: PraharTheme.alertAmber.withOpacity(0.5)),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            const Icon(Icons.wb_sunny, color: PraharTheme.alertAmber, size: 16),
-                            const SizedBox(width: 6),
-                            Text(
-                              _isHindi ? 'सिमुलेशन मौसम (डेमो)' : 'SIMULATION WEATHER (DEMO)',
-                              style: const TextStyle(color: PraharTheme.alertAmber, fontSize: 11, fontWeight: FontWeight.bold),
-                            ),
-                          ],
-                        ),
-                        Text(
-                          _isHindi ? '31°C | ताप तनाव: मध्यम' : '31°C Sunny | Heat Risk: MODERATE',
-                          style: TextStyle(color: Colors.grey[300], fontSize: 11),
-                        ),
-                      ],
+                  const Icon(Icons.error_outline, color: PraharTheme.alertRose),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _backendError!,
+                      style: const TextStyle(color: PraharTheme.alertRose, fontWeight: FontWeight.w600, fontSize: 13),
                     ),
                   ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      _buildMetric(_isHindi ? 'सक्रिय अलर्ट' : 'Active Alerts', '${_alerts.length}', PraharTheme.alertAmber),
-                      _buildMetric(_isHindi ? 'औसत नमी' : 'Soil Moisture', '28% avg', PraharTheme.primaryGreen),
-                      _buildMetric(_isHindi ? 'रोवर बैटरी' : 'Rover Battery', '${_rover.batteryPct.toInt()}%', PraharTheme.primaryGreen),
-                    ],
+                  IconButton(
+                    icon: const Icon(Icons.refresh, color: PraharTheme.alertRose, size: 18),
+                    onPressed: _loadRemoteData,
                   ),
                 ],
               ),
             ),
+
+          if (_isLoading)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8.0),
+              child: Center(
+                child: SizedBox(
+                  height: 20,
+                  width: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: PraharTheme.primaryGreen),
+                ),
+              ),
+            ),
+
+          // Real Farm Health Status Card
+          if (_farms.isEmpty && _backendError == null)
+            Card(
+              key: const Key('empty_farm_card'),
+              child: Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Column(
+                  children: [
+                    const Icon(Icons.agriculture_outlined, size: 40, color: Colors.grey),
+                    const SizedBox(height: 8),
+                    Text(
+                      _isHindi ? 'कोई खेत पंजीकृत नहीं मिला' : 'No farms registered yet',
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _isHindi
+                          ? 'कृपया अपने खेत को वेब कंसोल या गेटवे में जोड़ें।'
+                          : 'Please register your farm via web console or gateway.',
+                      style: TextStyle(color: Colors.grey[400], fontSize: 12),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else if (_selectedFarm != null)
+            Card(
+              key: const Key('farm_card'),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            _selectedFarm!.name,
+                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (_farms.length > 1)
+                          DropdownButton<String>(
+                            key: const Key('farm_selector_dropdown'),
+                            value: _selectedFarm!.id,
+                            dropdownColor: const Color(0xFF131F19),
+                            style: const TextStyle(color: PraharTheme.primaryGreen, fontSize: 12, fontWeight: FontWeight.bold),
+                            underline: const SizedBox(),
+                            items: _farms
+                                .map((f) => DropdownMenuItem(
+                                      value: f.id,
+                                      child: Text(f.name),
+                                    ))
+                                .toList(),
+                            onChanged: (val) {
+                              if (val != null) {
+                                final f = _farms.firstWhere((x) => x.id == val);
+                                _selectFarm(f);
+                              }
+                            },
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${_selectedFarm!.location} • ${_selectedFarm!.totalHectares} ha • ${_zones.length} ${_isHindi ? "निगरानी वाले ज़ोन" : "Monitored Zones"}',
+                      style: TextStyle(color: Colors.grey[400], fontSize: 13),
+                    ),
+                    const Divider(height: 18, color: PraharTheme.borderGreen),
+                    // Phase 4: Weather Risk Indicator with Mandatory Simulation/Demo Label
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      margin: const EdgeInsets.only(bottom: 12),
+                      decoration: BoxDecoration(
+                        color: PraharTheme.alertAmber.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: PraharTheme.alertAmber.withOpacity(0.5)),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.wb_sunny, color: PraharTheme.alertAmber, size: 16),
+                              const SizedBox(width: 6),
+                              Text(
+                                _isHindi ? 'सिमुलेशन मौसम (डेमो)' : 'SIMULATION WEATHER (DEMO)',
+                                style: const TextStyle(color: PraharTheme.alertAmber, fontSize: 11, fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
+                          Text(
+                            _isHindi ? '31°C | ताप तनाव: मध्यम' : '31°C Sunny | Heat Risk: MODERATE',
+                            style: TextStyle(color: Colors.grey[300], fontSize: 11),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        _buildMetric(_isHindi ? 'सक्रिय अलर्ट' : 'Active Alerts', '${_alerts.length}', PraharTheme.alertAmber),
+                        _buildMetric(_isHindi ? 'कुल ज़ोन' : 'Total Zones', '${_zones.length}', PraharTheme.primaryGreen),
+                        _buildMetric(_isHindi ? 'रोवर बैटरी' : 'Rover Battery', '${_rover.batteryPct.toInt()}%', PraharTheme.primaryGreen),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          const SizedBox(height: 14),
+
+          // Monitored Zones Section
+          Text(
+            _isHindi ? 'निगरानी वाले ज़ोन' : 'Monitored Zones',
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           ),
+          const SizedBox(height: 8),
+          if (_zones.isEmpty)
+            Container(
+              key: const Key('empty_zones_container'),
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0C1410),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: PraharTheme.borderGreen),
+              ),
+              child: Text(
+                _isHindi ? 'इस खेत के लिए कोई ज़ोन कॉन्फ़िगर नहीं किया गया है।' : 'No zones configured for this farm.',
+                style: TextStyle(color: Colors.grey[400], fontSize: 12),
+              ),
+            )
+          else
+            Wrap(
+              key: const Key('zones_wrap'),
+              spacing: 8,
+              runSpacing: 8,
+              children: _zones.map((zone) {
+                return Chip(
+                  key: Key('zone_chip_${zone.id}'),
+                  avatar: const Icon(Icons.grass, size: 16, color: PraharTheme.primaryGreen),
+                  label: Text(
+                    '${zone.name} (${zone.soilType}, ${zone.moisturePct.toStringAsFixed(1)}%)',
+                    style: const TextStyle(fontSize: 12, color: Colors.white),
+                  ),
+                  backgroundColor: const Color(0xFF10281F),
+                  side: const BorderSide(color: PraharTheme.borderGreen),
+                );
+              }).toList(),
+            ),
           const SizedBox(height: 14),
 
           // Phase 4: Quick Action Hub (Voice Assistant, Evidence Report, Opportunities)
@@ -835,7 +1085,16 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(height: 10),
 
           // Alerts List
-          ..._alerts.map((alert) => Card(
+          if (_alerts.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8.0),
+              child: Text(
+                _isHindi ? 'कोई सक्रिय अलर्ट नहीं हैं।' : 'No active alerts for this farm.',
+                style: TextStyle(color: Colors.grey[400], fontSize: 13),
+              ),
+            )
+          else
+            ..._alerts.map((alert) => Card(
                 margin: const EdgeInsets.only(bottom: 12),
                 child: Padding(
                   padding: const EdgeInsets.all(14.0),

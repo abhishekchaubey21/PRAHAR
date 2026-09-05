@@ -87,8 +87,8 @@ class StructuredFileOfflineStore implements IOfflineStore {
 
     try {
       final queueFile = File(queueFilePath);
-      if (await queueFile.exists()) {
-        final content = await queueFile.readAsString();
+      if (queueFile.existsSync()) {
+        final content = queueFile.readAsStringSync();
         if (content.trim().isNotEmpty) {
           final list = jsonDecode(content) as List<dynamic>;
           for (final item in list) {
@@ -116,8 +116,8 @@ class StructuredFileOfflineStore implements IOfflineStore {
       }
 
       final cacheFile = File(cacheFilePath);
-      if (await cacheFile.exists()) {
-        final content = await cacheFile.readAsString();
+      if (cacheFile.existsSync()) {
+        final content = cacheFile.readAsStringSync();
         if (content.trim().isNotEmpty) {
           final cacheJson = jsonDecode(content) as Map<String, dynamic>;
           _memoryCache.addAll(cacheJson);
@@ -132,14 +132,14 @@ class StructuredFileOfflineStore implements IOfflineStore {
     try {
       final file = File(queueFilePath);
       final jsonList = _actions.map((a) => a.toJson()).toList();
-      await file.writeAsString(jsonEncode(jsonList), flush: true);
+      file.writeAsStringSync(jsonEncode(jsonList), flush: true);
     } catch (_) {}
   }
 
   Future<void> _persistCache() async {
     try {
       final file = File(cacheFilePath);
-      await file.writeAsString(jsonEncode(_memoryCache), flush: true);
+      file.writeAsStringSync(jsonEncode(_memoryCache), flush: true);
     } catch (_) {}
   }
 
