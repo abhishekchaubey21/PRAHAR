@@ -11,3 +11,5 @@ export * from './domain.js';
 export * from './decision.js';
 export * from './sync.js';
 export * from './intelligence.js';
+export * from './config.js';
+export * from './auth.js';

@@ -42,3 +42,8 @@ ios/Flutter/Generated.xcconfig
 # PRAHAR Local Runtime & Test Data
 .prahar_data/
 .test_prahar_data*/
+
+# Supabase Local CLI & Runtime Artifacts
+supabase/.temp/
+supabase/.branches/
+.supabase/

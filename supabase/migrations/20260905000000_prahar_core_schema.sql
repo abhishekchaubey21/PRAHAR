@@ -3,12 +3,16 @@
 -- Aligned with PRAHAR Engineering Specification v1.0 Sections 6, 8, 9 & 16.
 -- ============================================================================
 
--- Enable UUID extension
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+-- Enable UUID extensions in extensions schema
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA extensions;
+CREATE EXTENSION IF NOT EXISTS "pgcrypto" WITH SCHEMA extensions;
+
+-- Ensure extensions schema is in search_path for migration execution
+SET search_path TO public, extensions;
 
 -- 1. Farmers
 CREATE TABLE IF NOT EXISTS public.farmers (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT extensions.uuid_generate_v4(),
     name TEXT NOT NULL,
     phone TEXT UNIQUE NOT NULL,
     language TEXT NOT NULL DEFAULT 'en',
@@ -18,7 +22,7 @@ CREATE TABLE IF NOT EXISTS public.farmers (
 
 -- 2. Farms
 CREATE TABLE IF NOT EXISTS public.farms (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT extensions.uuid_generate_v4(),
     farmer_id UUID NOT NULL REFERENCES public.farmers(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
     boundary_geojson JSONB NOT NULL DEFAULT '{}'::jsonb,
@@ -41,7 +45,7 @@ CREATE TABLE IF NOT EXISTS public.zones (
 
 -- 4. Sensor Readings (Moisture, Temp, Humidity, pH)
 CREATE TABLE IF NOT EXISTS public.sensor_readings (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT extensions.uuid_generate_v4(),
     zone_id TEXT NOT NULL REFERENCES public.zones(id) ON DELETE CASCADE,
     type TEXT NOT NULL CHECK (type IN ('moisture', 'temperature', 'humidity', 'ph')),
     value NUMERIC(8, 2) NOT NULL,
@@ -52,7 +56,7 @@ CREATE TABLE IF NOT EXISTS public.sensor_readings (
 
 -- 5. Detections (Vision / AI Model outputs)
 CREATE TABLE IF NOT EXISTS public.detections (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT extensions.uuid_generate_v4(),
     zone_id TEXT NOT NULL REFERENCES public.zones(id) ON DELETE CASCADE,
     hazard_type TEXT NOT NULL CHECK (hazard_type IN ('DISEASE', 'PEST', 'WEED', 'WATER_STRESS', 'NUTRIENT_DEFICIENCY')),
     hazard_name TEXT NOT NULL,
@@ -67,7 +71,7 @@ CREATE TABLE IF NOT EXISTS public.detections (
 
 -- 6. Alerts (Farmer and Expert advisory feed)
 CREATE TABLE IF NOT EXISTS public.alerts (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT extensions.uuid_generate_v4(),
     zone_id TEXT NOT NULL REFERENCES public.zones(id) ON DELETE CASCADE,
     type TEXT NOT NULL CHECK (type IN ('DISEASE', 'PEST', 'WEED', 'WATER_STRESS', 'NUTRIENT_DEFICIENCY')),
     severity TEXT NOT NULL CHECK (severity IN ('LOW', 'MEDIUM', 'HIGH', 'CRITICAL')),
@@ -93,7 +97,7 @@ CREATE TABLE IF NOT EXISTS public.rover_commands (
 
 -- 8. Rover Telemetry (Heartbeat and continuous tracking)
 CREATE TABLE IF NOT EXISTS public.rover_telemetry (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT extensions.uuid_generate_v4(),
     rover_id TEXT NOT NULL,
     zone_id TEXT REFERENCES public.zones(id) ON DELETE SET NULL,
     gps_lat NUMERIC(10, 7) NOT NULL,
@@ -109,7 +113,7 @@ CREATE TABLE IF NOT EXISTS public.rover_telemetry (
 
 -- 9. Offline Store & Sync Log
 CREATE TABLE IF NOT EXISTS public.offline_sync_events (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT extensions.uuid_generate_v4(),
     rover_id TEXT NOT NULL,
     event_type TEXT NOT NULL,
     payload JSONB NOT NULL,

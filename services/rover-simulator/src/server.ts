@@ -2,11 +2,13 @@
  * PRAHAR Rover Simulator — HTTP & SSE REST Server
  * Provides standard integration endpoints for the rover gateway, decision engine, and consoles.
  * Built with native Node.js HTTP for zero-dependency reliability.
+ * Aligned with Phase 5A: Real Supabase Auth, JWT Verification, Role Enforcement & Simulator Security Boundary.
  */
 
 import http from 'node:http';
 import { RoverEngine } from './engine.js';
 import { PersistentAlertStore } from './persistent-alert-store.js';
+import { ResilientDataStore } from './resilient-store.js';
 import { SyncEngine } from './sync-engine.js';
 import { DecisionEngine } from './decision-engine.js';
 import { ClosedLoopCoordinator } from './closed-loop.js';
@@ -16,9 +18,27 @@ import { VoiceAssistant } from './voice-assistant.js';
 import { MultimodalAssistant } from './multimodal-assistant.js';
 import { HistoricalAnalytics } from './historical-analytics.js';
 import { FieldEvidenceReportGenerator, OpportunityCenter } from './reports-and-opportunities.js';
-import { RoverCommand, RoverScanPayload, SyncBatchRequest, VoiceQuery, MultimodalAnalysisRequest } from '@prahar/shared';
+import { AuthService } from './auth-service.js';
+import {
+  authenticateRequest,
+  enforceRole,
+  authenticateRoverIngestion,
+  extractBearerToken,
+  AuthenticatedRequest,
+} from './auth-middleware.js';
+import {
+  loadConfig,
+  RoverCommand,
+  RoverScanPayload,
+  SyncBatchRequest,
+  VoiceQuery,
+  MultimodalAnalysisRequest,
+  RegisterFarmerRequest,
+  LoginRequest,
+} from '@prahar/shared';
 
-const PORT = parseInt(process.env.PORT || '3001', 10);
+const config = loadConfig();
+const PORT = config.port;
 
 const engine = new RoverEngine({
   roverId: process.env.ROVER_ID || 'ROVER-DEMO-01',
@@ -26,14 +46,16 @@ const engine = new RoverEngine({
 });
 
 const alertStore = new PersistentAlertStore();
+const resilientStore = new ResilientDataStore(alertStore);
+const authService = new AuthService();
 const syncEngine = new SyncEngine();
-const decisionEngine = new DecisionEngine(alertStore);
-const closedLoop = new ClosedLoopCoordinator(engine, decisionEngine, alertStore);
+const decisionEngine = new DecisionEngine(resilientStore);
+const closedLoop = new ClosedLoopCoordinator(engine, decisionEngine, resilientStore);
 const weatherRiskEngine = new WeatherRiskEngine();
 const explainabilityEngine = new ExplainabilityEngine();
-const voiceAssistant = new VoiceAssistant(alertStore, closedLoop);
+const voiceAssistant = new VoiceAssistant(resilientStore, closedLoop);
 const multimodalAssistant = new MultimodalAssistant();
-const historicalAnalytics = new HistoricalAnalytics(alertStore);
+const historicalAnalytics = new HistoricalAnalytics(resilientStore);
 
 function parseJsonBody(req: http.IncomingMessage): Promise<any> {
   return new Promise((resolve, reject) => {
@@ -57,34 +79,134 @@ function parseJsonBody(req: http.IncomingMessage): Promise<any> {
   });
 }
 
-function sendJson(res: http.ServerResponse, statusCode: number, data: any): void {
+function sendJson(
+  res: http.ServerResponse,
+  statusCode: number,
+  data: any,
+  originHeader?: string
+): void {
   const payload = JSON.stringify(data, null, 2);
+  const corsOrigin =
+    originHeader && config.allowedOrigins.includes(originHeader)
+      ? originHeader
+      : config.allowedOrigins[0] || '*';
+
   res.writeHead(statusCode, {
     'Content-Type': 'application/json',
     'Content-Length': Buffer.byteLength(payload),
-    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Origin': corsOrigin,
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Rover-Api-Key',
   });
   res.end(payload);
 }
 
-const server = http.createServer(async (req, res) => {
+const server = http.createServer(async (rawReq, res) => {
+  const req = rawReq as AuthenticatedRequest;
   const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
   const pathname = url.pathname;
   const method = req.method?.toUpperCase();
+  const originHeader = req.headers.origin;
 
   // Handle CORS Preflight
   if (method === 'OPTIONS') {
+    const corsOrigin =
+      originHeader && config.allowedOrigins.includes(originHeader)
+        ? originHeader
+        : config.allowedOrigins[0] || '*';
     res.writeHead(204, {
-      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Origin': corsOrigin,
       'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Rover-Api-Key',
     });
     return res.end();
   }
 
   try {
+    // ------------------------------------------------------------------------
+    // Phase 5A: Supabase Authentication Endpoints
+    // ------------------------------------------------------------------------
+
+    // 1. Register Farmer (Public - Strict role assignment to FARMER only)
+    if (pathname === '/api/auth/register' && method === 'POST') {
+      const body: RegisterFarmerRequest = await parseJsonBody(req);
+      try {
+        const session = await authService.registerFarmer(body);
+        return sendJson(res, 201, {
+          success: true,
+          message: 'Farmer registration successful.',
+          session,
+        }, originHeader);
+      } catch (err: any) {
+        return sendJson(res, 400, {
+          success: false,
+          error: err.message,
+        }, originHeader);
+      }
+    }
+
+    // 2. Login (Public - Authenticates with Supabase Auth or verified accounts)
+    if (pathname === '/api/auth/login' && method === 'POST') {
+      const body: LoginRequest = await parseJsonBody(req);
+      try {
+        const session = await authService.login(body);
+        return sendJson(res, 200, {
+          success: true,
+          message: 'Login successful.',
+          session,
+        }, originHeader);
+      } catch (err: any) {
+        return sendJson(res, 401, {
+          success: false,
+          error: err.message,
+        }, originHeader);
+      }
+    }
+
+    // 3. Logout (Protected - Clears and locks protected user cache)
+    if (pathname === '/api/auth/logout' && method === 'POST') {
+      const auth = await authenticateRequest(req, res, authService);
+      if (!auth) return;
+
+      resilientStore.handleLogout(auth.user_id);
+      return sendJson(res, 200, {
+        success: true,
+        message: 'Logged out successfully. Protected cached state cleared.',
+      }, originHeader);
+    }
+
+    // 4. Me / Current Identity (Protected - Resolves verified user and role)
+    if (pathname === '/api/auth/me' && method === 'GET') {
+      const auth = await authenticateRequest(req, res, authService);
+      if (!auth) return;
+
+      return sendJson(res, 200, {
+        success: true,
+        user: auth,
+      }, originHeader);
+    }
+
+    // 5. Promote User Role (Privileged - Requires ADMIN role)
+    if (pathname === '/api/auth/promote' && method === 'POST') {
+      const auth = await authenticateRequest(req, res, authService);
+      if (!auth) return;
+      if (!enforceRole(req, res, ['ADMIN'])) return;
+
+      const body = await parseJsonBody(req);
+      try {
+        await authService.promoteUserRole(auth, body.target_user_id, body.new_role);
+        return sendJson(res, 200, {
+          success: true,
+          message: `User '${body.target_user_id}' promoted to role '${body.new_role}'.`,
+        }, originHeader);
+      } catch (err: any) {
+        return sendJson(res, 400, {
+          success: false,
+          error: err.message,
+        }, originHeader);
+      }
+    }
+
     // ------------------------------------------------------------------------
     // Core Simulator Endpoints (Phase 1)
     // ------------------------------------------------------------------------
@@ -92,17 +214,20 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 200, {
         success: true,
         data: engine.getStatus(),
-      });
+      }, originHeader);
     }
 
     if (pathname === '/api/rover/telemetry/latest' && method === 'GET') {
       return sendJson(res, 200, {
         success: true,
         data: engine.getTelemetry(),
-      });
+      }, originHeader);
     }
 
     if (pathname === '/api/rover/command' && method === 'POST') {
+      // Device Boundary Check
+      if (!authenticateRoverIngestion(req, res, config)) return;
+
       const body = await parseJsonBody(req);
       const command: RoverCommand = {
         command_id: body.command_id || `cmd-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
@@ -117,7 +242,8 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, statusCode, {
         success: ack.status === 'COMPLETED' || ack.status === 'ACKNOWLEDGED',
         data: ack,
-      });
+        source: req.roverSource,
+      }, originHeader);
     }
 
     if (pathname === '/api/rover/offline-mode' && method === 'POST') {
@@ -129,7 +255,7 @@ const server = http.createServer(async (req, res) => {
         message: `Rover offline mode set to: ${enabled}`,
         offline_mode: enabled,
         buffered_count: engine.offlineStore.getCount(),
-      });
+      }, originHeader);
     }
 
     if (pathname === '/api/rover/queue' && method === 'GET') {
@@ -137,7 +263,7 @@ const server = http.createServer(async (req, res) => {
         success: true,
         buffered_count: engine.offlineStore.getCount(),
         events: engine.offlineStore.peekAll(),
-      });
+      }, originHeader);
     }
 
     if (pathname === '/api/rover/flush-queue' && method === 'POST') {
@@ -146,7 +272,7 @@ const server = http.createServer(async (req, res) => {
         success: true,
         flushed_count: flushed.length,
         events: flushed,
-      });
+      }, originHeader);
     }
 
     if (pathname === '/api/rover/simulate-scan' && method === 'POST') {
@@ -157,7 +283,7 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 200, {
         success: true,
         data: scanPayload,
-      });
+      }, originHeader);
     }
 
     if (pathname === '/api/rover/recharge' && method === 'POST') {
@@ -167,15 +293,19 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 200, {
         success: true,
         battery_pct: engine.getBatteryPct(),
-      });
+      }, originHeader);
     }
 
     if (pathname === '/api/rover/telemetry-stream' && method === 'GET') {
+      const corsOrigin =
+        originHeader && config.allowedOrigins.includes(originHeader)
+          ? originHeader
+          : config.allowedOrigins[0] || '*';
       res.writeHead(200, {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
         Connection: 'keep-alive',
-        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Origin': corsOrigin,
       });
       res.write(': connected\n\n');
 
@@ -197,6 +327,9 @@ const server = http.createServer(async (req, res) => {
 
     // Ingest Scan Payload -> Runs Decision Engine
     if (pathname === '/api/ingest/scan' && method === 'POST') {
+      // Device Boundary Check
+      if (!authenticateRoverIngestion(req, res, config)) return;
+
       const body = await parseJsonBody(req);
       let payload: RoverScanPayload = body;
 
@@ -209,35 +342,52 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 200, {
         success: true,
         data: result,
-      });
+        source: req.roverSource,
+      }, originHeader);
     }
 
     // List Alerts (with bilingual support & filters)
     if (pathname === '/api/alerts' && method === 'GET') {
+      const token = extractBearerToken(req);
+      resilientStore.setRequestContext(token || undefined);
+
       const zoneId = url.searchParams.get('zone_id') || undefined;
       const status = (url.searchParams.get('status') as any) || undefined;
-      const alerts = await alertStore.getAlerts({ zone_id: zoneId, status });
+      const alerts = await resilientStore.getAlerts({ zone_id: zoneId, status });
       return sendJson(res, 200, {
         success: true,
         count: alerts.length,
         data: alerts,
-      });
+      }, originHeader);
     }
 
-    // Expert Triage Action on an Alert (Requirement 5)
+    // Expert Triage Action on an Alert (Role Gated: EXPERT or ADMIN)
     if (pathname.startsWith('/api/alerts/') && pathname.endsWith('/triage') && method === 'POST') {
+      const token = extractBearerToken(req);
+      let actor = 'dr_sharma_kvk_expert';
+
+      if (token) {
+        const auth = await authenticateRequest(req, res, authService);
+        if (!auth) return;
+        if (!enforceRole(req, res, ['EXPERT', 'ADMIN'])) return;
+        actor = auth.user_id; // Identity derived from verified token, never trusted from body
+      } else if (!config.allowSimulatorBypass || config.nodeEnv === 'production') {
+        // Enforce 401 when token missing and not in explicit dev bypass
+        res.writeHead(401, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        return res.end(JSON.stringify({ success: false, error: 'Authentication required for expert triage.' }));
+      }
+
       const parts = pathname.split('/');
       const alertId = parts[3];
       const body = await parseJsonBody(req);
 
-      const alert = await alertStore.getAlertById(alertId);
+      const alert = await resilientStore.getAlertById(alertId);
       if (!alert) {
-        return sendJson(res, 404, { success: false, error: `Alert '${alertId}' not found.` });
+        return sendJson(res, 404, { success: false, error: `Alert '${alertId}' not found.` }, originHeader);
       }
 
       const previousState = alert.status;
       const action = body.action || 'CONFIRM'; // 'CONFIRM' | 'CORRECT' | 'ESCALATE'
-      const actor = body.actor || 'expert-agronomist-01';
       const expertNote = body.expert_note || 'Expert reviewed diagnosis.';
 
       if (action === 'CONFIRM') {
@@ -252,10 +402,10 @@ const server = http.createServer(async (req, res) => {
         alert.status = 'ACKNOWLEDGED';
       }
 
-      await alertStore.updateAlert(alert);
+      await resilientStore.updateAlert(alert);
 
-      // Audit log
-      alertStore.recordAudit({
+      // Audit log with verified actor attribution
+      await resilientStore.addAuditRecord({
         audit_id: `audit-${Date.now().toString(36)}`,
         actor,
         timestamp: new Date().toISOString(),
@@ -271,20 +421,33 @@ const server = http.createServer(async (req, res) => {
         success: true,
         message: `Alert '${alertId}' triaged with action '${action}'.`,
         alert,
-      });
+      }, originHeader);
     }
 
     // ------------------------------------------------------------------------
     // Phase 2: Closed-Loop Intervention & Verification Endpoints
     // ------------------------------------------------------------------------
 
-    // Approve Intervention (Safety Gate)
+    // Approve Intervention (Safety Gate - Role Gated: EXPERT or ADMIN)
     if (pathname === '/api/remediation/approve' && method === 'POST') {
+      const token = extractBearerToken(req);
+      let approvedBy = 'dr_sharma_kvk_expert';
+
+      if (token) {
+        const auth = await authenticateRequest(req, res, authService);
+        if (!auth) return;
+        if (!enforceRole(req, res, ['EXPERT', 'ADMIN'])) return;
+        approvedBy = auth.user_id; // Identity derived from verified token, never trusted from body
+      } else if (!config.allowSimulatorBypass || config.nodeEnv === 'production') {
+        res.writeHead(401, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        return res.end(JSON.stringify({ success: false, error: 'Authentication required for intervention approval.' }));
+      }
+
       const body = await parseJsonBody(req);
       try {
         const intervention = closedLoop.approveIntervention({
           zone_id: body.zone_id,
-          approved_by: body.approved_by || 'farmer_demo',
+          approved_by: approvedBy,
           duration_seconds: body.duration_seconds,
           volume_liters: body.volume_liters,
           expert_note: body.expert_note,
@@ -294,17 +457,26 @@ const server = http.createServer(async (req, res) => {
           success: true,
           message: 'Intervention approved. Ready for execution.',
           data: intervention,
-        });
+        }, originHeader);
       } catch (err: any) {
         return sendJson(res, 400, {
           success: false,
           error: err.message,
-        });
+        }, originHeader);
       }
     }
 
     // Execute Approved Intervention
     if (pathname === '/api/remediation/execute' && method === 'POST') {
+      const token = extractBearerToken(req);
+      if (token) {
+        const auth = await authenticateRequest(req, res, authService);
+        if (!auth) return;
+      } else if (!config.allowSimulatorBypass || config.nodeEnv === 'production') {
+        res.writeHead(401, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        return res.end(JSON.stringify({ success: false, error: 'Authentication required for remediation execution.' }));
+      }
+
       const body = await parseJsonBody(req);
       try {
         const ack = await closedLoop.executeApprovedIntervention(body.action_id);
@@ -312,29 +484,38 @@ const server = http.createServer(async (req, res) => {
         return sendJson(res, statusCode, {
           success: ack.status === 'COMPLETED',
           data: ack,
-        });
+        }, originHeader);
       } catch (err: any) {
         return sendJson(res, 400, {
           success: false,
           error: err.message,
-        });
+        }, originHeader);
       }
     }
 
     // Verify Remediation (Re-Scan & Before/After Delta)
     if (pathname === '/api/remediation/verify' && method === 'POST') {
+      const token = extractBearerToken(req);
+      if (token) {
+        const auth = await authenticateRequest(req, res, authService);
+        if (!auth) return;
+      } else if (!config.allowSimulatorBypass || config.nodeEnv === 'production') {
+        res.writeHead(401, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        return res.end(JSON.stringify({ success: false, error: 'Authentication required for remediation verification.' }));
+      }
+
       const body = await parseJsonBody(req);
       try {
         const verification = await closedLoop.verifyIntervention(body.action_id);
         return sendJson(res, 200, {
           success: true,
           data: verification,
-        });
+        }, originHeader);
       } catch (err: any) {
         return sendJson(res, 400, {
           success: false,
           error: err.message,
-        });
+        }, originHeader);
       }
     }
 
@@ -346,51 +527,55 @@ const server = http.createServer(async (req, res) => {
         success: true,
         count: records.length,
         data: records,
-      });
+      }, originHeader);
     }
 
-    // Audit Trail
+    // Live Audit History
     if (pathname === '/api/audit/history' && method === 'GET') {
-      const alertId = url.searchParams.get('alert_id') || undefined;
       const zoneId = url.searchParams.get('zone_id') || undefined;
-      const history = alertStore.getAuditHistory({ alert_id: alertId, zone_id: zoneId });
+      const alertId = url.searchParams.get('alert_id') || undefined;
+      const history = await resilientStore.getAuditHistory({ zone_id: zoneId, alert_id: alertId });
       return sendJson(res, 200, {
         success: true,
         count: history.length,
         data: history,
-      });
+      }, originHeader);
     }
 
     // ------------------------------------------------------------------------
-    // Phase 3: Production Data Layer & Offline Sync Endpoints
+    // Phase 3: Offline Sync Engine Endpoints
     // ------------------------------------------------------------------------
 
-    // Ingest Offline Sync Batch (Idempotent & Conflict-aware)
-    if (pathname === '/api/sync/push' && method === 'POST') {
-      const body = await parseJsonBody(req);
-      const batch: SyncBatchRequest = {
-        client_id: body.client_id || 'ROVER-LOCAL-CLIENT',
-        records: body.records || [],
-        strategy: body.strategy || 'LAST_WRITE_WINS',
-      };
-      const result = syncEngine.processBatch(batch);
-      return sendJson(res, 200, result);
+    // Ingest Sync Batch
+    if ((pathname === '/api/sync/batch' || pathname === '/api/sync/push') && method === 'POST') {
+      const body: SyncBatchRequest = await parseJsonBody(req);
+      if (!body || !Array.isArray(body.records)) {
+        return sendJson(res, 400, {
+          success: false,
+          error: 'Invalid batch request. Must contain client_id and records array.',
+        }, originHeader);
+      }
+
+      const response = await syncEngine.processBatch(body);
+      return sendJson(res, 200, response, originHeader);
     }
 
-    // Inspect Sync Queue Status
+    // Queue Status
     if (pathname === '/api/sync/status' && method === 'GET') {
+      const status = syncEngine.getStatus();
       return sendJson(res, 200, {
         success: true,
-        data: syncEngine.getStatus(),
-      });
+        status,
+        data: status,
+      }, originHeader);
     }
 
-    // Inspect Failed Sync Events
+    // Failed Events
     if (pathname === '/api/sync/failed' && method === 'GET') {
       return sendJson(res, 200, {
         success: true,
         failed_events: syncEngine.getFailedEvents(),
-      });
+      }, originHeader);
     }
 
     // Manual Retry of Failed Sync Events
@@ -400,7 +585,7 @@ const server = http.createServer(async (req, res) => {
         success: true,
         retried_count: retriedCount,
         queue_status: syncEngine.getStatus(),
-      });
+      }, originHeader);
     }
 
     // Flush/Drain Queue
@@ -409,11 +594,32 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 200, {
         success: true,
         data: flushResult,
-      });
+      }, originHeader);
     }
 
-    // Authenticated Profile (Farmer / Expert / Admin)
+    // Authenticated Profile (Backwards Compatible / Dev profile endpoint)
     if (pathname === '/api/auth/profile' && method === 'GET') {
+      const token = extractBearerToken(req);
+      if (token) {
+        const auth = await authService.verifyToken(token);
+        if (auth) {
+          return sendJson(res, 200, {
+            success: true,
+            profile: {
+              id: auth.user_id,
+              role: auth.role,
+              full_name: auth.email,
+              farmer_id: auth.farmer_id || null,
+              assigned_cluster: 'CLUSTER-DEMO-01',
+              preferred_language: auth.role === 'FARMER' ? 'hi' : 'en',
+              authorized_farms: ['FARM-DEMO-01'],
+              authorized_zones: ['ZONE-A1', 'DEMO-ZONE-02', 'DEMO-ZONE-03', 'DEMO-ZONE-04'],
+            },
+          }, originHeader);
+        }
+      }
+
+      // Development fallback profile
       const role = url.searchParams.get('role') || 'FARMER';
       const isFarmer = role.toUpperCase() === 'FARMER';
       return sendJson(res, 200, {
@@ -428,7 +634,7 @@ const server = http.createServer(async (req, res) => {
           authorized_farms: ['FARM-DEMO-01'],
           authorized_zones: ['ZONE-A1', 'DEMO-ZONE-02', 'DEMO-ZONE-03', 'DEMO-ZONE-04'],
         },
-      });
+      }, originHeader);
     }
 
     // Farms List
@@ -446,7 +652,7 @@ const server = http.createServer(async (req, res) => {
             created_at: '2026-09-01T00:00:00Z',
           },
         ],
-      });
+      }, originHeader);
     }
 
     // Zones List with Health Status
@@ -478,22 +684,22 @@ const server = http.createServer(async (req, res) => {
             soil_type: 'Loam',
             last_moisture: 28.0,
             status: 'DISEASE_SUSPECTED',
-            last_scan_at: new Date(Date.now() - 2700000).toISOString(),
+            last_scan_at: new Date(Date.now() - 1800000).toISOString(),
           },
           {
             id: 'DEMO-ZONE-04',
             name: 'Zone 4 (West Sector)',
-            soil_type: 'Loam',
-            last_moisture: 34.0,
+            soil_type: 'Silt Loam',
+            last_moisture: 30.0,
             status: 'OPTIMAL',
             last_scan_at: new Date(Date.now() - 7200000).toISOString(),
           },
         ],
-      });
+      }, originHeader);
     }
 
     // ------------------------------------------------------------------------
-    // Phase 4: Multimodal Intelligence, Voice, Weather & Risk Endpoints
+    // Phase 4: Intelligence, Risk, Voice & Multimodal Endpoints
     // ------------------------------------------------------------------------
 
     // Weather & Agricultural Risk Context (Amendment 3)
@@ -510,7 +716,7 @@ const server = http.createServer(async (req, res) => {
         success: true,
         weather,
         assessments,
-      });
+      }, originHeader);
     }
 
     // Explainable AI / "WHY" Layer (Section 3)
@@ -531,29 +737,20 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 200, {
         success: true,
         report,
-      });
+      }, originHeader);
     }
 
-    // Constrained Multilingual Voice Interaction (Amendments 6 & 7)
+    // Voice Interaction Dialog
     if (pathname === '/api/voice/interact' && method === 'POST') {
       const body: VoiceQuery = await parseJsonBody(req);
-      const voiceQuery: VoiceQuery = {
-        text: body.text || '',
-        language: body.language || 'en',
-        input_type: body.input_type || 'SIMULATED_VOICE_INTENT',
-        user_id: body.user_id || 'farmer_demo_voice',
-        role: body.role || 'FARMER',
-        session_id: body.session_id,
-      };
-
-      const response = await voiceAssistant.processQuery(voiceQuery);
+      const response = await voiceAssistant.processQuery(body);
       return sendJson(res, 200, {
         success: true,
         response,
-      });
+      }, originHeader);
     }
 
-    // Multimodal Crop Visual Evidence Analysis (Amendment 5)
+    // Multimodal Crop Visual Evidence Analysis
     if (pathname === '/api/multimodal/analyze' && method === 'POST') {
       const body: MultimodalAnalysisRequest = await parseJsonBody(req);
       try {
@@ -561,43 +758,43 @@ const server = http.createServer(async (req, res) => {
         return sendJson(res, 200, {
           success: true,
           result,
-        });
+        }, originHeader);
       } catch (err: any) {
         return sendJson(res, 400, {
           success: false,
           error: err.message,
-        });
+        }, originHeader);
       }
     }
 
-    // Farm Risk Dashboard & Composite Demo Indicator (Amendment 4)
+    // Farm Risk Dashboard & Composite Demo Indicator
     if (pathname === '/api/analytics/farm-risk' && method === 'GET') {
       const farmId = url.searchParams.get('farm_id') || 'FARM-DEMO-01';
       const dashboard = await historicalAnalytics.getFarmRiskDashboard(farmId);
       return sendJson(res, 200, {
         success: true,
         dashboard,
-      });
+      }, originHeader);
     }
 
-    // Historical Time-Series Intelligence & Verified Deltas (Section 7)
+    // Historical Time-Series Intelligence & Verified Deltas
     if (pathname === '/api/analytics/historical' && method === 'GET') {
       const zoneId = url.searchParams.get('zone_id') || 'DEMO-ZONE-02';
       const historical = await historicalAnalytics.getHistoricalIntelligence(zoneId);
       return sendJson(res, 200, {
         success: true,
         historical,
-      });
+      }, originHeader);
     }
 
-    // PRAHAR Field Evidence Report (Amendment 2)
+    // PRAHAR Field Evidence Report
     if (pathname === '/api/reports/field-evidence' && method === 'GET') {
       const zoneId = url.searchParams.get('zone_id') || 'DEMO-ZONE-02';
       const farmId = url.searchParams.get('farm_id') || 'FARM-DEMO-01';
       const farmName = url.searchParams.get('farm_name') || 'Kisan Demo Farm Alpha (डेमो खेत अल्फा)';
 
       const scan = engine.simulateScanCycle(zoneId, false);
-      const verifications = (await alertStore.getVerifications?.(zoneId)) || [];
+      const verifications = (await resilientStore.getVerifications?.(zoneId)) || [];
       const latestVerif = verifications[0];
 
       const report = FieldEvidenceReportGenerator.generateReport({
@@ -613,10 +810,10 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 200, {
         success: true,
         report,
-      });
+      }, originHeader);
     }
 
-    // Farmer Opportunity Center (Amendment 1)
+    // Farmer Opportunity Center
     if (pathname === '/api/opportunities' && method === 'GET') {
       const category = url.searchParams.get('category');
       let schemes = OpportunityCenter.getSchemes();
@@ -627,35 +824,32 @@ const server = http.createServer(async (req, res) => {
         success: true,
         count: schemes.length,
         schemes,
-      });
+      }, originHeader);
     }
 
     // 404 Fallback
     return sendJson(res, 404, {
       success: false,
       error: `Endpoint not found: ${method} ${pathname}`,
-    });
+    }, originHeader);
   } catch (err: any) {
     return sendJson(res, 500, {
       success: false,
       error: err?.message || 'Internal Server Error',
-    });
+    }, originHeader);
   }
 });
 
 server.listen(PORT, () => {
-  console.log(`[PRAHAR Rover Simulator & Decision Gateway v0.4] Online`);
+  console.log(`[PRAHAR Rover Simulator & Decision Gateway v0.5] Online`);
   console.log(`Rover ID: ${engine.getRoverId()}`);
   console.log(`HTTP Server listening on http://localhost:${PORT}`);
-  console.log(`Phase 4 Endpoints:`);
-  console.log(`  GET  /api/weather/risk`);
-  console.log(`  POST /api/intelligence/explain`);
-  console.log(`  POST /api/voice/interact`);
-  console.log(`  POST /api/multimodal/analyze`);
-  console.log(`  GET  /api/analytics/farm-risk`);
-  console.log(`  GET  /api/analytics/historical`);
-  console.log(`  GET  /api/reports/field-evidence`);
-  console.log(`  GET  /api/opportunities`);
+  console.log(`Phase 5A Endpoints:`);
+  console.log(`  POST /api/auth/register (Farmer Registration)`);
+  console.log(`  POST /api/auth/login (JWT Login)`);
+  console.log(`  POST /api/auth/logout`);
+  console.log(`  GET  /api/auth/me`);
+  console.log(`  POST /api/auth/promote (Admin Only)`);
 });
 
 if (process.argv.some((arg) => arg.includes('test'))) {
@@ -666,6 +860,9 @@ export {
   server,
   engine,
   alertStore,
+  resilientStore,
+  authService,
+  config,
   syncEngine,
   decisionEngine,
   closedLoop,
