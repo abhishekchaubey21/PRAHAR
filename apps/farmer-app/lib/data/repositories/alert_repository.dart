@@ -38,7 +38,7 @@ class AlertRepository {
             .map((item) => AlertModel.fromJson(item as Map<String, dynamic>))
             .toList();
       }
-      return [];
+      rethrow;
     }
     // ApiException (401/403/400/422/500) will propagate directly to caller
   }

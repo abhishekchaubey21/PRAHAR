@@ -2,13 +2,24 @@ import 'package:flutter/material.dart';
 import '../core/theme.dart';
 import '../core/auth_service.dart';
 import '../core/api_client.dart';
+import '../core/storage/session_store.dart';
+import '../core/storage/offline_store.dart';
 import 'home_screen.dart';
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   final FarmerAuthService? authService;
+  final ISessionStore? sessionStore;
+  final IOfflineStore? offlineStore;
+  final String? initialLanguage;
 
-  const LoginScreen({super.key, this.authService});
+  const LoginScreen({
+    super.key,
+    this.authService,
+    this.sessionStore,
+    this.offlineStore,
+    this.initialLanguage,
+  });
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -27,7 +38,10 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void initState() {
     super.initState();
-    _authService = widget.authService ?? FarmerAuthService();
+    _authService = widget.authService ??
+        FarmerAuthService(
+          sessionStore: widget.sessionStore ?? SecureFileSessionStore(),
+        );
   }
 
   @override
@@ -53,7 +67,14 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (success && mounted) {
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => HomeScreen(authService: _authService)),
+          MaterialPageRoute(
+            builder: (_) => HomeScreen(
+              authService: _authService,
+              apiClient: _authService.apiClient,
+              offlineStore: widget.offlineStore,
+              initialLanguage: widget.initialLanguage ?? 'en',
+            ),
+          ),
         );
       } else if (mounted) {
         setState(() {
@@ -290,7 +311,11 @@ class _LoginScreenState extends State<LoginScreen> {
                         onPressed: () {
                           Navigator.of(context).push(
                             MaterialPageRoute(
-                              builder: (_) => RegisterScreen(authService: _authService),
+                              builder: (_) => RegisterScreen(
+                                authService: _authService,
+                                offlineStore: widget.offlineStore,
+                                initialLanguage: widget.initialLanguage,
+                              ),
                             ),
                           );
                         },

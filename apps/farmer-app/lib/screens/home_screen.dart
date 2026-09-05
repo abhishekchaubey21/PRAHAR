@@ -10,6 +10,7 @@ import '../data/repositories/farm_repository.dart';
 import '../data/repositories/zone_repository.dart';
 import '../data/repositories/alert_repository.dart';
 import '../data/repositories/remediation_repository.dart';
+import '../data/repositories/voice_repository.dart';
 import 'login_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -19,7 +20,9 @@ class HomeScreen extends StatefulWidget {
   final ZoneRepository? zoneRepository;
   final AlertRepository? alertRepository;
   final RemediationRepository? remediationRepository;
+  final VoiceRepository? voiceRepository;
   final IOfflineStore? offlineStore;
+  final String initialLanguage;
 
   const HomeScreen({
     super.key,
@@ -29,7 +32,9 @@ class HomeScreen extends StatefulWidget {
     this.zoneRepository,
     this.alertRepository,
     this.remediationRepository,
+    this.voiceRepository,
     this.offlineStore,
+    this.initialLanguage = 'en',
   });
 
   @override
@@ -39,6 +44,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   // Language toggle: true = Hindi ('hi'), false = English ('en')
   bool _isHindi = false;
+  bool _isNetworkOffline = false;
 
   late final OfflineStorageService _offlineStorage;
   late final ApiClient _apiClient;
@@ -47,6 +53,7 @@ class _HomeScreenState extends State<HomeScreen> {
   late final ZoneRepository _zoneRepo;
   late final AlertRepository _alertRepo;
   late final RemediationRepository _remediationRepo;
+  late final VoiceRepository _voiceRepo;
 
   bool _isLoading = false;
   String? _backendError;
@@ -59,6 +66,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _offlineStorage = OfflineStorageService(store: widget.offlineStore);
+    _isHindi = widget.initialLanguage == 'hi';
     final sessionStore = SecureFileSessionStore();
     _apiClient = widget.apiClient ??
         (widget.authService != null
@@ -75,6 +83,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _remediationRepo = widget.remediationRepository ??
         RemediationRepository(
             apiClient: _apiClient, offlineStore: _offlineStorage.store);
+    _voiceRepo = widget.voiceRepository ?? VoiceRepository(apiClient: _apiClient);
 
     _loadRemoteData();
   }
@@ -84,6 +93,7 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() {
       _isLoading = true;
       _backendError = null;
+      _isNetworkOffline = false;
     });
 
     try {
@@ -135,7 +145,11 @@ class _HomeScreenState extends State<HomeScreen> {
         });
       }
     } on NetworkUnavailableException {
-      // Degraded offline mode handled by offline repository cache
+      if (mounted) {
+        setState(() {
+          _isNetworkOffline = true;
+        });
+      }
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -179,6 +193,14 @@ class _HomeScreenState extends State<HomeScreen> {
         });
       }
     }
+  }
+
+  Future<void> _toggleLanguage() async {
+    final nextLang = _isHindi ? 'en' : 'hi';
+    setState(() {
+      _isHindi = !_isHindi;
+    });
+    await _offlineStorage.setLanguagePreference(nextLang);
   }
 
   Future<void> _handleLogout() async {
@@ -305,12 +327,17 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // Phase 4: Voice Assistant Dialog (Simulated STT with Strict Safety Confirmation)
+  // Phase 6A-2: Voice Assistant Dialog (Connected to Gateway /api/voice/interact)
   void _openVoiceDialog() {
     bool voiceConfirmed = false;
+    bool isProcessing = false;
     String responseText = _isHindi
-        ? 'आदेश बोलें या चुनें (उदाहरण: "खेत की क्या स्थिति है?" या "सिंचाई चालू करो")'
-        : 'Speak or select intent (e.g., "What is farm status?" or "Start irrigation")';
+        ? 'आदेश बोलें या लिखें (सिमुलेटेड वॉयस इनपुट)'
+        : 'Speak or type command (Simulated Voice Input)';
+    VoiceResponseModel? latestVoiceResponse;
+    String? voiceError;
+    final textController = TextEditingController();
+    final voiceSessionId = 'voice_session_${DateTime.now().millisecondsSinceEpoch}';
 
     showModalBottomSheet(
       context: context,
@@ -320,158 +347,257 @@ class _HomeScreenState extends State<HomeScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (ctx) => StatefulBuilder(
-        builder: (context, setModalState) => Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        builder: (context, setModalState) {
+          Future<void> sendQuery(String text) async {
+            if (text.trim().isEmpty || isProcessing) return;
+            setModalState(() {
+              isProcessing = true;
+              voiceError = null;
+            });
+
+            try {
+              final res = await _voiceRepo.sendVoiceQuery(
+                text: text.trim(),
+                language: _isHindi ? 'hi' : 'en',
+                sessionId: voiceSessionId,
+              );
+
+              setModalState(() {
+                latestVoiceResponse = res;
+                responseText = _isHindi ? res.spokenTextHi : res.spokenTextEn;
+                voiceConfirmed = false;
+                textController.clear();
+              });
+            } on NetworkUnavailableException {
+              setModalState(() {
+                voiceError = _isHindi
+                    ? 'नेटवर्क त्रुटि: वॉयस गेटवे तक नहीं पहुँचा जा सका।'
+                    : 'Network Error: Unable to reach PRAHAR Voice Gateway.';
+                responseText = voiceError!;
+                latestVoiceResponse = null;
+              });
+            } on ApiException catch (e) {
+              setModalState(() {
+                voiceError = _isHindi
+                    ? 'वॉयस गेटवे त्रुटि (${e.statusCode}): ${e.message}'
+                    : 'Voice Gateway Error (${e.statusCode}): ${e.message}';
+                responseText = voiceError!;
+                latestVoiceResponse = null;
+              });
+            } catch (e) {
+              setModalState(() {
+                voiceError = 'Voice Error: $e';
+                responseText = voiceError!;
+                latestVoiceResponse = null;
+              });
+            } finally {
+              setModalState(() {
+                isProcessing = false;
+              });
+            }
+          }
+
+          return Padding(
+            padding: EdgeInsets.only(
+              left: 20.0,
+              right: 20.0,
+              top: 20.0,
+              bottom: MediaQuery.of(context).viewInsets.bottom + 20.0,
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: Row(
-                      children: [
-                        const Icon(Icons.mic, color: PraharTheme.primaryGreen),
-                        const SizedBox(width: 8),
-                        Flexible(
-                          child: Text(
-                            _isHindi ? 'प्रहार आवाज़ सहायक' : 'PRAHAR Voice Assistant',
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: PraharTheme.alertAmber.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: PraharTheme.alertAmber),
-                    ),
-                    child: const Text(
-                      'SIMULATION / DEMO INTENT',
-                      style: TextStyle(fontSize: 10, color: PraharTheme.alertAmber, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text(
-                _isHindi
-                    ? 'माइक्रोफ़ोन/एसटीटी सिमुलेशन: आवाज़ सीधे मोटर नहीं चला सकती। सुरक्षा द्वार अनिवार्य है।'
-                    : 'Honest STT Notice: Speech recognition simulation active. Voice commands CANNOT directly drive motors.',
-                style: TextStyle(color: Colors.grey[400], fontSize: 11, fontStyle: FontStyle.italic),
-              ),
-              const Divider(height: 20, color: PraharTheme.borderGreen),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF0C1410),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: PraharTheme.borderGreen),
-                ),
-                child: Text(
-                  responseText,
-                  style: const TextStyle(fontSize: 13, color: Colors.white),
-                ),
-              ),
-              const SizedBox(height: 14),
-              // Preset Voice Intents
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  ActionChip(
-                    avatar: const Icon(Icons.info_outline, size: 16, color: PraharTheme.primaryGreen),
-                    label: Text(_isHindi ? 'खेत की क्या स्थिति है?' : 'What is farm status?'),
-                    onPressed: () {
-                      setModalState(() {
-                        responseText = _isHindi
-                            ? 'आवाज़ प्रतिक्रिया: डेमो खेत अल्फा में समग्र स्वास्थ्य सूचकांक 74/100 (निष्पक्ष) है। ज़ोन 2 में मिट्टी की नमी 17.5% है और सूक्ष्म-सिंचाई की सिफारिश की गई है।'
-                            : 'Voice Response: Demo Farm Alpha Composite Health Index is 74/100 (Fair). Zone 2 moisture is low at 17.5%, irrigation recommended.';
-                      });
-                    },
-                  ),
-                  ActionChip(
-                    avatar: const Icon(Icons.water_drop, size: 16, color: PraharTheme.alertSky),
-                    label: Text(_isHindi ? 'सिंचाई चालू करो (ज़ोन 2)' : 'Start irrigation (Zone 2)'),
-                    onPressed: () {
-                      setModalState(() {
-                        voiceConfirmed = false;
-                        responseText = _isHindi
-                            ? 'सिफारिश: ज़ोन 2 में 30 सेकंड सूक्ष्म-सिंचाई।\n\n⚠️ सुरक्षा चेतावनी: आवाज़ अनुरोध सीधे मोटर नहीं चला सकता। कृपया नीचे स्पष्ट पुष्टि दें।'
-                            : 'Recommendation: 30s micro-irrigation for Zone 2.\n\n⚠️ Safety Gate: Voice cannot trigger actuators directly. Farmer confirmation and safety check required.';
-                      });
-                    },
-                  ),
-                ],
-              ),
-              if (responseText.contains('सुरक्षा') || responseText.contains('Safety Gate')) ...[
-                const SizedBox(height: 14),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: PraharTheme.alertAmber.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: PraharTheme.alertAmber),
-                  ),
-                  child: Column(
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Row(
-                        children: [
-                          Checkbox(
-                            value: voiceConfirmed,
-                            activeColor: PraharTheme.primaryGreen,
-                            onChanged: (val) {
-                              setModalState(() {
-                                voiceConfirmed = val ?? false;
-                              });
-                            },
-                          ),
-                          Expanded(
-                            child: Text(
-                              _isHindi
-                                  ? 'मैं (किसान) ज़ोन 2 में 30 सेकंड सिंचाई को स्पष्ट रूप से अधिकृत करता हूँ।'
-                                  : 'I confirm and authorize 30s irrigation for Zone 2 (Passes Phase 2/3 Safety Gate).',
-                              style: const TextStyle(fontSize: 12),
+                      Expanded(
+                        child: Row(
+                          children: [
+                            const Icon(Icons.mic, color: PraharTheme.primaryGreen),
+                            const SizedBox(width: 8),
+                            Flexible(
+                              child: Text(
+                                _isHindi ? 'प्रहार आवाज़ सहायक' : 'PRAHAR Voice Assistant',
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: voiceConfirmed ? PraharTheme.primaryGreen : Colors.grey,
-                          foregroundColor: Colors.black,
-                          minimumSize: const Size(double.infinity, 36),
+                          ],
                         ),
-                        onPressed: voiceConfirmed
-                            ? () {
-                                Navigator.pop(ctx);
-                                final waterAlert = _alerts.firstWhere(
-                                  (a) => a.type == HazardType.waterStress,
-                                  orElse: () => _alerts[0],
-                                );
-                                _approveAndIrrigate(waterAlert);
-                              }
-                            : null,
-                        child: Text(
-                          _isHindi ? 'पुष्टि और सुरक्षित निष्पादन' : 'Confirm & Execute Safely',
-                          style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: PraharTheme.alertAmber.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: PraharTheme.alertAmber),
+                        ),
+                        child: const Text(
+                          'SIMULATION / DEMO INTENT',
+                          style: TextStyle(fontSize: 10, color: PraharTheme.alertAmber, fontWeight: FontWeight.bold),
                         ),
                       ),
                     ],
                   ),
-                ),
-              ],
-              const SizedBox(height: 10),
-            ],
-          ),
-        ),
+                  const SizedBox(height: 8),
+                  Text(
+                    _isHindi
+                        ? 'स्पष्ट सूचना: माइक्रोफ़ोन/एसटीटी हार्डवेयर अनुपलब्ध — सिम्युलेटेड वॉयस इनपुट सक्रिय। आवाज़ सीधे मोटर नहीं चला सकती।'
+                        : 'Honest STT Notice: Real microphone hardware not connected — Simulated Voice Input active. Voice commands CANNOT directly drive motors.',
+                    style: TextStyle(color: Colors.grey[400], fontSize: 11, fontStyle: FontStyle.italic),
+                  ),
+                  const Divider(height: 20, color: PraharTheme.borderGreen),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0C1410),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: PraharTheme.borderGreen),
+                    ),
+                    child: isProcessing
+                        ? const Center(
+                            child: SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: PraharTheme.primaryGreen),
+                            ),
+                          )
+                        : Text(
+                            responseText,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: voiceError != null ? PraharTheme.alertRose : Colors.white,
+                            ),
+                          ),
+                  ),
+                  const SizedBox(height: 12),
+                  // Text Input for Voice Command Simulation
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          key: const Key('voice_input_field'),
+                          controller: textController,
+                          decoration: InputDecoration(
+                            hintText: _isHindi ? 'वॉयस इनपुट लिखें...' : 'Type simulated voice command...',
+                            hintStyle: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          onSubmitted: (val) => sendQuery(val),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        key: const Key('voice_send_button'),
+                        icon: const Icon(Icons.send, color: PraharTheme.primaryGreen),
+                        onPressed: isProcessing ? null : () => sendQuery(textController.text),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  // Preset Voice Intent Quick Action Chips
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      ActionChip(
+                        avatar: const Icon(Icons.info_outline, size: 16, color: PraharTheme.primaryGreen),
+                        label: Text(_isHindi ? 'खेत का हाल बताओ' : 'What is farm status?'),
+                        onPressed: isProcessing ? null : () => sendQuery(_isHindi ? 'खेत का हाल बताओ' : 'What is farm status?'),
+                      ),
+                      ActionChip(
+                        avatar: const Icon(Icons.water_drop, size: 16, color: PraharTheme.alertSky),
+                        label: Text(_isHindi ? 'ज़ोन 2 में सिंचाई चालू करो' : 'Start irrigation in Zone 2'),
+                        onPressed: isProcessing ? null : () => sendQuery(_isHindi ? 'ज़ोन 2 में सिंचाई चालू करो' : 'Start irrigation in Zone 2'),
+                      ),
+                      ActionChip(
+                        avatar: const Icon(Icons.help_outline, size: 16, color: Colors.grey),
+                        label: Text(_isHindi ? 'अज्ञात आदेश' : 'Unknown command'),
+                        onPressed: isProcessing ? null : () => sendQuery('fly to the moon'),
+                      ),
+                    ],
+                  ),
+                  // Safety Gate Confirmation Container
+                  if (latestVoiceResponse?.requiresConfirmation == true) ...[
+                    const SizedBox(height: 14),
+                    Container(
+                      key: const Key('voice_safety_banner'),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: PraharTheme.alertAmber.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: PraharTheme.alertAmber),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.security, color: PraharTheme.alertAmber, size: 18),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  _isHindi ? latestVoiceResponse!.safetyNoticeHi : latestVoiceResponse!.safetyNoticeEn,
+                                  style: const TextStyle(color: PraharTheme.alertAmber, fontWeight: FontWeight.bold, fontSize: 12),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Checkbox(
+                                key: const Key('voice_confirm_checkbox'),
+                                value: voiceConfirmed,
+                                activeColor: PraharTheme.primaryGreen,
+                                onChanged: (val) {
+                                  setModalState(() {
+                                    voiceConfirmed = val ?? false;
+                                  });
+                                },
+                              ),
+                              Expanded(
+                                child: Text(
+                                  _isHindi
+                                      ? (latestVoiceResponse!.confirmationPromptHi ?? 'क्या आप इस सिंचाई कार्रवाई की पुष्टि करते हैं?')
+                                      : (latestVoiceResponse!.confirmationPromptEn ?? 'Confirm this irrigation action?'),
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                              ),
+                            ],
+                          ),
+                          ElevatedButton(
+                            key: const Key('voice_confirm_button'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: voiceConfirmed ? PraharTheme.primaryGreen : Colors.grey,
+                              foregroundColor: Colors.black,
+                              minimumSize: const Size(double.infinity, 36),
+                            ),
+                            onPressed: voiceConfirmed && !isProcessing
+                                ? () async {
+                                    await sendQuery(_isHindi ? 'हाँ, पुष्टि करता हूँ' : 'Yes, confirm');
+                                  }
+                                : null,
+                            child: Text(
+                              _isHindi ? 'पुष्टि करें (सुरक्षा द्वार)' : 'Confirm (Safety Gate)',
+                              style: const TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 10),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -666,17 +792,13 @@ class _HomeScreenState extends State<HomeScreen> {
         actions: [
           // Language Switcher Toggle (Requirement 9)
           TextButton.icon(
+            key: const Key('language_toggle_button'),
             icon: const Icon(Icons.language, color: PraharTheme.primaryGreen, size: 18),
             label: Text(
               _isHindi ? 'English' : 'हिन्दी',
               style: const TextStyle(color: PraharTheme.primaryGreen, fontWeight: FontWeight.bold),
             ),
-            onPressed: () {
-              setState(() {
-                _isHindi = !_isHindi;
-                _offlineStorage.languagePreference = _isHindi ? 'hi' : 'en';
-              });
-            },
+            onPressed: _toggleLanguage,
           ),
           IconButton(
             key: const Key('logout_button'),
@@ -800,8 +922,41 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
 
+          // Network Offline Banner
+          if (_isNetworkOffline && _backendError == null)
+            Container(
+              key: const Key('network_offline_banner'),
+              padding: const EdgeInsets.all(12),
+              margin: const EdgeInsets.only(bottom: 14),
+              decoration: BoxDecoration(
+                color: PraharTheme.alertAmber.withOpacity(0.15),
+                border: Border.all(color: PraharTheme.alertAmber),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.wifi_off, color: PraharTheme.alertAmber),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _isHindi
+                          ? 'नेटवर्क अनुपलब्ध: ऑफ़लाइन मोड में चल रहा है।'
+                          : 'Network Unavailable: Operating in offline mode.',
+                      style: const TextStyle(color: PraharTheme.alertAmber, fontWeight: FontWeight.w600, fontSize: 13),
+                    ),
+                  ),
+                  IconButton(
+                    key: const Key('offline_retry_button'),
+                    icon: const Icon(Icons.refresh, color: PraharTheme.alertAmber, size: 18),
+                    onPressed: _loadRemoteData,
+                  ),
+                ],
+              ),
+            ),
+
           if (_isLoading)
             const Padding(
+              key: Key('loading_indicator'),
               padding: EdgeInsets.symmetric(vertical: 8.0),
               child: Center(
                 child: SizedBox(
@@ -812,8 +967,40 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
 
-          // Real Farm Health Status Card
-          if (_farms.isEmpty && _backendError == null)
+          // Real Farm Health Status Card / Offline Empty Card
+          if (_isNetworkOffline && _farms.isEmpty && _backendError == null)
+            Card(
+              key: const Key('offline_empty_card'),
+              child: Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Column(
+                  children: [
+                    const Icon(Icons.signal_wifi_connected_no_internet_4, size: 40, color: PraharTheme.alertAmber),
+                    const SizedBox(height: 8),
+                    Text(
+                      _isHindi ? 'नेटवर्क अनुपलब्ध' : 'Network Unavailable',
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _isHindi
+                          ? 'ऑफ़लाइन कैश में कोई खेत नहीं मिला। कृपया इंटरनेट कनेक्शन जांचें।'
+                          : 'No cached farms available offline. Please check your connectivity.',
+                      style: TextStyle(color: Colors.grey[400], fontSize: 12),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 12),
+                    ElevatedButton.icon(
+                      key: const Key('offline_card_retry_button'),
+                      icon: const Icon(Icons.refresh, size: 16),
+                      label: Text(_isHindi ? 'पुनः प्रयास करें' : 'Retry Connection'),
+                      onPressed: _loadRemoteData,
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else if (_farms.isEmpty && _backendError == null)
             Card(
               key: const Key('empty_farm_card'),
               child: Padding(
@@ -1086,11 +1273,22 @@ class _HomeScreenState extends State<HomeScreen> {
 
           // Alerts List
           if (_alerts.isEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8.0),
-              child: Text(
-                _isHindi ? 'कोई सक्रिय अलर्ट नहीं हैं।' : 'No active alerts for this farm.',
-                style: TextStyle(color: Colors.grey[400], fontSize: 13),
+            Card(
+              key: const Key('empty_alerts_card'),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Row(
+                  children: [
+                    const Icon(Icons.check_circle_outline, color: PraharTheme.primaryGreen),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        _isHindi ? 'कोई सक्रिय अलर्ट नहीं हैं।' : 'No active alerts for this farm.',
+                        style: TextStyle(color: Colors.grey[300], fontSize: 13),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             )
           else

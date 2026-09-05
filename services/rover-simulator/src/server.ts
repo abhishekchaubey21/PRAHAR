@@ -36,6 +36,7 @@ import {
   MultimodalAnalysisRequest,
   RegisterFarmerRequest,
   LoginRequest,
+  AuthenticatedContext,
 } from '@prahar/shared';
 
 const config = loadConfig();
@@ -880,8 +881,25 @@ const server = http.createServer(async (rawReq, res) => {
 
     // Voice Interaction Dialog
     if (pathname === '/api/voice/interact' && method === 'POST') {
+      const token = extractBearerToken(req);
+      let authUser: AuthenticatedContext | undefined;
+
+      if (token) {
+        const auth = await authenticateRequest(req, res, authService);
+        if (!auth) return;
+        authUser = auth;
+      } else if (!config.allowSimulatorBypass || config.nodeEnv === 'production') {
+        res.writeHead(401, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        return res.end(JSON.stringify({ success: false, error: 'Authentication required for voice interaction.' }));
+      }
+
       const body: VoiceQuery = await parseJsonBody(req);
-      const response = await voiceAssistant.processQuery(body);
+      const queryWithAuth: VoiceQuery = {
+        ...body,
+        user_id: authUser ? authUser.user_id : (body.user_id || 'simulated_farmer'),
+        role: authUser ? authUser.role : (body.role || 'FARMER'),
+      };
+      const response = await voiceAssistant.processQuery(queryWithAuth);
       return sendJson(res, 200, {
         success: true,
         response,

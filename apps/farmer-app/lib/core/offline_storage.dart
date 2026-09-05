@@ -89,6 +89,20 @@ class OfflineStorageService {
     _languagePreference = lang;
   }
 
+  Future<void> setLanguagePreference(String lang) async {
+    _languagePreference = lang;
+    await _store.cacheData('user_language_preference', lang);
+  }
+
+  Future<String> loadLanguagePreference({String defaultLanguage = 'en'}) async {
+    final cached = await _store.getCachedData('user_language_preference');
+    if (cached is String && (cached == 'en' || cached == 'hi')) {
+      _languagePreference = cached;
+      return cached;
+    }
+    return defaultLanguage;
+  }
+
   // Connectivity state
   bool get isOnline => _isOnline;
   set isOnline(bool online) {

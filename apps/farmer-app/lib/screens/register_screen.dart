@@ -2,12 +2,23 @@ import 'package:flutter/material.dart';
 import '../core/theme.dart';
 import '../core/auth_service.dart';
 import '../core/api_client.dart';
+import '../core/storage/session_store.dart';
+import '../core/storage/offline_store.dart';
 import 'home_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   final FarmerAuthService? authService;
+  final ISessionStore? sessionStore;
+  final IOfflineStore? offlineStore;
+  final String? initialLanguage;
 
-  const RegisterScreen({super.key, this.authService});
+  const RegisterScreen({
+    super.key,
+    this.authService,
+    this.sessionStore,
+    this.offlineStore,
+    this.initialLanguage,
+  });
 
   @override
   State<RegisterScreen> createState() => _RegisterScreenState();
@@ -29,7 +40,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   void initState() {
     super.initState();
-    _authService = widget.authService ?? FarmerAuthService();
+    _authService = widget.authService ??
+        FarmerAuthService(
+          sessionStore: widget.sessionStore ?? SecureFileSessionStore(),
+        );
   }
 
   @override
@@ -58,7 +72,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
       if (success && mounted) {
         Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => HomeScreen(authService: _authService)),
+          MaterialPageRoute(
+            builder: (_) => HomeScreen(
+              authService: _authService,
+              apiClient: _authService.apiClient,
+              offlineStore: widget.offlineStore,
+              initialLanguage: widget.initialLanguage ?? 'en',
+            ),
+          ),
           (route) => false,
         );
       } else if (mounted) {
