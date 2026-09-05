@@ -10,7 +10,13 @@ import { PersistentAlertStore } from './persistent-alert-store.js';
 import { SyncEngine } from './sync-engine.js';
 import { DecisionEngine } from './decision-engine.js';
 import { ClosedLoopCoordinator } from './closed-loop.js';
-import { RoverCommand, RoverScanPayload, SyncBatchRequest } from '@prahar/shared';
+import { WeatherRiskEngine } from './weather-provider.js';
+import { ExplainabilityEngine } from './explainability-engine.js';
+import { VoiceAssistant } from './voice-assistant.js';
+import { MultimodalAssistant } from './multimodal-assistant.js';
+import { HistoricalAnalytics } from './historical-analytics.js';
+import { FieldEvidenceReportGenerator, OpportunityCenter } from './reports-and-opportunities.js';
+import { RoverCommand, RoverScanPayload, SyncBatchRequest, VoiceQuery, MultimodalAnalysisRequest } from '@prahar/shared';
 
 const PORT = parseInt(process.env.PORT || '3001', 10);
 
@@ -23,6 +29,11 @@ const alertStore = new PersistentAlertStore();
 const syncEngine = new SyncEngine();
 const decisionEngine = new DecisionEngine(alertStore);
 const closedLoop = new ClosedLoopCoordinator(engine, decisionEngine, alertStore);
+const weatherRiskEngine = new WeatherRiskEngine();
+const explainabilityEngine = new ExplainabilityEngine();
+const voiceAssistant = new VoiceAssistant(alertStore, closedLoop);
+const multimodalAssistant = new MultimodalAssistant();
+const historicalAnalytics = new HistoricalAnalytics(alertStore);
 
 function parseJsonBody(req: http.IncomingMessage): Promise<any> {
   return new Promise((resolve, reject) => {
@@ -481,6 +492,144 @@ const server = http.createServer(async (req, res) => {
       });
     }
 
+    // ------------------------------------------------------------------------
+    // Phase 4: Multimodal Intelligence, Voice, Weather & Risk Endpoints
+    // ------------------------------------------------------------------------
+
+    // Weather & Agricultural Risk Context (Amendment 3)
+    if (pathname === '/api/weather/risk' && method === 'GET') {
+      const lat = parseFloat(url.searchParams.get('lat') || '26.8467');
+      const lng = parseFloat(url.searchParams.get('lng') || '80.9462');
+      const fieldMoisture = url.searchParams.get('moisture') ? parseFloat(url.searchParams.get('moisture')!) : 17.5;
+      const fieldHumidity = url.searchParams.get('humidity') ? parseFloat(url.searchParams.get('humidity')!) : 48.0;
+
+      const weather = await weatherRiskEngine.getWeather(lat, lng);
+      const assessments = weatherRiskEngine.assessRisks(weather, fieldMoisture, fieldHumidity);
+
+      return sendJson(res, 200, {
+        success: true,
+        weather,
+        assessments,
+      });
+    }
+
+    // Explainable AI / "WHY" Layer (Section 3)
+    if (pathname === '/api/intelligence/explain' && method === 'POST') {
+      const body = await parseJsonBody(req);
+      const zoneId = body.zone_id || 'DEMO-ZONE-02';
+      const scan = body.scan || engine.simulateScanCycle(zoneId, false);
+      const decision = body.decision || (await decisionEngine.evaluateScan(scan));
+      const weather = body.weather || (await weatherRiskEngine.getWeather());
+
+      const report = explainabilityEngine.generateReport({
+        zoneId,
+        scan,
+        decision,
+        weather,
+      });
+
+      return sendJson(res, 200, {
+        success: true,
+        report,
+      });
+    }
+
+    // Constrained Multilingual Voice Interaction (Amendments 6 & 7)
+    if (pathname === '/api/voice/interact' && method === 'POST') {
+      const body: VoiceQuery = await parseJsonBody(req);
+      const voiceQuery: VoiceQuery = {
+        text: body.text || '',
+        language: body.language || 'en',
+        input_type: body.input_type || 'SIMULATED_VOICE_INTENT',
+        user_id: body.user_id || 'farmer_demo_voice',
+        role: body.role || 'FARMER',
+        session_id: body.session_id,
+      };
+
+      const response = await voiceAssistant.processQuery(voiceQuery);
+      return sendJson(res, 200, {
+        success: true,
+        response,
+      });
+    }
+
+    // Multimodal Crop Visual Evidence Analysis (Amendment 5)
+    if (pathname === '/api/multimodal/analyze' && method === 'POST') {
+      const body: MultimodalAnalysisRequest = await parseJsonBody(req);
+      try {
+        const result = await multimodalAssistant.analyzeCropEvidence(body);
+        return sendJson(res, 200, {
+          success: true,
+          result,
+        });
+      } catch (err: any) {
+        return sendJson(res, 400, {
+          success: false,
+          error: err.message,
+        });
+      }
+    }
+
+    // Farm Risk Dashboard & Composite Demo Indicator (Amendment 4)
+    if (pathname === '/api/analytics/farm-risk' && method === 'GET') {
+      const farmId = url.searchParams.get('farm_id') || 'FARM-DEMO-01';
+      const dashboard = await historicalAnalytics.getFarmRiskDashboard(farmId);
+      return sendJson(res, 200, {
+        success: true,
+        dashboard,
+      });
+    }
+
+    // Historical Time-Series Intelligence & Verified Deltas (Section 7)
+    if (pathname === '/api/analytics/historical' && method === 'GET') {
+      const zoneId = url.searchParams.get('zone_id') || 'DEMO-ZONE-02';
+      const historical = await historicalAnalytics.getHistoricalIntelligence(zoneId);
+      return sendJson(res, 200, {
+        success: true,
+        historical,
+      });
+    }
+
+    // PRAHAR Field Evidence Report (Amendment 2)
+    if (pathname === '/api/reports/field-evidence' && method === 'GET') {
+      const zoneId = url.searchParams.get('zone_id') || 'DEMO-ZONE-02';
+      const farmId = url.searchParams.get('farm_id') || 'FARM-DEMO-01';
+      const farmName = url.searchParams.get('farm_name') || 'Kisan Demo Farm Alpha (डेमो खेत अल्फा)';
+
+      const scan = engine.simulateScanCycle(zoneId, false);
+      const verifications = (await alertStore.getVerifications?.(zoneId)) || [];
+      const latestVerif = verifications[0];
+
+      const report = FieldEvidenceReportGenerator.generateReport({
+        farmId,
+        farmName,
+        zoneId,
+        scan,
+        actionExecuted: latestVerif ? '30s Micro-irrigation (~7.5L)' : 'Scheduled Rover Agronomic Scan Cycle',
+        approvedBy: latestVerif ? 'dr_sharma_kvk_expert' : undefined,
+        verification: latestVerif,
+      });
+
+      return sendJson(res, 200, {
+        success: true,
+        report,
+      });
+    }
+
+    // Farmer Opportunity Center (Amendment 1)
+    if (pathname === '/api/opportunities' && method === 'GET') {
+      const category = url.searchParams.get('category');
+      let schemes = OpportunityCenter.getSchemes();
+      if (category) {
+        schemes = schemes.filter((s) => s.category === category);
+      }
+      return sendJson(res, 200, {
+        success: true,
+        count: schemes.length,
+        schemes,
+      });
+    }
+
     // 404 Fallback
     return sendJson(res, 404, {
       success: false,
@@ -495,16 +644,31 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`[PRAHAR Rover Simulator & Decision Gateway v0.3] Online`);
+  console.log(`[PRAHAR Rover Simulator & Decision Gateway v0.4] Online`);
   console.log(`Rover ID: ${engine.getRoverId()}`);
   console.log(`HTTP Server listening on http://localhost:${PORT}`);
-  console.log(`Phase 3 Production & Offline Sync Endpoints:`);
-  console.log(`  POST /api/sync/push`);
-  console.log(`  GET  /api/sync/status`);
-  console.log(`  POST /api/sync/retry`);
-  console.log(`  GET  /api/auth/profile`);
-  console.log(`  GET  /api/farms`);
-  console.log(`  GET  /api/zones`);
+  console.log(`Phase 4 Endpoints:`);
+  console.log(`  GET  /api/weather/risk`);
+  console.log(`  POST /api/intelligence/explain`);
+  console.log(`  POST /api/voice/interact`);
+  console.log(`  POST /api/multimodal/analyze`);
+  console.log(`  GET  /api/analytics/farm-risk`);
+  console.log(`  GET  /api/analytics/historical`);
+  console.log(`  GET  /api/reports/field-evidence`);
+  console.log(`  GET  /api/opportunities`);
 });
+server.unref();
 
-export { server, engine, alertStore, syncEngine, decisionEngine, closedLoop };
+export {
+  server,
+  engine,
+  alertStore,
+  syncEngine,
+  decisionEngine,
+  closedLoop,
+  weatherRiskEngine,
+  explainabilityEngine,
+  voiceAssistant,
+  multimodalAssistant,
+  historicalAnalytics,
+};

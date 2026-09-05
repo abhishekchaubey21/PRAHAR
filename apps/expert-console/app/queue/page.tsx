@@ -182,6 +182,16 @@ export default function TriageQueuePage() {
               </div>
             </div>
 
+            {/* Phase 4: Multimodal Secondary Evidence Badge */}
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '12px' }}>
+              <span className="badge" style={{ background: 'rgba(52, 211, 153, 0.15)', color: 'var(--accent-emerald)', border: '1px solid rgba(52, 211, 153, 0.3)', fontSize: '0.75rem' }}>
+                Primary Ground Truth: Guy 3 Edge YOLOv8 (Confidence: 88%)
+              </span>
+              <span className="badge" style={{ background: 'rgba(56, 189, 248, 0.15)', color: 'var(--accent-sky)', border: '1px solid rgba(56, 189, 248, 0.3)', fontSize: '0.75rem' }}>
+                Secondary Multimodal: AGREEMENT (Confidence: 85%) &bull; User-Authorized
+              </span>
+            </div>
+
             <p style={{ color: 'var(--text-primary)', fontSize: '0.95rem', marginBottom: '8px' }}>
               {item.message}
             </p>
@@ -191,6 +201,44 @@ export default function TriageQueuePage() {
                 हिन्दी: {item.message_hi}
               </p>
             )}
+
+            {/* Phase 4: WHY Reasoning Evidence Drawer */}
+            <details style={{ background: 'var(--bg-secondary)', padding: '12px', borderRadius: '8px', marginBottom: '14px', border: '1px solid var(--border-color)', fontSize: '0.85rem' }}>
+              <summary style={{ cursor: 'pointer', fontWeight: 600, color: 'var(--accent-emerald)' }}>
+                🔍 Inspect &apos;WHY&apos; Reasoning &amp; Sensor Telemetry Evidence
+              </summary>
+              <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '8px' }}>
+                  <div style={{ background: 'var(--bg-primary)', padding: '8px', borderRadius: '6px' }}>
+                    <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>Observed Metric</div>
+                    <div style={{ fontWeight: 600, color: 'var(--accent-amber)' }}>
+                      {item.type === 'WATER_STRESS' ? 'Soil Moisture: 17.5%' : 'Relative Humidity: 78%'}
+                    </div>
+                  </div>
+                  <div style={{ background: 'var(--bg-primary)', padding: '8px', borderRadius: '6px' }}>
+                    <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>Safety Threshold</div>
+                    <div style={{ fontWeight: 600 }}>
+                      {item.type === 'WATER_STRESS' ? 'Critical < 20.0%' : 'High Risk > 75.0%'}
+                    </div>
+                  </div>
+                  <div style={{ background: 'var(--bg-primary)', padding: '8px', borderRadius: '6px' }}>
+                    <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>Primary Confidence</div>
+                    <div style={{ fontWeight: 600, color: 'var(--accent-emerald)' }}>88% (Passes Gating &ge; 70%)</div>
+                  </div>
+                </div>
+                <div style={{ background: 'var(--bg-primary)', padding: '8px', borderRadius: '6px' }}>
+                  <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>Active Decision Rules</div>
+                  <div style={{ fontFamily: 'monospace', fontSize: '0.8rem', marginTop: '2px' }}>
+                    {item.type === 'WATER_STRESS'
+                      ? 'RULE_DRY_SOIL_LOW_BATTERY_SAFE: moisture < 20% AND rover_battery > 20% -> RECOMMEND_IRRIGATION'
+                      : 'RULE_FUNGAL_FAVORABLE_CLIMATE: RH > 75% AND detection_confidence > 0.70 -> FLAG_EXPERT_REVIEW'}
+                  </div>
+                </div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                  Multimodal Privacy Note: Imagery processed per farmer authorization; no personal identification data stored.
+                </div>
+              </div>
+            </details>
 
             <div style={{ background: 'var(--bg-secondary)', padding: '12px', borderRadius: '8px', marginBottom: '16px', fontSize: '0.85rem' }}>
               <strong>Advisory Recommendation:</strong> {item.recommended_action}

@@ -11,26 +11,22 @@ import { test, describe, before, after } from 'node:test';
 import assert from 'node:assert';
 import http from 'node:http';
 import { server, alertStore, syncEngine, engine, closedLoop } from '../services/rover-simulator/src/server.js';
+import { updateZoneMoisture } from '../services/rover-simulator/src/telemetry-gen.js';
 import { SyncBatchRequest } from '@prahar/shared';
 
 describe('Phase 3: 20-Step End-to-End Validation Lifecycle', () => {
   let baseUrl: string = 'http://127.0.0.1:3001';
 
   before(async () => {
+    updateZoneMoisture('DEMO-ZONE-02', 17.5);
+    alertStore.clear();
+
     if (!server.listening) {
-      await new Promise<void>((resolve) => server.once('listening', resolve));
+      await new Promise<void>((resolve) => server.listen(0, resolve));
     }
     const addr = server.address();
     if (typeof addr === 'object' && addr !== null) {
       baseUrl = `http://127.0.0.1:${addr.port}`;
-    }
-  });
-
-  after(() => {
-    try {
-      server.close();
-    } catch {
-      // Ignore
     }
   });
 
@@ -224,8 +220,8 @@ describe('Phase 3: 20-Step End-to-End Validation Lifecycle', () => {
       client_id: 'ROVER-DEMO-01',
       records: [
         {
-          event_id: 'evt-offline-reconnect-01',
-          idempotency_key: 'idemp-offline-reconnect-unique',
+          event_id: `evt-offline-reconnect-${Date.now()}`,
+          idempotency_key: `idemp-offline-reconnect-${Date.now()}`,
           rover_id: 'ROVER-DEMO-01',
           entity_type: 'SCAN_PAYLOAD',
           action: 'INSERT',

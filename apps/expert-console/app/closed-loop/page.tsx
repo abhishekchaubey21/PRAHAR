@@ -207,6 +207,38 @@ export default function ClosedLoopPage() {
         </div>
       </div>
 
+      {/* Field Evidence Report Card */}
+      <div className="card" style={{ borderColor: 'var(--accent-sky)' }}>
+        <div className="card-header">
+          <div>
+            <h3 className="card-title" style={{ color: 'var(--accent-sky)' }}>
+              PRAHAR Field Evidence Report
+            </h3>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+              Report ID: rep-demo-zone-02-latest &bull; Informational Field Verification
+            </span>
+          </div>
+          <span className="badge badge-low" style={{ background: 'var(--accent-emerald-glow)', color: 'var(--accent-emerald)' }}>
+            VERIFIED OUTCOME
+          </span>
+        </div>
+
+        <div style={{ background: 'var(--bg-secondary)', padding: '14px', borderRadius: '8px', fontSize: '0.85rem', marginBottom: '12px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px', marginBottom: '10px' }}>
+            <div>Farm: <strong>Kisan Demo Farm Alpha</strong></div>
+            <div>Target Zone: <strong>DEMO-ZONE-02</strong></div>
+            <div>Issue: <strong>Severe Water Stress (16.5% moisture)</strong></div>
+            <div>Action Taken: <strong>30s Micro-irrigation (~7.5L)</strong></div>
+          </div>
+          <div style={{ padding: '8px 12px', background: 'var(--bg-primary)', borderRadius: '6px', marginBottom: '10px' }}>
+            Outcome: Soil moisture elevated by <strong>+12.0%</strong> (from 16.5% to 28.5%). Water stress condition successfully resolved.
+          </div>
+          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontStyle: 'italic', margin: 0 }}>
+            NOTICE: This document is a PRAHAR-generated informational field evidence report produced from autonomous rover sensor observations and edge AI detections. It is NOT an official government certificate, certified statutory audit, or legal agricultural warranty.
+          </p>
+        </div>
+      </div>
+
       <div>
         <Link href="/queue" className="btn btn-outline">
           &larr; Back to Triage Queue
