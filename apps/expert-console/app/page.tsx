@@ -51,11 +51,11 @@ export default function DashboardPage() {
               Farm Precision Overview &amp; Risk Intelligence
             </h1>
             <span className="badge badge-success" style={{ fontSize: '0.72rem' }}>
-              LIVE MONITORING
+              DEMO MONITORING
             </span>
           </div>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem' }}>
-            Kisan Demo Farm Alpha (3.5 Acres • Crop: Tomato) — Autonomous Edge Rover &bull; Gateway :3001
+            Kisan Demo Farm Alpha (3.5 Acres • Crop: Tomato) — Simulated Edge Rover &bull; Gateway :3001
           </p>
         </div>
 
@@ -132,8 +132,8 @@ export default function DashboardPage() {
           </div>
           <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', fontWeight: 600, marginBottom: '4px' }}>
             {alertSummary.active === 0
-              ? 'Zone 2: Micro-irrigation verified (16.4% → 28.4%) • Zone 3: Monitored'
-              : 'Zone 2: Awaiting closed-loop verification • Zone 3: Monitored'}
+              ? 'Zone 2: Simulated micro-irrigation verified (16.4% → 28.4%) • Zone 3: Monitored'
+              : 'Zone 2: Awaiting closed-loop simulated verification • Zone 3: Monitored'}
           </div>
           <p style={{ fontSize: '0.74rem', color: 'var(--text-muted)', borderTop: '1px solid var(--border-subtle)', paddingTop: '8px' }}>
             Historical alerts and remediation verifications remain archived in immutable audit log.
@@ -178,7 +178,7 @@ export default function DashboardPage() {
           <div style={{ background: 'var(--bg-secondary)', padding: '14px', borderRadius: '10px', border: '1px solid var(--border-subtle)' }}>
             <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Water Condition</div>
             <div style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--accent-emerald)', margin: '4px 0' }}>OPTIMAL</div>
-            <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>Zone 2: 28.4% (Elevated +12%)</div>
+            <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>Zone 2: 28.4% (Simulated Elevation +12%)</div>
           </div>
 
           <div style={{ background: 'var(--bg-secondary)', padding: '14px', borderRadius: '10px', border: '1px solid var(--border-subtle)' }}>

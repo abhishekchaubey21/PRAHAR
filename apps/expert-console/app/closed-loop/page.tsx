@@ -120,11 +120,11 @@ export default function ClosedLoopPage() {
             Closed-Loop Remediation &amp; Re-Verification
           </h1>
           <span className="badge badge-success" style={{ fontSize: '0.72rem' }}>
-            PHYSICAL VERIFICATION
+            SIMULATED FIELD VERIFICATION
           </span>
         </div>
         <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem' }}>
-          Genuine before/after verification linking autonomous edge AI hazard detection to verified physical field remediation.
+          Before/after verification linking edge AI hazard detection to safety-gated simulated field remediation.
         </p>
       </div>
 
@@ -164,14 +164,14 @@ export default function ClosedLoopPage() {
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
               <span className="badge badge-success" style={{ background: 'var(--accent-emerald)', color: '#08120e', fontWeight: 800 }}>
-                CANONICAL DEMONSTRATION VERIFICATION
+                CANONICAL SIMULATED DEMONSTRATION
               </span>
               <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                Target: <strong>{heroVerification.zone_id}</strong> &bull; Micro-Irrigation (30s)
+                Target: <strong>{heroVerification.zone_id}</strong> &bull; Simulated Micro-Irrigation (30s)
               </span>
             </div>
             <h2 style={{ fontSize: '1.45rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.3px' }}>
-              {heroVerification.zone_id} — Root-Zone Remediation Outcome
+              {heroVerification.zone_id} — Root-Zone Simulated Remediation Outcome
             </h2>
           </div>
           <span className="badge badge-success" style={{ fontSize: '0.9rem', padding: '6px 14px' }}>
@@ -207,7 +207,7 @@ export default function ClosedLoopPage() {
             <div style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--accent-emerald)', margin: '4px 0' }}>
               {heroVerification.post_moisture}%
             </div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--accent-emerald)' }}>Optimal Target Level Restored</div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--accent-emerald)' }}>Target Threshold Crossed</div>
           </div>
 
           <div>
@@ -217,7 +217,7 @@ export default function ClosedLoopPage() {
             <div style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--accent-sky)', margin: '4px 0' }}>
               +{heroVerification.moisture_delta}%
             </div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Elevated via ~7.5L micro-pulse</div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Simulated elevation via ~7.5L model</div>
           </div>
         </div>
 
@@ -254,7 +254,7 @@ export default function ClosedLoopPage() {
           Interactive Closed-Loop Controller
         </h3>
         <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '14px' }}>
-          Execute pending human-approved interventions and trigger automated re-scan verification against live simulator.
+          Execute pending human-approved simulated interventions and trigger re-scan verification against the simulator gateway.
         </p>
 
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -276,10 +276,10 @@ export default function ClosedLoopPage() {
             }}
           />
           <button className="btn" disabled={loading} onClick={executeIntervention}>
-            ⚡ Execute Approved Action
+            ⚡ Execute Approved Simulated Action
           </button>
           <button className="btn btn-outline" disabled={loading} onClick={triggerVerification}>
-            🔍 Verify (Re-Scan &amp; Compare)
+            🔍 Verify (Simulated Re-Scan &amp; Delta)
           </button>
         </div>
 
@@ -364,10 +364,10 @@ export default function ClosedLoopPage() {
             <div>Farm Name: <strong>Kisan Demo Farm Alpha</strong></div>
             <div>Target Zone: <strong>DEMO-ZONE-02</strong></div>
             <div>Observed Issue: <strong>Severe Water Stress (16.4% moisture)</strong></div>
-            <div>Remediation Executed: <strong>30s Micro-irrigation (~7.5L)</strong></div>
+            <div>Remediation Executed: <strong>Simulated 30s Micro-irrigation (~7.5L)</strong></div>
           </div>
           <div style={{ padding: '10px 14px', background: 'rgba(16, 185, 129, 0.1)', borderRadius: '8px', marginBottom: '12px', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
-            Verified Outcome: Soil moisture elevated by <strong style={{ color: 'var(--accent-emerald)' }}>+12.0%</strong> (from 16.4% to 28.4%). Root-zone water stress condition successfully resolved.
+            Verified Outcome: Soil moisture elevated by <strong style={{ color: 'var(--accent-emerald)' }}>+12.0%</strong> (from 16.4% to 28.4%). Target threshold crossed; root-zone water stress resolved in simulated model.
           </div>
           <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontStyle: 'italic', margin: 0, lineHeight: 1.45 }}>
             NOTICE: This document is a PRAHAR-generated informational field evidence report produced from autonomous rover sensor observations and edge AI detections. It is NOT an official government certificate, certified statutory audit, or legal agricultural warranty.

@@ -277,7 +277,7 @@ export default function TriageQueuePage() {
                     disabled={loading || item.status === 'RESOLVED'}
                     onClick={() => handleApproveIntervention(item.zone_id)}
                   >
-                    ⚡ Approve Irrigation (Safety Gate)
+                    ⚡ Approve Simulated Irrigation (Safety Gate)
                   </button>
                 ) : (
                   <button
@@ -370,7 +370,7 @@ export default function TriageQueuePage() {
 
                   {/* Privacy and Technical Disclosures */}
                   <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', fontStyle: 'italic', lineHeight: 1.45 }}>
-                    Technical Disclosure: Multimodal AI is secondary consultative evidence. Guy 3 edge rover detection remains primary ground truth. All telemetry and imagery are securely buffered and subject to farmer privacy authorization.
+                    Technical Disclosure: Multimodal AI is secondary consultative evidence. Guy 3 edge rover detection remains primary ground truth. All telemetry and imagery are securely buffered and subject to farmer privacy authorization. Physical rover hardware and micro-irrigation actuators are simulated in software.
                   </div>
                 </div>
               </details>
