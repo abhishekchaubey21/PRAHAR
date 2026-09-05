@@ -4,7 +4,7 @@
  * Aligned with Requirements 4 & 5.
  */
 
-import { Alert, AlertStatus, DECISION_THRESHOLDS, ExpertAuditRecord } from '@prahar/shared';
+import { Alert, AlertStatus, DECISION_THRESHOLDS, ExpertAuditRecord, RemediationVerification } from '@prahar/shared';
 
 export interface IAlertStore {
   saveAlert(alert: Alert): Promise<Alert> | Alert;
@@ -17,12 +17,15 @@ export interface IAlertStore {
   getAlertById(alertId: string): Promise<Alert | null> | (Alert | null);
   recordAudit(record: ExpertAuditRecord): Promise<void> | void;
   getAuditHistory(filters?: { alert_id?: string; zone_id?: string }): Promise<ExpertAuditRecord[]> | ExpertAuditRecord[];
+  saveVerification?(verification: RemediationVerification): Promise<RemediationVerification> | RemediationVerification;
+  getVerifications?(zoneId?: string): Promise<RemediationVerification[]> | RemediationVerification[];
   clear(): void;
 }
 
 export class InMemoryAlertStore implements IAlertStore {
   private alerts: Map<string, Alert> = new Map();
   private auditRecords: ExpertAuditRecord[] = [];
+  private verifications: RemediationVerification[] = [];
 
   public saveAlert(alert: Alert): Alert {
     this.alerts.set(alert.alert_id, { ...alert });
@@ -88,8 +91,22 @@ export class InMemoryAlertStore implements IAlertStore {
     return records.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
   }
 
+  public saveVerification(verification: RemediationVerification): RemediationVerification {
+    this.verifications.push({ ...verification });
+    return verification;
+  }
+
+  public getVerifications(zoneId?: string): RemediationVerification[] {
+    let records = [...this.verifications];
+    if (zoneId) {
+      records = records.filter((r) => r.zone_id === zoneId);
+    }
+    return records.sort((a, b) => new Date(b.verification_timestamp).getTime() - new Date(a.verification_timestamp).getTime());
+  }
+
   public clear(): void {
     this.alerts.clear();
     this.auditRecords = [];
+    this.verifications = [];
   }
 }

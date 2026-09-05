@@ -6,10 +6,11 @@
 
 import http from 'node:http';
 import { RoverEngine } from './engine.js';
-import { InMemoryAlertStore } from './alert-store.js';
+import { PersistentAlertStore } from './persistent-alert-store.js';
+import { SyncEngine } from './sync-engine.js';
 import { DecisionEngine } from './decision-engine.js';
 import { ClosedLoopCoordinator } from './closed-loop.js';
-import { RoverCommand, RoverScanPayload } from '@prahar/shared';
+import { RoverCommand, RoverScanPayload, SyncBatchRequest } from '@prahar/shared';
 
 const PORT = parseInt(process.env.PORT || '3001', 10);
 
@@ -18,7 +19,8 @@ const engine = new RoverEngine({
   initialBattery: 96.0,
 });
 
-const alertStore = new InMemoryAlertStore();
+const alertStore = new PersistentAlertStore();
+const syncEngine = new SyncEngine();
 const decisionEngine = new DecisionEngine(alertStore);
 const closedLoop = new ClosedLoopCoordinator(engine, decisionEngine, alertStore);
 
@@ -348,6 +350,137 @@ const server = http.createServer(async (req, res) => {
       });
     }
 
+    // ------------------------------------------------------------------------
+    // Phase 3: Production Data Layer & Offline Sync Endpoints
+    // ------------------------------------------------------------------------
+
+    // Ingest Offline Sync Batch (Idempotent & Conflict-aware)
+    if (pathname === '/api/sync/push' && method === 'POST') {
+      const body = await parseJsonBody(req);
+      const batch: SyncBatchRequest = {
+        client_id: body.client_id || 'ROVER-LOCAL-CLIENT',
+        records: body.records || [],
+        strategy: body.strategy || 'LAST_WRITE_WINS',
+      };
+      const result = syncEngine.processBatch(batch);
+      return sendJson(res, 200, result);
+    }
+
+    // Inspect Sync Queue Status
+    if (pathname === '/api/sync/status' && method === 'GET') {
+      return sendJson(res, 200, {
+        success: true,
+        data: syncEngine.getStatus(),
+      });
+    }
+
+    // Inspect Failed Sync Events
+    if (pathname === '/api/sync/failed' && method === 'GET') {
+      return sendJson(res, 200, {
+        success: true,
+        failed_events: syncEngine.getFailedEvents(),
+      });
+    }
+
+    // Manual Retry of Failed Sync Events
+    if (pathname === '/api/sync/retry' && method === 'POST') {
+      const retriedCount = syncEngine.retryFailed();
+      return sendJson(res, 200, {
+        success: true,
+        retried_count: retriedCount,
+        queue_status: syncEngine.getStatus(),
+      });
+    }
+
+    // Flush/Drain Queue
+    if (pathname === '/api/sync/flush' && method === 'POST') {
+      const flushResult = await syncEngine.flushQueue();
+      return sendJson(res, 200, {
+        success: true,
+        data: flushResult,
+      });
+    }
+
+    // Authenticated Profile (Farmer / Expert / Admin)
+    if (pathname === '/api/auth/profile' && method === 'GET') {
+      const role = url.searchParams.get('role') || 'FARMER';
+      const isFarmer = role.toUpperCase() === 'FARMER';
+      return sendJson(res, 200, {
+        success: true,
+        profile: {
+          id: isFarmer ? 'usr-demo-farmer-01' : 'usr-demo-expert-01',
+          role: isFarmer ? 'FARMER' : 'EXPERT',
+          full_name: isFarmer ? 'Ramesh Kumar (रामेश कुमार)' : 'Dr. S. Sharma (KVK Agronomist)',
+          farmer_id: isFarmer ? 'farmer-demo-01' : null,
+          assigned_cluster: 'CLUSTER-DEMO-01',
+          preferred_language: isFarmer ? 'hi' : 'en',
+          authorized_farms: ['FARM-DEMO-01'],
+          authorized_zones: ['ZONE-A1', 'DEMO-ZONE-02', 'DEMO-ZONE-03', 'DEMO-ZONE-04'],
+        },
+      });
+    }
+
+    // Farms List
+    if (pathname === '/api/farms' && method === 'GET') {
+      return sendJson(res, 200, {
+        success: true,
+        farms: [
+          {
+            id: 'FARM-DEMO-01',
+            farmer_id: 'farmer-demo-01',
+            name: 'Kisan Demo Farm Alpha (डेमो खेत अल्फा)',
+            crop_type: 'Tomato (टमाटर)',
+            area_acres: 3.5,
+            zones_count: 4,
+            created_at: '2026-09-01T00:00:00Z',
+          },
+        ],
+      });
+    }
+
+    // Zones List with Health Status
+    if (pathname === '/api/zones' && method === 'GET') {
+      const farmId = url.searchParams.get('farm_id') || 'FARM-DEMO-01';
+      return sendJson(res, 200, {
+        success: true,
+        farm_id: farmId,
+        zones: [
+          {
+            id: 'ZONE-A1',
+            name: 'Zone 1 (North Plot)',
+            soil_type: 'Clay Loam',
+            last_moisture: 32.5,
+            status: 'OPTIMAL',
+            last_scan_at: new Date(Date.now() - 3600000).toISOString(),
+          },
+          {
+            id: 'DEMO-ZONE-02',
+            name: 'Zone 2 (East Sector)',
+            soil_type: 'Sandy Loam',
+            last_moisture: 17.5,
+            status: 'WATER_STRESS',
+            last_scan_at: new Date(Date.now() - 900000).toISOString(),
+          },
+          {
+            id: 'DEMO-ZONE-03',
+            name: 'Zone 3 (South Sector)',
+            soil_type: 'Loam',
+            last_moisture: 28.0,
+            status: 'DISEASE_SUSPECTED',
+            last_scan_at: new Date(Date.now() - 2700000).toISOString(),
+          },
+          {
+            id: 'DEMO-ZONE-04',
+            name: 'Zone 4 (West Sector)',
+            soil_type: 'Loam',
+            last_moisture: 34.0,
+            status: 'OPTIMAL',
+            last_scan_at: new Date(Date.now() - 7200000).toISOString(),
+          },
+        ],
+      });
+    }
+
     // 404 Fallback
     return sendJson(res, 404, {
       success: false,
@@ -362,18 +495,16 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`[PRAHAR Rover Simulator & Decision Gateway v0.2] Online`);
+  console.log(`[PRAHAR Rover Simulator & Decision Gateway v0.3] Online`);
   console.log(`Rover ID: ${engine.getRoverId()}`);
   console.log(`HTTP Server listening on http://localhost:${PORT}`);
-  console.log(`Phase 2 Endpoints:`);
-  console.log(`  POST /api/ingest/scan`);
-  console.log(`  GET  /api/alerts`);
-  console.log(`  POST /api/alerts/:id/triage`);
-  console.log(`  POST /api/remediation/approve`);
-  console.log(`  POST /api/remediation/execute`);
-  console.log(`  POST /api/remediation/verify`);
-  console.log(`  GET  /api/remediation/verifications`);
-  console.log(`  GET  /api/audit/history`);
+  console.log(`Phase 3 Production & Offline Sync Endpoints:`);
+  console.log(`  POST /api/sync/push`);
+  console.log(`  GET  /api/sync/status`);
+  console.log(`  POST /api/sync/retry`);
+  console.log(`  GET  /api/auth/profile`);
+  console.log(`  GET  /api/farms`);
+  console.log(`  GET  /api/zones`);
 });
 
-export { server, engine, alertStore, decisionEngine, closedLoop };
+export { server, engine, alertStore, syncEngine, decisionEngine, closedLoop };

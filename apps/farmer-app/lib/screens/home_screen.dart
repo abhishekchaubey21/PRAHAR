@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../domain/models.dart';
 import '../core/theme.dart';
+import '../core/offline_storage.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -12,6 +13,8 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   // Language toggle: true = Hindi ('hi'), false = English ('en')
   bool _isHindi = false;
+
+  final OfflineStorageService _offlineStorage = OfflineStorageService();
 
   final RoverStatusModel _rover = const RoverStatusModel(
     roverId: 'ROVER-DEMO-01',
@@ -55,6 +58,29 @@ class _HomeScreenState extends State<HomeScreen> {
   RemediationVerificationModel? _latestVerification;
 
   void _approveAndIrrigate(AlertModel alert) {
+    if (!_offlineStorage.isOnline) {
+      _offlineStorage.queueAction('APPROVE_IRRIGATION', {
+        'alert_id': alert.id,
+        'zone_id': alert.zoneId,
+        'duration_seconds': 30,
+        'approved_by': 'farmer_offline',
+      });
+      setState(() {
+        alert.isApproved = true;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _isHindi
+                ? 'ऑफ़लाइन सहेजा गया! इंटरनेट बहाल होने पर सिंक होगा।'
+                : 'Action buffered offline! Will synchronize when online.',
+          ),
+          backgroundColor: PraharTheme.alertAmber,
+        ),
+      );
+      return;
+    }
+
     setState(() {
       alert.isApproved = true;
       alert.status = AlertStatus.actionTaken;
@@ -75,8 +101,23 @@ class _HomeScreenState extends State<HomeScreen> {
       SnackBar(
         content: Text(
           _isHindi
-            ? 'सिंचाई स्वीकृत! रोवर ने 30s सूक्ष्म-सिंचाई शुरू की। (सुरक्षा द्वार संतुष्ट)'
-            : 'Irrigation Approved! Rover dispatched 30s micro-irrigation. (Safety Gate Satisfied)',
+              ? 'सिंचाई स्वीकृत! रोवर ने 30s सूक्ष्म-सिंचाई शुरू की। (सुरक्षा द्वार संतुष्ट)'
+              : 'Irrigation Approved! Rover dispatched 30s micro-irrigation. (Safety Gate Satisfied)',
+        ),
+        backgroundColor: PraharTheme.primaryGreen,
+      ),
+    );
+  }
+
+  void _syncNow() async {
+    final synced = await _offlineStorage.synchronize();
+    setState(() {});
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          _isHindi
+              ? 'सिंक पूरा हुआ: $synced कार्य सर्वर पर भेजे गए।'
+              : 'Sync complete: $synced offline actions pushed to server.',
         ),
         backgroundColor: PraharTheme.primaryGreen,
       ),
@@ -92,7 +133,7 @@ class _HomeScreenState extends State<HomeScreen> {
             const Text('PRAHAR'),
             const SizedBox(width: 8),
             Chip(
-              label: Text(_isHindi ? 'किसान v0.2' : 'Farmer v0.2', style: const TextStyle(fontSize: 10, color: Colors.white)),
+              label: Text(_isHindi ? 'किसान v0.3' : 'Farmer v0.3', style: const TextStyle(fontSize: 10, color: Colors.white)),
               backgroundColor: PraharTheme.borderGreen,
               padding: EdgeInsets.zero,
             ),
@@ -109,6 +150,7 @@ class _HomeScreenState extends State<HomeScreen> {
             onPressed: () {
               setState(() {
                 _isHindi = !_isHindi;
+                _offlineStorage.languagePreference = _isHindi ? 'hi' : 'en';
               });
             },
           ),
@@ -118,6 +160,87 @@ class _HomeScreenState extends State<HomeScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16.0),
         children: [
+          // Phase 3 Offline Sync Status Banner
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            margin: const EdgeInsets.only(bottom: 14),
+            decoration: BoxDecoration(
+              color: _offlineStorage.isOnline ? const Color(0xFF10281F) : const Color(0xFF2A1C14),
+              border: Border.all(
+                color: _offlineStorage.isOnline ? PraharTheme.primaryGreen : PraharTheme.alertAmber,
+                width: 1,
+              ),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      _offlineStorage.isOnline ? Icons.cloud_done : Icons.cloud_off,
+                      color: _offlineStorage.isOnline ? PraharTheme.primaryGreen : PraharTheme.alertAmber,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 10),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _offlineStorage.isOnline
+                              ? (_isHindi ? 'क्लाउड सिंक सक्रिय (ऑनलाइन)' : 'Cloud Sync Active (Online)')
+                              : (_isHindi ? 'ऑफ़लाइन मोड (स्थानीय कैश)' : 'Offline Mode (Local Cache)'),
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                            color: _offlineStorage.isOnline ? PraharTheme.primaryGreen : PraharTheme.alertAmber,
+                          ),
+                        ),
+                        Text(
+                          _isHindi
+                              ? 'लंबित कतार: ${_offlineStorage.pendingCount} कार्य'
+                              : 'Buffered: ${_offlineStorage.pendingCount} pending events',
+                          style: TextStyle(color: Colors.grey[400], fontSize: 11),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                Row(
+                  children: [
+                    // Offline toggle for field testing
+                    IconButton(
+                      icon: Icon(
+                        _offlineStorage.isOnline ? Icons.wifi : Icons.wifi_off,
+                        size: 20,
+                        color: Colors.grey[300],
+                      ),
+                      tooltip: 'Toggle Network Connectivity',
+                      onPressed: () {
+                        setState(() {
+                          _offlineStorage.isOnline = !_offlineStorage.isOnline;
+                        });
+                      },
+                    ),
+                    if (_offlineStorage.pendingCount > 0 && _offlineStorage.isOnline)
+                      TextButton(
+                        onPressed: _syncNow,
+                        style: TextButton.styleFrom(
+                          backgroundColor: PraharTheme.primaryGreen,
+                          foregroundColor: Colors.black,
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        ),
+                        child: Text(
+                          _isHindi ? 'सिंक करें' : 'Sync Now',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
           // Farm Health Status Card
           Card(
             child: Padding(

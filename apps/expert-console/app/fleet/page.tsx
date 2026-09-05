@@ -82,7 +82,7 @@ export default function FleetTelemetryPage() {
             <button
               className="btn btn-outline"
               disabled={loading}
-              onClick={() => sendCommand('IRRIGATE', { zone_id: 'DEMO-ZONE-02', duration_seconds: 30 })}
+              onClick={() => sendCommand('IRRIGATE', { zone_id: 'DEMO-ZONE-02', duration_seconds: 30, approved_by: 'dr_sharma_kvk_expert' })}
             >
               Simulate Irrigation (30s)
             </button>

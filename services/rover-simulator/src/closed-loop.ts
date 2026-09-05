@@ -206,6 +206,9 @@ export class ClosedLoopCoordinator {
     };
 
     this.verificationRecords.push(verification);
+    if (this.alertStore.saveVerification) {
+      await this.alertStore.saveVerification(verification);
+    }
 
     // If resolved, mark corresponding alert as RESOLVED
     if (resolved) {
@@ -220,6 +223,12 @@ export class ClosedLoopCoordinator {
   }
 
   public getVerificationRecords(zoneId?: string): RemediationVerification[] {
+    if (this.alertStore.getVerifications) {
+      const stored = this.alertStore.getVerifications(zoneId);
+      if (Array.isArray(stored) && stored.length > 0) {
+        return stored;
+      }
+    }
     let records = [...this.verificationRecords];
     if (zoneId) {
       records = records.filter((r) => r.zone_id === zoneId);

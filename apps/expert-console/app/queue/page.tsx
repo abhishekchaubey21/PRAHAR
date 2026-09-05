@@ -43,12 +43,25 @@ const DEFAULT_ALERTS: TriageAlert[] = [
   },
 ];
 
+interface AuditRecord {
+  audit_id: string;
+  actor: string;
+  timestamp: string;
+  zone_id: string;
+  alert_id: string;
+  action: string;
+  previous_state: string;
+  new_state: string;
+  expert_note?: string;
+}
+
 export default function TriageQueuePage() {
   const [alerts, setAlerts] = useState<TriageAlert[]>(DEFAULT_ALERTS);
+  const [auditHistory, setAuditHistory] = useState<AuditRecord[]>([]);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
+  const fetchAlertsAndAudit = () => {
     // Attempt fetching live alerts from local simulator gateway
     fetch('http://localhost:3001/api/alerts')
       .then((res) => res.json())
@@ -57,9 +70,21 @@ export default function TriageQueuePage() {
           setAlerts(data.data);
         }
       })
-      .catch(() => {
-        // Fallback to default demo alerts if simulator is offline
-      });
+      .catch(() => {});
+
+    // Fetch live audit history
+    fetch('http://localhost:3001/api/audit/history')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.data)) {
+          setAuditHistory(data.data);
+        }
+      })
+      .catch(() => {});
+  };
+
+  useEffect(() => {
+    fetchAlertsAndAudit();
   }, []);
 
   const handleTriage = async (alertId: string, action: 'CONFIRM' | 'CORRECT' | 'ESCALATE') => {
@@ -86,6 +111,7 @@ export default function TriageQueuePage() {
       );
     } finally {
       setLoading(false);
+      fetchAlertsAndAudit();
     }
   };
 
@@ -112,6 +138,7 @@ export default function TriageQueuePage() {
       setFeedback(`Intervention for ${zoneId} APPROVED by dr_sharma_kvk_expert (Safety Gate satisfied).`);
     } finally {
       setLoading(false);
+      fetchAlertsAndAudit();
     }
   };
 
@@ -208,6 +235,46 @@ export default function TriageQueuePage() {
             </div>
           </div>
         ))}
+      </div>
+
+      {/* Expert Audit Trail Section */}
+      <div className="card">
+        <div className="card-header">
+          <h3 className="card-title">Immutable Expert Audit Trail</h3>
+          <span className="badge" style={{ background: 'var(--accent-emerald-glow)', color: 'var(--accent-emerald)' }}>
+            {auditHistory.length} Audit Records
+          </span>
+        </div>
+        {auditHistory.length === 0 ? (
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>No audit actions recorded yet.</p>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {auditHistory.slice(0, 10).map((record) => (
+              <div
+                key={record.audit_id}
+                style={{
+                  background: 'var(--bg-secondary)',
+                  padding: '12px',
+                  borderRadius: '6px',
+                  fontSize: '0.85rem',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                }}
+              >
+                <div>
+                  <strong>{record.actor}</strong> &bull; <span className="badge badge-low">{record.action}</span> for {record.zone_id}
+                  <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: '4px' }}>
+                    State: {record.previous_state} &rarr; {record.new_state} | {record.expert_note}
+                  </div>
+                </div>
+                <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+                  {new Date(record.timestamp).toLocaleTimeString()}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <div style={{ display: 'flex', gap: '12px' }}>
