@@ -2,6 +2,12 @@ import 'package:flutter/material.dart';
 import '../domain/models.dart';
 import '../core/theme.dart';
 import '../core/offline_storage.dart';
+import '../core/api_client.dart';
+import '../core/storage/session_store.dart';
+import '../data/repositories/farm_repository.dart';
+import '../data/repositories/zone_repository.dart';
+import '../data/repositories/alert_repository.dart';
+import '../data/repositories/remediation_repository.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -15,6 +21,45 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isHindi = false;
 
   final OfflineStorageService _offlineStorage = OfflineStorageService();
+  late final ApiClient _apiClient;
+  late final FarmRepository _farmRepo;
+  late final ZoneRepository _zoneRepo;
+  late final AlertRepository _alertRepo;
+  late final RemediationRepository _remediationRepo;
+
+  @override
+  void initState() {
+    super.initState();
+    final sessionStore = SecureFileSessionStore();
+    _apiClient = ApiClient(sessionStore: sessionStore);
+    _farmRepo = FarmRepository(apiClient: _apiClient, offlineStore: _offlineStorage.store);
+    _zoneRepo = ZoneRepository(apiClient: _apiClient, offlineStore: _offlineStorage.store);
+    _alertRepo = AlertRepository(apiClient: _apiClient, offlineStore: _offlineStorage.store);
+    _remediationRepo = RemediationRepository(apiClient: _apiClient, offlineStore: _offlineStorage.store);
+
+    _loadRemoteData();
+  }
+
+  Future<void> _loadRemoteData() async {
+    try {
+      final remoteAlerts = await _alertRepo.getAlerts();
+      if (remoteAlerts.isNotEmpty && mounted) {
+        setState(() {
+          _alerts.clear();
+          _alerts.addAll(remoteAlerts);
+        });
+      }
+
+      final verifs = await _remediationRepo.getVerifications();
+      if (verifs.isNotEmpty && mounted) {
+        setState(() {
+          _latestVerification = verifs.first;
+        });
+      }
+    } catch (_) {
+      // Graceful offline fallback
+    }
+  }
 
   final RoverStatusModel _rover = const RoverStatusModel(
     roverId: 'ROVER-DEMO-01',
@@ -111,7 +156,9 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _syncNow() async {
-    final synced = await _offlineStorage.synchronize();
+    final synced = await _offlineStorage.synchronize(apiClient: _apiClient);
+    await _loadRemoteData();
+    if (!mounted) return;
     setState(() {});
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(

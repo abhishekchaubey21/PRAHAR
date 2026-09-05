@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { apiFetch } from '../lib/api-client';
 
 export default function DashboardPage() {
   const [dashboard, setDashboard] = useState<any>(null);
@@ -11,30 +12,29 @@ export default function DashboardPage() {
 
   useEffect(() => {
     // Fetch Farm Risk Dashboard
-    fetch('http://localhost:3001/api/analytics/farm-risk')
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.success) {
-          setDashboard(data.dashboard);
+    apiFetch('/api/analytics/farm-risk')
+      .then((res) => {
+        if (res.success && res.data) {
+          setDashboard(res.data.dashboard || res.data);
         }
       })
       .catch(() => {});
 
     // Fetch Weather Context
-    fetch('http://localhost:3001/api/weather/risk')
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.success) setWeather(data.weather);
+    apiFetch('/api/weather/risk')
+      .then((res) => {
+        if (res.success && res.data) {
+          setWeather(res.data.weather || res.data);
+        }
       })
       .catch(() => {});
 
     // Fetch alerts to compute accurate active vs resolved counts
-    fetch('http://localhost:3001/api/alerts')
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.success && Array.isArray(data.data)) {
-          const active = data.data.filter((a: any) => a.status !== 'RESOLVED').length;
-          const resolved = data.data.filter((a: any) => a.status === 'RESOLVED').length;
+    apiFetch('/api/alerts')
+      .then((res) => {
+        if (res.success && Array.isArray(res.data)) {
+          const active = res.data.filter((a: any) => a.status !== 'RESOLVED').length;
+          const resolved = res.data.filter((a: any) => a.status === 'RESOLVED').length;
           setAlertSummary({ active, resolved });
         }
       })

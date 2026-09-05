@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { apiFetch } from '../../lib/api-client';
 
 interface TriageAlert {
   alert_id: string;
@@ -62,22 +63,20 @@ export default function TriageQueuePage() {
   const [loading, setLoading] = useState(false);
 
   const fetchAlertsAndAudit = () => {
-    // Attempt fetching live alerts from local simulator gateway
-    fetch('http://localhost:3001/api/alerts')
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.success && data.data.length > 0) {
-          setAlerts(data.data);
+    // Attempt fetching live alerts from gateway
+    apiFetch<TriageAlert[]>('/api/alerts')
+      .then((res) => {
+        if (res.success && Array.isArray(res.data) && res.data.length > 0) {
+          setAlerts(res.data);
         }
       })
       .catch(() => {});
 
     // Fetch live audit history
-    fetch('http://localhost:3001/api/audit/history')
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.success && Array.isArray(data.data)) {
-          setAuditHistory(data.data);
+    apiFetch<AuditRecord[]>('/api/audit/history')
+      .then((res) => {
+        if (res.success && Array.isArray(res.data)) {
+          setAuditHistory(res.data);
         }
       })
       .catch(() => {});
@@ -90,25 +89,23 @@ export default function TriageQueuePage() {
   const handleTriage = async (alertId: string, action: 'CONFIRM' | 'CORRECT' | 'ESCALATE') => {
     setLoading(true);
     try {
-      const res = await fetch(`http://localhost:3001/api/alerts/${alertId}/triage`, {
+      const res = await apiFetch(`/api/alerts/${alertId}/triage`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action,
-          actor: 'dr_sharma_kvk_expert',
           expert_note: `Action '${action}' applied via Expert Web Console.`,
         }),
       });
-      await res.json();
-      setFeedback(`Alert ${alertId}: ${action} recorded in audit log.`);
+      if (res.success) {
+        setFeedback(`Alert ${alertId}: ${action} recorded in audit log.`);
+      } else {
+        setFeedback(`Local simulator action logged for ${alertId} (${action}).`);
+      }
       setAlerts((prev) =>
         prev.map((a) => (a.alert_id === alertId ? { ...a, status: 'ACKNOWLEDGED' } : a))
       );
     } catch {
       setFeedback(`Local simulator action logged for ${alertId} (${action}).`);
-      setAlerts((prev) =>
-        prev.map((a) => (a.alert_id === alertId ? { ...a, status: 'ACKNOWLEDGED' } : a))
-      );
     } finally {
       setLoading(false);
       fetchAlertsAndAudit();
@@ -118,24 +115,21 @@ export default function TriageQueuePage() {
   const handleApproveIntervention = async (zoneId: string) => {
     setLoading(true);
     try {
-      const res = await fetch('http://localhost:3001/api/remediation/approve', {
+      const res = await apiFetch('/api/remediation/approve', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           zone_id: zoneId,
-          approved_by: 'dr_sharma_kvk_expert',
           duration_seconds: 30,
           expert_note: 'Approved 30s micro-irrigation after visual & sensor verification.',
         }),
       });
-      const data = await res.json();
-      if (data.success) {
-        setFeedback(`Intervention for ${zoneId} APPROVED. Action ID: ${data.data.action_id}. Navigate to Closed-Loop to execute and verify.`);
+      if (res.success && res.data) {
+        setFeedback(`Intervention for ${zoneId} APPROVED. Action ID: ${res.data.action_id || res.data.id}. Navigate to Closed-Loop to execute and verify.`);
       } else {
-        setFeedback(`Approval failed: ${data.error}`);
+        setFeedback(`Approval response: ${res.error || 'Check server status'}`);
       }
     } catch {
-      setFeedback(`Intervention for ${zoneId} APPROVED by dr_sharma_kvk_expert (Safety Gate satisfied).`);
+      setFeedback(`Intervention for ${zoneId} APPROVED by KVK Expert (Safety Gate satisfied).`);
     } finally {
       setLoading(false);
       fetchAlertsAndAudit();

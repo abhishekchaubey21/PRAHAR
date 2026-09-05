@@ -84,7 +84,37 @@ export class ResilientDataStore implements IAlertStore {
     return this.localStore.getAlerts(filters);
   }
 
+  public async getAlertsAsync(filters?: { zone_id?: string; status?: AlertStatus }): Promise<Alert[]> {
+    if (isSupabaseConfigured() && this.activeToken) {
+      try {
+        const client = createUserScopedClient(this.activeToken);
+        return await this.supabaseRepo.getAlerts(client, filters);
+      } catch (err: any) {
+        if (err?.message?.includes('42501') || err?.message?.includes('JWT') || err?.message?.includes('Unauthorized')) {
+          throw err;
+        }
+        console.warn('[ResilientDataStore] Supabase getAlerts failed, falling back to local store:', err.message);
+      }
+    }
+    return this.localStore.getAlerts(filters);
+  }
+
   public getAlertById(alertId: string): Alert | null {
+    return this.localStore.getAlertById(alertId);
+  }
+
+  public async getAlertByIdAsync(alertId: string): Promise<Alert | null> {
+    if (isSupabaseConfigured() && this.activeToken) {
+      try {
+        const client = createUserScopedClient(this.activeToken);
+        return await this.supabaseRepo.getAlertById(client, alertId);
+      } catch (err: any) {
+        if (err?.message?.includes('42501') || err?.message?.includes('JWT') || err?.message?.includes('Unauthorized')) {
+          throw err;
+        }
+        console.warn('[ResilientDataStore] Supabase getAlertById failed, falling back to local store:', err.message);
+      }
+    }
     return this.localStore.getAlertById(alertId);
   }
 
@@ -107,6 +137,21 @@ export class ResilientDataStore implements IAlertStore {
     return this.localStore.getAuditHistory(filters);
   }
 
+  public async getAuditHistoryAsync(filters?: { alert_id?: string; zone_id?: string }): Promise<ExpertAuditRecord[]> {
+    if (isSupabaseConfigured() && this.activeToken) {
+      try {
+        const client = createUserScopedClient(this.activeToken);
+        return await this.supabaseRepo.getAuditHistory(client, filters);
+      } catch (err: any) {
+        if (err?.message?.includes('42501') || err?.message?.includes('JWT') || err?.message?.includes('Unauthorized')) {
+          throw err;
+        }
+        console.warn('[ResilientDataStore] Supabase getAuditHistory failed, falling back to local store:', err.message);
+      }
+    }
+    return this.localStore.getAuditHistory(filters);
+  }
+
   public saveVerification(verification: RemediationVerification): RemediationVerification {
     this.localStore.saveVerification(verification);
 
@@ -122,6 +167,25 @@ export class ResilientDataStore implements IAlertStore {
 
   public getVerifications(zoneId?: string): RemediationVerification[] {
     return this.localStore.getVerifications(zoneId);
+  }
+
+  public async getVerificationsAsync(zoneId?: string): Promise<RemediationVerification[]> {
+    if (isSupabaseConfigured() && this.activeToken) {
+      try {
+        const client = createUserScopedClient(this.activeToken);
+        return await this.supabaseRepo.getVerifications(client, zoneId);
+      } catch (err: any) {
+        if (err?.message?.includes('42501') || err?.message?.includes('JWT') || err?.message?.includes('Unauthorized')) {
+          throw err;
+        }
+        console.warn('[ResilientDataStore] Supabase getVerifications failed, falling back to local store:', err.message);
+      }
+    }
+    return this.localStore.getVerifications(zoneId);
+  }
+
+  public getSupabaseRepo(): SupabaseDataRepository {
+    return this.supabaseRepo;
   }
 
   public clear(): void {

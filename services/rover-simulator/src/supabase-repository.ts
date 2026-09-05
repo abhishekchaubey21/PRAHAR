@@ -277,4 +277,47 @@ export class SupabaseDataRepository {
       status: data.status,
     };
   }
+
+  public async getFarms(client: SupabaseClient): Promise<any[]> {
+    const { data, error } = await client
+      .from('farms')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw new Error(`[SupabaseDataRepository] getFarms error: ${error.message}`);
+    }
+
+    return (data || []).map((f: any) => ({
+      id: f.id,
+      farmer_id: f.farmer_id,
+      name: f.name,
+      crop_type: f.crop_type,
+      area_acres: Number(f.area_acres),
+      created_at: f.created_at,
+    }));
+  }
+
+  public async getZones(client: SupabaseClient, farmId?: string): Promise<any[]> {
+    let query = client.from('zones').select('*');
+    if (farmId) {
+      query = query.eq('farm_id', farmId);
+    }
+    query = query.order('created_at', { ascending: false });
+
+    const { data, error } = await query;
+    if (error) {
+      throw new Error(`[SupabaseDataRepository] getZones error: ${error.message}`);
+    }
+
+    return (data || []).map((z: any) => ({
+      id: z.id,
+      farm_id: z.farm_id,
+      name: z.name,
+      soil_type: z.soil_type,
+      crop_variety: z.crop_variety,
+      baseline_moisture_pct: Number(z.baseline_moisture_pct),
+      created_at: z.created_at,
+    }));
+  }
 }

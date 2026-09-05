@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
-import Link from 'next/link';
+import { ExpertRootShell } from '../lib/nav-auth-bar';
 
 export const metadata: Metadata = {
   title: 'PRAHAR | Field Intelligence',
@@ -15,22 +15,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <nav className="navbar">
-          <div className="nav-brand">
-            <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ color: 'var(--text-primary)', fontWeight: 800, letterSpacing: '1px' }}>PRAHAR</span>
-              <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>|</span>
-              <span style={{ color: 'var(--accent-emerald)', fontWeight: 600, fontSize: '1.05rem' }}>Field Intelligence</span>
-            </Link>
-          </div>
-          <div className="nav-links">
-            <Link href="/" className="nav-link">Overview</Link>
-            <Link href="/queue" className="nav-link">Triage Queue</Link>
-            <Link href="/closed-loop" className="nav-link">Closed-Loop</Link>
-            <Link href="/fleet" className="nav-link">Fleet Telemetry</Link>
-          </div>
-        </nav>
-        <main className="container">{children}</main>
+        <ExpertRootShell>{children}</ExpertRootShell>
       </body>
     </html>
   );

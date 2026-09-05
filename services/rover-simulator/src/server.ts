@@ -19,6 +19,7 @@ import { MultimodalAssistant } from './multimodal-assistant.js';
 import { HistoricalAnalytics } from './historical-analytics.js';
 import { FieldEvidenceReportGenerator, OpportunityCenter } from './reports-and-opportunities.js';
 import { AuthService } from './auth-service.js';
+import { createUserScopedClient, getServiceRoleClient, isSupabaseConfigured } from './supabase-client.js';
 import {
   authenticateRequest,
   enforceRole,
@@ -346,19 +347,34 @@ const server = http.createServer(async (rawReq, res) => {
       }, originHeader);
     }
 
-    // List Alerts (with bilingual support & filters)
+    // List Alerts (Phase 5B: Supabase authoritative under RLS when online)
     if (pathname === '/api/alerts' && method === 'GET') {
       const token = extractBearerToken(req);
-      resilientStore.setRequestContext(token || undefined);
+
+      if (token) {
+        const auth = await authenticateRequest(req, res, authService);
+        if (!auth) return;
+        resilientStore.setRequestContext(token);
+      } else if (!config.allowSimulatorBypass || config.nodeEnv === 'production') {
+        res.writeHead(401, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        return res.end(JSON.stringify({ success: false, error: 'Authentication required for alerts.' }));
+      }
 
       const zoneId = url.searchParams.get('zone_id') || undefined;
       const status = (url.searchParams.get('status') as any) || undefined;
-      const alerts = await resilientStore.getAlerts({ zone_id: zoneId, status });
-      return sendJson(res, 200, {
-        success: true,
-        count: alerts.length,
-        data: alerts,
-      }, originHeader);
+      try {
+        const alerts = await resilientStore.getAlertsAsync({ zone_id: zoneId, status });
+        return sendJson(res, 200, {
+          success: true,
+          count: alerts.length,
+          data: alerts,
+        }, originHeader);
+      } catch (err: any) {
+        if (err?.message?.includes('42501') || err?.message?.includes('JWT') || err?.message?.includes('Unauthorized')) {
+          return sendJson(res, 403, { success: false, error: err.message }, originHeader);
+        }
+        return sendJson(res, 500, { success: false, error: err.message }, originHeader);
+      }
     }
 
     // Expert Triage Action on an Alert (Role Gated: EXPERT or ADMIN)
@@ -428,7 +444,7 @@ const server = http.createServer(async (rawReq, res) => {
     // Phase 2: Closed-Loop Intervention & Verification Endpoints
     // ------------------------------------------------------------------------
 
-    // Approve Intervention (Safety Gate - Role Gated: EXPERT or ADMIN)
+    // Approve Intervention (Safety Gate - Role Gated: FARMER, EXPERT, ADMIN)
     if (pathname === '/api/remediation/approve' && method === 'POST') {
       const token = extractBearerToken(req);
       let approvedBy = 'dr_sharma_kvk_expert';
@@ -452,6 +468,26 @@ const server = http.createServer(async (rawReq, res) => {
           volume_liters: body.volume_liters,
           expert_note: body.expert_note,
         });
+
+        // Phase 5B: Persist approved action to Supabase under RLS
+        if (token && isSupabaseConfigured()) {
+          try {
+            const client = createUserScopedClient(token);
+            await resilientStore.getSupabaseRepo().saveRemediationAction(client, {
+              action_id: intervention.action_id,
+              zone_id: intervention.zone_id,
+              action_type: intervention.action_type,
+              duration_seconds: intervention.duration_seconds,
+              volume_liters: intervention.volume_liters,
+              approved_by: intervention.approved_by,
+              approved_at: intervention.approved_at,
+              expert_note: intervention.expert_note,
+              status: intervention.status,
+            });
+          } catch (err: any) {
+            console.warn('[Server] Failed to persist remediation action to Supabase:', err.message);
+          }
+        }
 
         return sendJson(res, 200, {
           success: true,
@@ -507,6 +543,17 @@ const server = http.createServer(async (rawReq, res) => {
       const body = await parseJsonBody(req);
       try {
         const verification = await closedLoop.verifyIntervention(body.action_id);
+
+        // Phase 5B: Persist verification to Supabase via server-side service role client
+        if (isSupabaseConfigured()) {
+          try {
+            const adminClient = getServiceRoleClient();
+            await resilientStore.getSupabaseRepo().saveVerification(adminClient, verification);
+          } catch (err: any) {
+            console.warn('[Server] Failed to persist verification to Supabase:', err.message);
+          }
+        }
+
         return sendJson(res, 200, {
           success: true,
           data: verification,
@@ -519,9 +566,31 @@ const server = http.createServer(async (rawReq, res) => {
       }
     }
 
-    // List All Verifications
+    // List All Verifications (Phase 5B: Supabase authoritative under RLS when online)
     if (pathname === '/api/remediation/verifications' && method === 'GET') {
+      const token = extractBearerToken(req);
       const zoneId = url.searchParams.get('zone_id') || undefined;
+
+      if (token && isSupabaseConfigured()) {
+        const auth = await authenticateRequest(req, res, authService);
+        if (!auth) return;
+
+        try {
+          const client = createUserScopedClient(token);
+          const records = await resilientStore.getSupabaseRepo().getVerifications(client, zoneId);
+          return sendJson(res, 200, {
+            success: true,
+            count: records.length,
+            data: records,
+          }, originHeader);
+        } catch (err: any) {
+          if (err?.message?.includes('42501') || err?.message?.includes('JWT') || err?.message?.includes('Unauthorized')) {
+            return sendJson(res, 403, { success: false, error: err.message }, originHeader);
+          }
+          console.warn('[Server] Supabase getVerifications failed, falling back to local records:', err.message);
+        }
+      }
+
       const records = closedLoop.getVerificationRecords(zoneId);
       return sendJson(res, 200, {
         success: true,
@@ -530,16 +599,36 @@ const server = http.createServer(async (rawReq, res) => {
       }, originHeader);
     }
 
-    // Live Audit History
+    // Live Audit History (Phase 5B: Role-gated EXPERT / ADMIN with Supabase RLS)
     if (pathname === '/api/audit/history' && method === 'GET') {
+      const token = extractBearerToken(req);
       const zoneId = url.searchParams.get('zone_id') || undefined;
       const alertId = url.searchParams.get('alert_id') || undefined;
-      const history = await resilientStore.getAuditHistory({ zone_id: zoneId, alert_id: alertId });
-      return sendJson(res, 200, {
-        success: true,
-        count: history.length,
-        data: history,
-      }, originHeader);
+
+      if (token) {
+        const auth = await authenticateRequest(req, res, authService);
+        if (!auth) return;
+        if (!enforceRole(req, res, ['EXPERT', 'ADMIN'])) return;
+
+        resilientStore.setRequestContext(token);
+      } else if (!config.allowSimulatorBypass || config.nodeEnv === 'production') {
+        res.writeHead(401, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        return res.end(JSON.stringify({ success: false, error: 'Authentication required for audit history.' }));
+      }
+
+      try {
+        const history = await resilientStore.getAuditHistory({ zone_id: zoneId, alert_id: alertId });
+        return sendJson(res, 200, {
+          success: true,
+          count: history.length,
+          data: history,
+        }, originHeader);
+      } catch (err: any) {
+        if (err?.message?.includes('42501') || err?.message?.includes('JWT') || err?.message?.includes('Unauthorized')) {
+          return sendJson(res, 403, { success: false, error: err.message }, originHeader);
+        }
+        return sendJson(res, 500, { success: false, error: err.message }, originHeader);
+      }
     }
 
     // ------------------------------------------------------------------------
@@ -637,8 +726,32 @@ const server = http.createServer(async (rawReq, res) => {
       }, originHeader);
     }
 
-    // Farms List
+    // Farms List (Phase 5B: User-Scoped Supabase query under RLS)
     if (pathname === '/api/farms' && method === 'GET') {
+      const token = extractBearerToken(req);
+
+      if (token && isSupabaseConfigured()) {
+        const auth = await authenticateRequest(req, res, authService);
+        if (!auth) return;
+
+        try {
+          const client = createUserScopedClient(token);
+          const farms = await resilientStore.getSupabaseRepo().getFarms(client);
+          return sendJson(res, 200, {
+            success: true,
+            farms,
+          }, originHeader);
+        } catch (err: any) {
+          if (err?.message?.includes('42501') || err?.message?.includes('JWT') || err?.message?.includes('Unauthorized')) {
+            return sendJson(res, 403, { success: false, error: err.message }, originHeader);
+          }
+          console.warn('[Server] Supabase getFarms failed, falling back to local fallback:', err.message);
+        }
+      } else if (!config.allowSimulatorBypass || config.nodeEnv === 'production') {
+        res.writeHead(401, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        return res.end(JSON.stringify({ success: false, error: 'Authentication required for farms.' }));
+      }
+
       return sendJson(res, 200, {
         success: true,
         farms: [
@@ -655,12 +768,37 @@ const server = http.createServer(async (rawReq, res) => {
       }, originHeader);
     }
 
-    // Zones List with Health Status
+    // Zones List with Health Status (Phase 5B: User-Scoped Supabase query under RLS)
     if (pathname === '/api/zones' && method === 'GET') {
-      const farmId = url.searchParams.get('farm_id') || 'FARM-DEMO-01';
+      const token = extractBearerToken(req);
+      const farmId = url.searchParams.get('farm_id') || undefined;
+
+      if (token && isSupabaseConfigured()) {
+        const auth = await authenticateRequest(req, res, authService);
+        if (!auth) return;
+
+        try {
+          const client = createUserScopedClient(token);
+          const zones = await resilientStore.getSupabaseRepo().getZones(client, farmId);
+          return sendJson(res, 200, {
+            success: true,
+            farm_id: farmId,
+            zones,
+          }, originHeader);
+        } catch (err: any) {
+          if (err?.message?.includes('42501') || err?.message?.includes('JWT') || err?.message?.includes('Unauthorized')) {
+            return sendJson(res, 403, { success: false, error: err.message }, originHeader);
+          }
+          console.warn('[Server] Supabase getZones failed, falling back to local fallback:', err.message);
+        }
+      } else if (!config.allowSimulatorBypass || config.nodeEnv === 'production') {
+        res.writeHead(401, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        return res.end(JSON.stringify({ success: false, error: 'Authentication required for zones.' }));
+      }
+
       return sendJson(res, 200, {
         success: true,
-        farm_id: farmId,
+        farm_id: farmId || 'FARM-DEMO-01',
         zones: [
           {
             id: 'ZONE-A1',

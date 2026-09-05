@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { apiFetch } from '../../lib/api-client';
 
 interface VerificationRecord {
   verification_id: string;
@@ -38,13 +39,11 @@ export default function ClosedLoopPage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    fetch('http://localhost:3001/api/remediation/verifications')
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.success && Array.isArray(data.data) && data.data.length > 0) {
+    apiFetch<VerificationRecord[]>('/api/remediation/verifications')
+      .then((res) => {
+        if (res.success && Array.isArray(res.data) && res.data.length > 0) {
           // If live records exist, keep canonical or check if newer
-          const records: VerificationRecord[] = data.data;
-          // Look for canonical or first record
+          const records: VerificationRecord[] = res.data;
           const foundCanonical = records.find(
             (r) => Math.abs(r.moisture_delta - 12.0) < 0.2 || (r.pre_moisture === 16.4 && r.post_moisture === 28.4)
           );
@@ -52,7 +51,6 @@ export default function ClosedLoopPage() {
             setHeroVerification(foundCanonical);
             setPreviousVerifications(records.filter((r) => r.verification_id !== foundCanonical.verification_id));
           } else {
-            // Keep the canonical hero record dominant as required, and put server records into previous verifications
             setHeroVerification(CANONICAL_HERO_VERIFICATION);
             setPreviousVerifications(records);
           }
@@ -68,19 +66,17 @@ export default function ClosedLoopPage() {
     }
     setLoading(true);
     try {
-      const res = await fetch('http://localhost:3001/api/remediation/execute', {
+      const res = await apiFetch('/api/remediation/execute', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action_id: actionId }),
       });
-      const data = await res.json();
-      if (data.success) {
+      if (res.success) {
         setStatusMsg(`Action '${actionId}' executed successfully by rover. Proceed to Verify Re-Scan.`);
       } else {
-        setStatusMsg(`Execution failed: ${data.data?.message || data.error}`);
+        setStatusMsg(`Execution failed: ${res.data?.message || res.error}`);
       }
     } catch (err: any) {
-      setStatusMsg(`Simulator connection error: ${err.message}`);
+      setStatusMsg(`Gateway connection error: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -93,20 +89,18 @@ export default function ClosedLoopPage() {
     }
     setLoading(true);
     try {
-      const res = await fetch('http://localhost:3001/api/remediation/verify', {
+      const res = await apiFetch('/api/remediation/verify', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action_id: actionId }),
       });
-      const data = await res.json();
-      if (data.success) {
-        setStatusMsg(`Verification complete! Delta: +${data.data.moisture_delta}%. Resolved: ${data.data.resolved}`);
-        setHeroVerification(data.data);
+      if (res.success && res.data) {
+        setStatusMsg(`Verification complete! Delta: +${res.data.moisture_delta}%. Resolved: ${res.data.resolved}`);
+        setHeroVerification(res.data);
       } else {
-        setStatusMsg(`Verification error: ${data.error}`);
+        setStatusMsg(`Verification error: ${res.error}`);
       }
     } catch (err: any) {
-      setStatusMsg(`Simulator connection error: ${err.message}`);
+      setStatusMsg(`Gateway connection error: ${err.message}`);
     } finally {
       setLoading(false);
     }

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { apiFetch } from '../../lib/api-client';
 
 export default function FleetTelemetryPage() {
   const [lastAck, setLastAck] = useState<string | null>(null);
@@ -11,9 +12,8 @@ export default function FleetTelemetryPage() {
     setLoading(true);
     const commandId = `web-cmd-${Date.now()}`;
     try {
-      const res = await fetch('http://localhost:3001/api/rover/command', {
+      const res = await apiFetch('/api/rover/command', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           command_id: commandId,
           rover_id: 'ROVER-DEMO-01',
@@ -21,10 +21,9 @@ export default function FleetTelemetryPage() {
           payload,
         }),
       });
-      const data = await res.json();
-      setLastAck(JSON.stringify(data, null, 2));
+      setLastAck(JSON.stringify(res.data || res, null, 2));
     } catch (err: any) {
-      setLastAck(`Simulator connection error: ${err?.message || err}. (Ensure simulator is running on :3001)`);
+      setLastAck(`Gateway connection error: ${err?.message || err}. (Ensure gateway is running on :3001)`);
     } finally {
       setLoading(false);
     }

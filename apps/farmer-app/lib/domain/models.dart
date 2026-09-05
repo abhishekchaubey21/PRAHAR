@@ -36,6 +36,40 @@ class ZoneModel {
   }
 }
 
+class FarmModel {
+  final String id;
+  final String name;
+  final String location;
+  final double totalHectares;
+  final String farmerId;
+
+  const FarmModel({
+    required this.id,
+    required this.name,
+    required this.location,
+    required this.totalHectares,
+    required this.farmerId,
+  });
+
+  factory FarmModel.fromJson(Map<String, dynamic> json) {
+    return FarmModel(
+      id: (json['farm_id'] ?? json['id'] ?? 'FARM-DEMO-01') as String,
+      name: (json['name'] ?? 'Demo Farm Alpha') as String,
+      location: (json['location'] ?? 'Indore, MP') as String,
+      totalHectares: (json['total_hectares'] as num?)?.toDouble() ?? 4.2,
+      farmerId: (json['farmer_id'] ?? '') as String,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'location': location,
+        'total_hectares': totalHectares,
+        'farmer_id': farmerId,
+      };
+}
+
 enum HazardType { disease, pest, weed, waterStress, nutrientDeficiency }
 enum AlertSeverity { low, medium, high, critical }
 enum AlertStatus { newAlert, acknowledged, actionTaken, dismissed, resolved }
@@ -68,6 +102,60 @@ class AlertModel {
     required this.timestamp,
     this.isApproved = false,
   });
+
+  factory AlertModel.fromJson(Map<String, dynamic> json) {
+    final typeStr = (json['type'] as String? ?? 'WATER_STRESS').toUpperCase();
+    HazardType type = HazardType.waterStress;
+    if (typeStr == 'DISEASE') type = HazardType.disease;
+    if (typeStr == 'PEST') type = HazardType.pest;
+    if (typeStr == 'WEED') type = HazardType.weed;
+    if (typeStr == 'NUTRIENT_DEFICIENCY') type = HazardType.nutrientDeficiency;
+
+    final sevStr = (json['severity'] as String? ?? 'LOW').toUpperCase();
+    AlertSeverity severity = AlertSeverity.low;
+    if (sevStr == 'MEDIUM') severity = AlertSeverity.medium;
+    if (sevStr == 'HIGH') severity = AlertSeverity.high;
+    if (sevStr == 'CRITICAL') severity = AlertSeverity.critical;
+
+    final statStr = (json['status'] as String? ?? 'NEW').toUpperCase();
+    AlertStatus status = AlertStatus.newAlert;
+    if (statStr == 'ACKNOWLEDGED') status = AlertStatus.acknowledged;
+    if (statStr == 'ACTION_TAKEN') status = AlertStatus.actionTaken;
+    if (statStr == 'DISMISSED') status = AlertStatus.dismissed;
+    if (statStr == 'RESOLVED') status = AlertStatus.resolved;
+
+    return AlertModel(
+      id: (json['alert_id'] ?? json['id'] ?? '') as String,
+      zoneId: (json['zone_id'] ?? '') as String,
+      zoneName: (json['zone_name'] ?? json['zone_id'] ?? 'Zone') as String,
+      type: type,
+      severity: severity,
+      message: (json['message'] ?? '') as String,
+      messageHi: (json['message_hi'] ?? json['message'] ?? '') as String,
+      recommendedAction: (json['recommended_action'] ?? '') as String,
+      recommendedActionHi: (json['recommended_action_hi'] ?? json['recommended_action'] ?? '') as String,
+      status: status,
+      timestamp: json['timestamp'] != null
+          ? DateTime.tryParse(json['timestamp'] as String) ?? DateTime.now()
+          : DateTime.now(),
+      isApproved: status == AlertStatus.actionTaken || status == AlertStatus.resolved,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'zone_id': zoneId,
+        'zone_name': zoneName,
+        'type': type.name,
+        'severity': severity.name,
+        'message': message,
+        'message_hi': messageHi,
+        'recommended_action': recommendedAction,
+        'recommended_action_hi': recommendedActionHi,
+        'status': status.name,
+        'timestamp': timestamp.toIso8601String(),
+        'is_approved': isApproved,
+      };
 }
 
 class RoverStatusModel {
@@ -104,4 +192,26 @@ class RemediationVerificationModel {
     required this.summaryEn,
     required this.summaryHi,
   });
+
+  factory RemediationVerificationModel.fromJson(Map<String, dynamic> json) {
+    return RemediationVerificationModel(
+      zoneId: (json['zone_id'] ?? '') as String,
+      preMoisture: (json['pre_moisture'] as num?)?.toDouble() ?? 17.5,
+      postMoisture: (json['post_moisture'] as num?)?.toDouble() ?? 28.2,
+      moistureDelta: (json['moisture_delta'] as num?)?.toDouble() ?? 10.7,
+      resolved: (json['resolved'] as bool?) ?? true,
+      summaryEn: (json['summary_en'] ?? json['summary'] ?? 'Remediation verified.') as String,
+      summaryHi: (json['summary_hi'] ?? 'उपचार का सत्यापन सफल।') as String,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'zone_id': zoneId,
+        'pre_moisture': preMoisture,
+        'post_moisture': postMoisture,
+        'moisture_delta': moistureDelta,
+        'resolved': resolved,
+        'summary_en': summaryEn,
+        'summary_hi': summaryHi,
+      };
 }
