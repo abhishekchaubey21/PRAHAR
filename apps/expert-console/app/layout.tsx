@@ -3,7 +3,7 @@ import './globals.css';
 import Link from 'next/link';
 
 export const metadata: Metadata = {
-  title: 'PRAHAR — Expert Triage Console',
+  title: 'PRAHAR | Field Intelligence',
   description: 'Agronomist & System Admin Console for Precision Agriculture',
 };
 
@@ -18,8 +18,9 @@ export default function RootLayout({
         <nav className="navbar">
           <div className="nav-brand">
             <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span>PRAHAR</span>
-              <span className="badge">Console v0.2</span>
+              <span style={{ color: 'var(--text-primary)', fontWeight: 800, letterSpacing: '1px' }}>PRAHAR</span>
+              <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>|</span>
+              <span style={{ color: 'var(--accent-emerald)', fontWeight: 600, fontSize: '1.05rem' }}>Field Intelligence</span>
             </Link>
           </div>
           <div className="nav-links">

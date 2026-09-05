@@ -657,7 +657,10 @@ server.listen(PORT, () => {
   console.log(`  GET  /api/reports/field-evidence`);
   console.log(`  GET  /api/opportunities`);
 });
-server.unref();
+
+if (process.argv.some((arg) => arg.includes('test'))) {
+  server.unref();
+}
 
 export {
   server,

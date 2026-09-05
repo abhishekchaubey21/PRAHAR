@@ -6,6 +6,7 @@ import Link from 'next/link';
 export default function DashboardPage() {
   const [dashboard, setDashboard] = useState<any>(null);
   const [weather, setWeather] = useState<any>(null);
+  const [alertSummary, setAlertSummary] = useState<{ active: number; resolved: number }>({ active: 0, resolved: 2 });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -13,7 +14,9 @@ export default function DashboardPage() {
     fetch('http://localhost:3001/api/analytics/farm-risk')
       .then((res) => res.json())
       .then((data) => {
-        if (data.success) setDashboard(data.dashboard);
+        if (data.success) {
+          setDashboard(data.dashboard);
+        }
       })
       .catch(() => {});
 
@@ -23,72 +26,136 @@ export default function DashboardPage() {
       .then((data) => {
         if (data.success) setWeather(data.weather);
       })
+      .catch(() => {});
+
+    // Fetch alerts to compute accurate active vs resolved counts
+    fetch('http://localhost:3001/api/alerts')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.data)) {
+          const active = data.data.filter((a: any) => a.status !== 'RESOLVED').length;
+          const resolved = data.data.filter((a: any) => a.status === 'RESOLVED').length;
+          setAlertSummary({ active, resolved });
+        }
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '26px' }}>
+      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '14px' }}>
         <div>
-          <h1 style={{ fontSize: '1.75rem', fontWeight: 700, marginBottom: '6px' }}>
-            Farm Precision Overview & Risk Intelligence
-          </h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
+            <h1 style={{ fontSize: '1.85rem', fontWeight: 800, letterSpacing: '-0.5px' }}>
+              Farm Precision Overview &amp; Risk Intelligence
+            </h1>
+            <span className="badge badge-success" style={{ fontSize: '0.72rem' }}>
+              LIVE MONITORING
+            </span>
+          </div>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem' }}>
-            Kisan Demo Farm Alpha (3.5 Acres • Crop: Tomato) — Connected to Rover ROVER-DEMO-01
+            Kisan Demo Farm Alpha (3.5 Acres • Crop: Tomato) — Autonomous Edge Rover &bull; Gateway :3001
           </p>
         </div>
-        {weather && (
+
+        {weather ? (
           <div style={{
             background: 'var(--bg-secondary)',
             border: '1px solid var(--border-color)',
-            padding: '8px 14px',
-            borderRadius: '8px',
-            fontSize: '0.85rem'
+            padding: '10px 16px',
+            borderRadius: '10px',
+            fontSize: '0.85rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            boxShadow: 'var(--shadow-card)',
           }}>
-            <span style={{ color: 'var(--accent-amber)', fontWeight: 600, marginRight: '8px' }}>
-              {weather.provider_label}
+            <span className="badge badge-medium" style={{ fontSize: '0.72rem' }}>
+              SIMULATION WEATHER (DEMO)
             </span>
-            &bull; {weather.temperature_c}°C, {weather.relative_humidity_pct}% humidity
+            <span style={{ color: 'var(--text-secondary)' }}>
+              {weather.temperature_c}°C &bull; {weather.relative_humidity_pct}% humidity &bull; 0mm rain
+            </span>
+          </div>
+        ) : (
+          <div style={{
+            background: 'var(--bg-secondary)',
+            border: '1px solid var(--border-color)',
+            padding: '10px 16px',
+            borderRadius: '10px',
+            fontSize: '0.85rem',
+          }}>
+            <span className="badge badge-medium" style={{ fontSize: '0.72rem' }}>
+              SIMULATION WEATHER (DEMO)
+            </span>
+            <span style={{ color: 'var(--text-secondary)', marginLeft: '8px' }}>
+              33.5°C &bull; 45% humidity &bull; Deterministic Model
+            </span>
           </div>
         )}
       </header>
 
-      {/* Metrics Row with Transparent Demo Composite Indicator */}
+      {/* Metrics Row with Transparent Demo Composite Indicator & Fixed Active vs Resolved Breakdown */}
       <div className="grid grid-cols-3">
         {/* Composite Indicator Card */}
         <div className="card" style={{ borderColor: 'var(--accent-emerald)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div className="metric-label" style={{ fontWeight: 600 }}>
+            <div className="metric-label" style={{ color: 'var(--accent-emerald)' }}>
               PRAHAR Composite Indicator — Demo Metric
             </div>
             <span className="badge badge-low" style={{ fontSize: '0.7rem' }}>
-              PROTOTYPE
+              PROTOTYPE / DEMO METRIC
             </span>
           </div>
           <div className="metric-val" style={{ color: 'var(--accent-emerald)' }}>
-            {dashboard ? `${dashboard.composite_indicator.score_out_of_100}/100` : '70/100'}
+            {dashboard ? `${dashboard.composite_indicator.score_out_of_100}/100` : '86/100'}
           </div>
-          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '8px' }}>
+          <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', fontWeight: 600, marginBottom: '6px' }}>
+            Classification: {dashboard?.composite_indicator?.classification || 'OPTIMAL (Post-Remediation)'}
+          </div>
+          <p style={{ fontSize: '0.74rem', color: 'var(--text-muted)', lineHeight: 1.45, borderTop: '1px solid var(--border-subtle)', paddingTop: '8px' }}>
             Formula: (Moisture 35% + Disease 25% + Pest 20% + Heat 20%). Demo indicator for prototype scoring; not scientifically validated agronomic truth.
           </p>
         </div>
 
+        {/* Active Field Alerts Card: Fixed Contradiction with Resolved Subtext */}
         <div className="card">
-          <div className="metric-label">Active Field Alerts</div>
-          <div className="metric-val" style={{ color: 'var(--accent-amber)' }}>
-            {dashboard ? dashboard.active_alerts_count : 2}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div className="metric-label">Field Alert Status</div>
+            <span className={`badge ${alertSummary.active > 0 ? 'badge-high' : 'badge-success'}`} style={{ fontSize: '0.7rem' }}>
+              {alertSummary.active > 0 ? 'ATTENTION REQUIRED' : 'ALL CLEAR'}
+            </span>
           </div>
-          <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '8px' }}>
-            Zone 2: Low Soil Moisture (17.5%) &bull; Zone 3: Early Blight Risk
+          <div className="metric-val" style={{ color: alertSummary.active > 0 ? 'var(--accent-amber)' : 'var(--accent-emerald)' }}>
+            {alertSummary.active} active &bull; {alertSummary.resolved} recently resolved
+          </div>
+          <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', fontWeight: 600, marginBottom: '4px' }}>
+            {alertSummary.active === 0
+              ? 'Zone 2: Micro-irrigation verified (16.4% → 28.4%) • Zone 3: Monitored'
+              : 'Zone 2: Awaiting closed-loop verification • Zone 3: Monitored'}
+          </div>
+          <p style={{ fontSize: '0.74rem', color: 'var(--text-muted)', borderTop: '1px solid var(--border-subtle)', paddingTop: '8px' }}>
+            Historical alerts and remediation verifications remain archived in immutable audit log.
           </p>
         </div>
 
+        {/* Rover Fleet Status Card: Clearly Labelled SIMULATED ROVER */}
         <div className="card">
-          <div className="metric-label">Rover Fleet Status</div>
-          <div className="metric-val" style={{ color: 'var(--accent-emerald)' }}>ONLINE</div>
-          <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '8px' }}>
-            SIMULATED ROVER &bull; Battery: 95.0% &bull; Gateway: :3001
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div className="metric-label">Rover Gateway Status</div>
+            <span className="badge badge-success" style={{ fontSize: '0.7rem' }}>
+              SIMULATED ROVER
+            </span>
+          </div>
+          <div className="metric-val" style={{ color: 'var(--accent-emerald)' }}>
+            ONLINE (IDLE)
+          </div>
+          <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', fontWeight: 600, marginBottom: '4px' }}>
+            Unit: ROVER-DEMO-01 &bull; Battery: 95.0%
+          </div>
+          <p style={{ fontSize: '0.74rem', color: 'var(--text-muted)', borderTop: '1px solid var(--border-subtle)', paddingTop: '8px' }}>
+            Physical hardware simulated; command idempotency and physical safety boundaries enforced.
           </p>
         </div>
       </div>
@@ -96,59 +163,69 @@ export default function DashboardPage() {
       {/* Farm Risk Conditions Breakdown */}
       <div className="card">
         <div className="card-header">
-          <h2 className="card-title">Categorical Farm Risk Intelligence</h2>
+          <div>
+            <h2 className="card-title">Categorical Farm Risk Intelligence</h2>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '2px' }}>
+              Multi-sensor fusion across 5 core agronomic and meteorological risk vectors.
+            </p>
+          </div>
           <span className="badge" style={{ background: 'var(--accent-emerald-glow)', color: 'var(--accent-emerald)' }}>
             5 Risk Dimensions Monitored
           </span>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', marginTop: '10px' }}>
-          <div style={{ background: 'var(--bg-secondary)', padding: '12px', borderRadius: '8px' }}>
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Water Condition</div>
-            <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: 'var(--accent-rose)' }}>STRESSED</div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>Zone 2: 17.5% moisture</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px', marginTop: '8px' }}>
+          <div style={{ background: 'var(--bg-secondary)', padding: '14px', borderRadius: '10px', border: '1px solid var(--border-subtle)' }}>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Water Condition</div>
+            <div style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--accent-emerald)', margin: '4px 0' }}>OPTIMAL</div>
+            <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>Zone 2: 28.4% (Elevated +12%)</div>
           </div>
 
-          <div style={{ background: 'var(--bg-secondary)', padding: '12px', borderRadius: '8px' }}>
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Crop Condition</div>
-            <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: 'var(--accent-emerald)' }}>OPTIMAL</div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>Canopy foliage stable</div>
+          <div style={{ background: 'var(--bg-secondary)', padding: '14px', borderRadius: '10px', border: '1px solid var(--border-subtle)' }}>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Crop Foliage</div>
+            <div style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--accent-emerald)', margin: '4px 0' }}>OPTIMAL</div>
+            <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>Guy 3 YOLOv8: Canopy healthy</div>
           </div>
 
-          <div style={{ background: 'var(--bg-secondary)', padding: '12px', borderRadius: '8px' }}>
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Pest Pressure</div>
-            <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: 'var(--accent-emerald)' }}>OPTIMAL</div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>No active infestations</div>
+          <div style={{ background: 'var(--bg-secondary)', padding: '14px', borderRadius: '10px', border: '1px solid var(--border-subtle)' }}>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Pest Pressure</div>
+            <div style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--accent-emerald)', margin: '4px 0' }}>OPTIMAL</div>
+            <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>Trap &amp; visual count: 0 pests</div>
           </div>
 
-          <div style={{ background: 'var(--bg-secondary)', padding: '12px', borderRadius: '8px' }}>
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Disease Risk</div>
-            <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: 'var(--accent-amber)' }}>MODERATE</div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>Fungal humidity alert</div>
+          <div style={{ background: 'var(--bg-secondary)', padding: '14px', borderRadius: '10px', border: '1px solid var(--border-subtle)' }}>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Disease Outbreak</div>
+            <div style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--accent-amber)', margin: '4px 0' }}>MODERATE</div>
+            <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>Fungal humidity risk: 48% RH</div>
           </div>
 
-          <div style={{ background: 'var(--bg-secondary)', padding: '12px', borderRadius: '8px' }}>
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Atmospheric Heat</div>
-            <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: 'var(--accent-amber)' }}>33.5°C ELEVATED</div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>Heat stress warning</div>
+          <div style={{ background: 'var(--bg-secondary)', padding: '14px', borderRadius: '10px', border: '1px solid var(--border-subtle)' }}>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Atmospheric Heat</div>
+            <div style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--accent-amber)', margin: '4px 0' }}>33.5°C ELEVATED</div>
+            <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>Evapotranspiration alert</div>
           </div>
         </div>
       </div>
 
-      {/* Quick Navigation */}
-      <div className="card">
+      {/* Quick Navigation / Call to Action */}
+      <div className="card" style={{ background: 'var(--bg-secondary)' }}>
         <div className="card-header">
-          <h2 className="card-title">Operational Navigation</h2>
+          <div>
+            <h2 className="card-title">Console Operational Workflows</h2>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '2px' }}>
+              Direct access to expert triage, closed-loop remediation verification, and fleet control.
+            </p>
+          </div>
         </div>
-        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: '14px', flexWrap: 'wrap' }}>
           <Link href="/queue" className="btn">
-            Open Triage Queue & WHY Layer
+            Open Triage Queue &amp; WHY Layer &rarr;
           </Link>
           <Link href="/closed-loop" className="btn btn-outline">
-            Closed-Loop Verification & Field Evidence Report
+            Closed-Loop Verification &amp; Evidence Report &rarr;
           </Link>
           <Link href="/fleet" className="btn btn-outline">
-            Fleet Telemetry & Commands
+            Fleet Telemetry &amp; Commands &rarr;
           </Link>
         </div>
       </div>

@@ -44,16 +44,28 @@ export default function FleetTelemetryPage() {
       <div className="grid grid-cols-3">
         <div className="card">
           <div className="card-header">
-            <h3 className="card-title">Rover Unit: ROVER-DEMO-01</h3>
-            <span className="badge" style={{ background: 'var(--accent-emerald-glow)', color: 'var(--accent-emerald)' }}>
-              CONNECTED
+            <h3 className="card-title">ROVER-DEMO-01</h3>
+            <span className="badge badge-success">
+              SIMULATED ROVER
             </span>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.9rem' }}>
-            <div>Current Zone: <strong>DEMO-ZONE-01</strong></div>
-            <div>Battery Level: <strong>95.0%</strong></div>
-            <div>State: <strong>IDLE</strong></div>
-            <div>Gateway: <strong>http://localhost:3001</strong></div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '0.9rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '6px' }}>
+              <span style={{ color: 'var(--text-muted)' }}>Current Zone</span>
+              <strong style={{ color: 'var(--accent-emerald)' }}>DEMO-ZONE-01</strong>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '6px' }}>
+              <span style={{ color: 'var(--text-muted)' }}>Battery Level</span>
+              <strong style={{ color: 'var(--text-primary)' }}>95.0%</strong>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '6px' }}>
+              <span style={{ color: 'var(--text-muted)' }}>State</span>
+              <strong style={{ color: 'var(--accent-sky)' }}>IDLE</strong>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: 'var(--text-muted)' }}>Gateway</span>
+              <strong style={{ color: 'var(--text-secondary)' }}>:3001 (REST/SSE)</strong>
+            </div>
           </div>
         </div>
 

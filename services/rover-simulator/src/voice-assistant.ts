@@ -143,10 +143,12 @@ export class VoiceAssistant {
     // 2. Intent Classification
     const intent = this.classifyIntent(text);
 
-    // Intent: APPROVE_IRRIGATION -> MUST NEVER DIRECTLY ACTUATE
     if (intent === 'APPROVE_IRRIGATION') {
-      const zoneMatch = text.match(/zone\s*([a-z0-9_-]+)/i) || text.match(/ज़ोन\s*([a-z0-9_-]+)/i);
-      const targetZone = zoneMatch ? (zoneMatch[1].startsWith('demo-') ? zoneMatch[1].toUpperCase() : `DEMO-ZONE-${zoneMatch[1].padStart(2, '0')}`) : 'DEMO-ZONE-02';
+      let targetZone = 'DEMO-ZONE-02';
+      const fullMatch = text.match(/demo-zone[-_]?(\d+)/i) || text.match(/zone\s*[-_]?\s*(\d+)/i) || text.match(/ज़ोन\s*[-_]?\s*(\d+)/i);
+      if (fullMatch) {
+        targetZone = `DEMO-ZONE-${fullMatch[1].padStart(2, '0')}`;
+      }
 
       // Store in pending confirmations; DO NOT ACTUATE
       this.pendingConfirmations.set(sessionId, {

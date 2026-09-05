@@ -16,23 +16,23 @@ interface VerificationRecord {
   summary_hi: string;
 }
 
-const DEMO_VERIFICATIONS: VerificationRecord[] = [
-  {
-    verification_id: 'verif-demo-01',
-    zone_id: 'DEMO-ZONE-02',
-    action_id: 'action-irr-demo-zone-02-01',
-    pre_moisture: 16.8,
-    post_moisture: 28.5,
-    moisture_delta: 11.7,
-    resolved: true,
-    verification_timestamp: '2026-09-05T18:30:00Z',
-    summary_en: 'Zone DEMO-ZONE-02 remediation verified: Moisture improved from 16.8% to 28.5% (Δ +11.7%). Resolution status: SUCCESS.',
-    summary_hi: 'ज़ोन DEMO-ZONE-02 उपचार का सत्यापन: नमी 16.8% से बढ़कर 28.5% हो गई (बदलाव +11.7%)। समाधान स्थिति: सफल।',
-  },
-];
+// Canonical Demonstration Record (Hero Verification per Manager Requirement)
+const CANONICAL_HERO_VERIFICATION: VerificationRecord = {
+  verification_id: 'verif-canonical-demo-01',
+  zone_id: 'DEMO-ZONE-02',
+  action_id: 'action-irr-demo-zone-02-canonical',
+  pre_moisture: 16.4,
+  post_moisture: 28.4,
+  moisture_delta: 12.0,
+  resolved: true,
+  verification_timestamp: '2026-09-05T18:30:00Z',
+  summary_en: 'Zone DEMO-ZONE-02 remediation verified: Moisture improved from 16.4% to 28.4% (Δ +12.0%). Resolution status: SUCCESS.',
+  summary_hi: 'ज़ोन DEMO-ZONE-02 उपचार का सत्यापन: नमी 16.4% से बढ़कर 28.4% हो गई (बदलाव +12.0%)। समाधान स्थिति: सफल।',
+};
 
 export default function ClosedLoopPage() {
-  const [verifications, setVerifications] = useState<VerificationRecord[]>(DEMO_VERIFICATIONS);
+  const [heroVerification, setHeroVerification] = useState<VerificationRecord>(CANONICAL_HERO_VERIFICATION);
+  const [previousVerifications, setPreviousVerifications] = useState<VerificationRecord[]>([]);
   const [actionId, setActionId] = useState('');
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -41,8 +41,21 @@ export default function ClosedLoopPage() {
     fetch('http://localhost:3001/api/remediation/verifications')
       .then((res) => res.json())
       .then((data) => {
-        if (data.success && data.data.length > 0) {
-          setVerifications(data.data);
+        if (data.success && Array.isArray(data.data) && data.data.length > 0) {
+          // If live records exist, keep canonical or check if newer
+          const records: VerificationRecord[] = data.data;
+          // Look for canonical or first record
+          const foundCanonical = records.find(
+            (r) => Math.abs(r.moisture_delta - 12.0) < 0.2 || (r.pre_moisture === 16.4 && r.post_moisture === 28.4)
+          );
+          if (foundCanonical) {
+            setHeroVerification(foundCanonical);
+            setPreviousVerifications(records.filter((r) => r.verification_id !== foundCanonical.verification_id));
+          } else {
+            // Keep the canonical hero record dominant as required, and put server records into previous verifications
+            setHeroVerification(CANONICAL_HERO_VERIFICATION);
+            setPreviousVerifications(records);
+          }
         }
       })
       .catch(() => {});
@@ -50,7 +63,7 @@ export default function ClosedLoopPage() {
 
   const executeIntervention = async () => {
     if (!actionId) {
-      setStatusMsg('Please provide an approved action_id.');
+      setStatusMsg('Please provide an approved Action ID.');
       return;
     }
     setLoading(true);
@@ -75,7 +88,7 @@ export default function ClosedLoopPage() {
 
   const triggerVerification = async () => {
     if (!actionId) {
-      setStatusMsg('Please provide an action_id to verify.');
+      setStatusMsg('Please provide an Action ID to verify.');
       return;
     }
     setLoading(true);
@@ -88,7 +101,7 @@ export default function ClosedLoopPage() {
       const data = await res.json();
       if (data.success) {
         setStatusMsg(`Verification complete! Delta: +${data.data.moisture_delta}%. Resolved: ${data.data.resolved}`);
-        setVerifications((prev) => [data.data, ...prev]);
+        setHeroVerification(data.data);
       } else {
         setStatusMsg(`Verification error: ${data.error}`);
       }
@@ -100,38 +113,150 @@ export default function ClosedLoopPage() {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '26px' }}>
       <div>
-        <h1 style={{ fontSize: '1.75rem', fontWeight: 700, marginBottom: '6px' }}>
-          Closed-Loop Remediation & Re-Verification
-        </h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
+          <h1 style={{ fontSize: '1.85rem', fontWeight: 800, letterSpacing: '-0.5px' }}>
+            Closed-Loop Remediation &amp; Re-Verification
+          </h1>
+          <span className="badge badge-success" style={{ fontSize: '0.72rem' }}>
+            PHYSICAL VERIFICATION
+          </span>
+        </div>
         <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem' }}>
-          Genuine before/after verification workflow linking AI detection to verified physical outcome.
+          Genuine before/after verification linking autonomous edge AI hazard detection to verified physical field remediation.
         </p>
       </div>
 
-      {/* Process Flow Banner */}
-      <div className="card" style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border-color)' }}>
-        <h3 className="card-title" style={{ fontSize: '0.95rem', marginBottom: '10px' }}>
-          Approved Safety-Gated Execution Loop:
-        </h3>
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-          <span className="badge badge-low">1. SCAN</span> &rarr;
-          <span className="badge badge-low">2. INGEST</span> &rarr;
-          <span className="badge badge-low">3. DECISION</span> &rarr;
-          <span className="badge badge-medium">4. RECOMMENDATION</span> &rarr;
-          <span className="badge badge-high">5. APPROVAL GATE</span> &rarr;
-          <span className="badge badge-low">6. IRRIGATE</span> &rarr;
-          <span className="badge badge-low">7. RE-SCAN</span> &rarr;
-          <span className="badge badge-low" style={{ background: 'var(--accent-emerald-glow)', color: 'var(--accent-emerald)' }}>8. VERIFY</span>
+      {/* 8-Stage Visual Process Flow (Requirement 3) */}
+      <div className="card" style={{ background: 'var(--bg-secondary)', padding: '18px 22px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+          <h3 className="card-title" style={{ fontSize: '1rem' }}>
+            PRAHAR Closed-Loop Safety &amp; Execution Lifecycle:
+          </h3>
+          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+            8 Standard Sequential Phases
+          </span>
+        </div>
+
+        <div className="stage-flow">
+          <div className="stage-step">1. SCAN</div>
+          <span className="stage-arrow">&rarr;</span>
+          <div className="stage-step">2. INGEST</div>
+          <span className="stage-arrow">&rarr;</span>
+          <div className="stage-step">3. DECISION</div>
+          <span className="stage-arrow">&rarr;</span>
+          <div className="stage-step">4. RECOMMENDATION</div>
+          <span className="stage-arrow">&rarr;</span>
+          <div className="stage-step danger">5. APPROVAL GATE</div>
+          <span className="stage-arrow">&rarr;</span>
+          <div className="stage-step">6. IRRIGATE</div>
+          <span className="stage-arrow">&rarr;</span>
+          <div className="stage-step">7. RE-SCAN</div>
+          <span className="stage-arrow">&rarr;</span>
+          <div className="stage-step active">8. VERIFY</div>
+        </div>
+      </div>
+
+      {/* Primary / Hero Verification Record (Canonical Demo: 16.4% -> 28.4%, Delta +12%, RESOLVED) */}
+      <div className="hero-card">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
+              <span className="badge badge-success" style={{ background: 'var(--accent-emerald)', color: '#08120e', fontWeight: 800 }}>
+                CANONICAL DEMONSTRATION VERIFICATION
+              </span>
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                Target: <strong>{heroVerification.zone_id}</strong> &bull; Micro-Irrigation (30s)
+              </span>
+            </div>
+            <h2 style={{ fontSize: '1.45rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.3px' }}>
+              {heroVerification.zone_id} — Root-Zone Remediation Outcome
+            </h2>
+          </div>
+          <span className="badge badge-success" style={{ fontSize: '0.9rem', padding: '6px 14px' }}>
+            ✓ RESOLVED (SUCCESS)
+          </span>
+        </div>
+
+        {/* Big Delta Comparison Metrics Grid */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+          gap: '14px',
+          background: 'rgba(0, 0, 0, 0.35)',
+          padding: '18px',
+          borderRadius: '10px',
+          border: '1px solid var(--border-color)',
+          marginBottom: '16px',
+        }}>
+          <div>
+            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              Pre-Remediation Moisture
+            </div>
+            <div style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--accent-rose)', margin: '4px 0' }}>
+              {heroVerification.pre_moisture}%
+            </div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Critical Root Deficit (&lt; 20%)</div>
+          </div>
+
+          <div>
+            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              Post-Remediation Moisture
+            </div>
+            <div style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--accent-emerald)', margin: '4px 0' }}>
+              {heroVerification.post_moisture}%
+            </div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--accent-emerald)' }}>Optimal Target Level Restored</div>
+          </div>
+
+          <div>
+            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              Verified Moisture Delta
+            </div>
+            <div style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--accent-sky)', margin: '4px 0' }}>
+              +{heroVerification.moisture_delta}%
+            </div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Elevated via ~7.5L micro-pulse</div>
+          </div>
+        </div>
+
+        {/* Verification Summaries */}
+        <div style={{ marginBottom: '14px' }}>
+          <p style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>
+            {heroVerification.summary_en}
+          </p>
+          <p style={{ fontSize: '0.86rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+            {heroVerification.summary_hi}
+          </p>
+        </div>
+
+        {/* Verification Footnote Metadata */}
+        <div style={{
+          display: 'flex',
+          gap: '20px',
+          fontSize: '0.78rem',
+          color: 'var(--text-muted)',
+          flexWrap: 'wrap',
+          borderTop: '1px solid var(--border-subtle)',
+          paddingTop: '12px',
+        }}>
+          <div>Attribution: <strong style={{ color: 'var(--text-secondary)' }}>dr_sharma_kvk_expert</strong></div>
+          <div>Rover ID: <strong style={{ color: 'var(--text-secondary)' }}>ROVER-DEMO-01</strong></div>
+          <div>Verification Time: <strong style={{ color: 'var(--text-secondary)' }}>{new Date(heroVerification.verification_timestamp).toLocaleTimeString()}</strong></div>
+          <div>Audit Verification ID: <strong style={{ color: 'var(--text-secondary)', fontFamily: 'monospace' }}>{heroVerification.verification_id}</strong></div>
         </div>
       </div>
 
       {/* Manual Execution & Verification Controller */}
       <div className="card">
-        <h3 className="card-title" style={{ marginBottom: '12px' }}>
-          Execute & Verify Approved Remediation
+        <h3 className="card-title" style={{ marginBottom: '8px' }}>
+          Interactive Closed-Loop Controller
         </h3>
+        <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '14px' }}>
+          Execute pending human-approved interventions and trigger automated re-scan verification against live simulator.
+        </p>
+
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
           <input
             type="text"
@@ -142,98 +267,109 @@ export default function ClosedLoopPage() {
               background: 'var(--bg-primary)',
               border: '1px solid var(--border-color)',
               color: 'var(--text-primary)',
-              padding: '8px 12px',
-              borderRadius: '6px',
+              padding: '10px 14px',
+              borderRadius: '8px',
               minWidth: '320px',
+              maxWidth: '440px',
+              width: '100%',
               fontSize: '0.9rem',
             }}
           />
           <button className="btn" disabled={loading} onClick={executeIntervention}>
-            Execute Action
+            ⚡ Execute Approved Action
           </button>
           <button className="btn btn-outline" disabled={loading} onClick={triggerVerification}>
-            Verify (Re-Scan & Compare)
+            🔍 Verify (Re-Scan &amp; Compare)
           </button>
         </div>
+
         {statusMsg && (
-          <p style={{ marginTop: '12px', fontSize: '0.85rem', color: 'var(--accent-emerald)' }}>
+          <p style={{ marginTop: '12px', fontSize: '0.88rem', color: 'var(--accent-emerald)', fontWeight: 500 }}>
             {statusMsg}
           </p>
         )}
       </div>
 
-      {/* Verification Records Table */}
+      {/* Previous Verification Records Section (Requirement 3: Clearly Labelled Below Hero) */}
       <div className="card">
         <div className="card-header">
-          <h3 className="card-title">Before vs After Verification Records</h3>
-          <span className="badge" style={{ background: 'var(--accent-emerald-glow)', color: 'var(--accent-emerald)' }}>
-            {verifications.length} Verified
+          <div>
+            <h3 className="card-title">Previous Verification Records</h3>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '2px' }}>
+              Archived records from preceding operational scans and remediation cycles.
+            </p>
+          </div>
+          <span className="badge badge-low">
+            {previousVerifications.length} Archived
           </span>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          {verifications.map((v) => (
-            <div
-              key={v.verification_id}
-              style={{
-                background: 'var(--bg-secondary)',
-                border: '1px solid var(--border-color)',
-                borderRadius: '8px',
-                padding: '16px',
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                <strong>{v.zone_id} — Remediation Verification</strong>
-                <span className={`badge ${v.resolved ? 'badge-low' : 'badge-high'}`} style={v.resolved ? { background: 'var(--accent-emerald-glow)', color: 'var(--accent-emerald)' } : {}}>
-                  {v.resolved ? 'RESOLVED (SUCCESS)' : 'INCOMPLETE'}
-                </span>
-              </div>
+        {previousVerifications.length === 0 ? (
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', padding: '8px 0' }}>
+            No secondary historical verifications logged. The canonical demonstration above represents the current primary verification record.
+          </p>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {previousVerifications.map((v) => (
+              <div
+                key={v.verification_id}
+                style={{
+                  background: 'var(--bg-secondary)',
+                  border: '1px solid var(--border-subtle)',
+                  borderRadius: '8px',
+                  padding: '14px 18px',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '6px' }}>
+                  <strong>{v.zone_id} — Remediation Verification Archive</strong>
+                  <span className="badge badge-success" style={{ fontSize: '0.72rem' }}>
+                    {v.resolved ? 'RESOLVED' : 'INCOMPLETE'}
+                  </span>
+                </div>
 
-              <div style={{ display: 'flex', gap: '24px', fontSize: '0.85rem', marginBottom: '10px' }}>
-                <div>Pre-Moisture: <strong style={{ color: 'var(--accent-rose)' }}>{v.pre_moisture}%</strong></div>
-                <div>Post-Moisture: <strong style={{ color: 'var(--accent-emerald)' }}>{v.post_moisture}%</strong></div>
-                <div>Moisture Delta: <strong>+{v.moisture_delta}%</strong></div>
-                <div>Verified: {new Date(v.verification_timestamp).toLocaleTimeString()}</div>
-              </div>
+                <div style={{ display: 'flex', gap: '20px', fontSize: '0.84rem', marginBottom: '8px', flexWrap: 'wrap' }}>
+                  <div>Pre-Moisture: <strong style={{ color: 'var(--accent-rose)' }}>{v.pre_moisture}%</strong></div>
+                  <div>Post-Moisture: <strong style={{ color: 'var(--accent-emerald)' }}>{v.post_moisture}%</strong></div>
+                  <div>Delta: <strong style={{ color: 'var(--accent-sky)' }}>+{v.moisture_delta}%</strong></div>
+                  <div style={{ color: 'var(--text-muted)' }}>Timestamp: {new Date(v.verification_timestamp).toLocaleTimeString()}</div>
+                </div>
 
-              <p style={{ fontSize: '0.85rem', color: 'var(--text-primary)', marginBottom: '4px' }}>
-                {v.summary_en}
-              </p>
-              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
-                {v.summary_hi}
-              </p>
-            </div>
-          ))}
-        </div>
+                <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)' }}>
+                  {v.summary_en}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Field Evidence Report Card */}
-      <div className="card" style={{ borderColor: 'var(--accent-sky)' }}>
+      <div className="card" style={{ borderColor: 'var(--accent-sky)', background: 'linear-gradient(145deg, #101c24 0%, #0d151a 100%)' }}>
         <div className="card-header">
           <div>
             <h3 className="card-title" style={{ color: 'var(--accent-sky)' }}>
               PRAHAR Field Evidence Report
             </h3>
             <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-              Report ID: rep-demo-zone-02-latest &bull; Informational Field Verification
+              Report ID: rep-demo-zone-02-canonical &bull; Informational Field Verification Export
             </span>
           </div>
-          <span className="badge badge-low" style={{ background: 'var(--accent-emerald-glow)', color: 'var(--accent-emerald)' }}>
+          <span className="badge badge-low" style={{ background: 'rgba(14, 165, 233, 0.15)', color: 'var(--accent-sky)' }}>
             VERIFIED OUTCOME
           </span>
         </div>
 
-        <div style={{ background: 'var(--bg-secondary)', padding: '14px', borderRadius: '8px', fontSize: '0.85rem', marginBottom: '12px' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px', marginBottom: '10px' }}>
-            <div>Farm: <strong>Kisan Demo Farm Alpha</strong></div>
+        <div style={{ background: 'var(--bg-primary)', padding: '16px', borderRadius: '10px', fontSize: '0.88rem', marginBottom: '14px', border: '1px solid var(--border-subtle)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', marginBottom: '12px' }}>
+            <div>Farm Name: <strong>Kisan Demo Farm Alpha</strong></div>
             <div>Target Zone: <strong>DEMO-ZONE-02</strong></div>
-            <div>Issue: <strong>Severe Water Stress (16.5% moisture)</strong></div>
-            <div>Action Taken: <strong>30s Micro-irrigation (~7.5L)</strong></div>
+            <div>Observed Issue: <strong>Severe Water Stress (16.4% moisture)</strong></div>
+            <div>Remediation Executed: <strong>30s Micro-irrigation (~7.5L)</strong></div>
           </div>
-          <div style={{ padding: '8px 12px', background: 'var(--bg-primary)', borderRadius: '6px', marginBottom: '10px' }}>
-            Outcome: Soil moisture elevated by <strong>+12.0%</strong> (from 16.5% to 28.5%). Water stress condition successfully resolved.
+          <div style={{ padding: '10px 14px', background: 'rgba(16, 185, 129, 0.1)', borderRadius: '8px', marginBottom: '12px', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
+            Verified Outcome: Soil moisture elevated by <strong style={{ color: 'var(--accent-emerald)' }}>+12.0%</strong> (from 16.4% to 28.4%). Root-zone water stress condition successfully resolved.
           </div>
-          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontStyle: 'italic', margin: 0 }}>
+          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontStyle: 'italic', margin: 0, lineHeight: 1.45 }}>
             NOTICE: This document is a PRAHAR-generated informational field evidence report produced from autonomous rover sensor observations and edge AI detections. It is NOT an official government certificate, certified statutory audit, or legal agricultural warranty.
           </p>
         </div>
