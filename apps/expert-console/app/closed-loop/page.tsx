@@ -370,7 +370,7 @@ export default function ClosedLoopPage() {
             Verified Outcome: Soil moisture elevated by <strong style={{ color: 'var(--accent-emerald)' }}>+12.0%</strong> (from 16.4% to 28.4%). Target threshold crossed; root-zone water stress resolved in simulated model.
           </div>
           <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontStyle: 'italic', margin: 0, lineHeight: 1.45 }}>
-            NOTICE: This document is a PRAHAR-generated informational field evidence report produced from autonomous rover sensor observations and edge AI detections. It is NOT an official government certificate, certified statutory audit, or legal agricultural warranty.
+            NOTICE: This document is a PRAHAR-generated informational field evidence report produced from simulated rover sensor observations and edge AI detection outputs for demonstration purposes. It is NOT an official government certificate, certified statutory audit, or legal agricultural warranty.
           </p>
         </div>
       </div>

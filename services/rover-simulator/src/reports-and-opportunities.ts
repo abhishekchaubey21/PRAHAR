@@ -76,7 +76,7 @@ export class FieldEvidenceReportGenerator {
         ? `Soil moisture elevated by +${verification.moisture_delta}% (from ${verification.pre_moisture}% to ${verification.post_moisture}%). Condition resolved.`
         : 'Awaiting closed-loop re-scan verification.',
       disclaimer:
-        'NOTICE: This document is a PRAHAR-generated informational field evidence report produced from autonomous rover sensor observations and edge AI detections. It is NOT an official government certificate, certified statutory audit, or legal agricultural warranty.',
+        'NOTICE: This document is a PRAHAR-generated informational field evidence report produced from simulated rover sensor observations and edge AI detection outputs for demonstration purposes. It is NOT an official government certificate, certified statutory audit, or legal agricultural warranty.',
     };
   }
 }
