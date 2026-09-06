@@ -33,15 +33,27 @@ class ApiException implements Exception {
 /// - Network failures throw NetworkUnavailableException (eligible for offline cache fallback).
 /// - Auth / Validation / 4xx / 5xx errors throw ApiException (NEVER fall back silently).
 class ApiClient {
+  static String get defaultBaseUrl {
+    const fromEnv = String.fromEnvironment('PRAHAR_GATEWAY_URL');
+    if (fromEnv.isNotEmpty) return fromEnv;
+    try {
+      if (Platform.isAndroid) {
+        return 'http://10.0.2.2:3001';
+      }
+    } catch (_) {}
+    return 'http://127.0.0.1:3001';
+  }
+
   final String baseUrl;
   final ISessionStore sessionStore;
   final http.Client _httpClient;
 
   ApiClient({
-    this.baseUrl = 'http://127.0.0.1:3001',
+    String? baseUrl,
     required this.sessionStore,
     http.Client? httpClient,
-  }) : _httpClient = httpClient ?? http.Client();
+  })  : baseUrl = baseUrl ?? defaultBaseUrl,
+        _httpClient = httpClient ?? http.Client();
 
   Future<Map<String, String>> _buildHeaders() async {
     final headers = <String, String>{
