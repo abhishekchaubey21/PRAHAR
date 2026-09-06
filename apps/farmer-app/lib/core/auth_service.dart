@@ -58,10 +58,18 @@ class FarmerAuthService {
     ISessionStore? sessionStore,
     ApiClient? apiClient,
   }) {
-    if (_instance == null || sessionStore != null || apiClient != null) {
+    if (_instance == null) {
       final store = sessionStore ?? SecureFileSessionStore();
       final client = apiClient ?? ApiClient(sessionStore: store);
       _instance = FarmerAuthService._internal(store, client);
+    } else if (sessionStore != null || apiClient != null) {
+      final store = sessionStore ?? _instance!._sessionStore;
+      final client = apiClient ?? _instance!._apiClient;
+      final prevUser = _instance!._currentUser;
+      final prevToken = _instance!._accessToken;
+      _instance = FarmerAuthService._internal(store, client);
+      _instance!._currentUser = prevUser;
+      _instance!._accessToken = prevToken;
     }
     return _instance!;
   }

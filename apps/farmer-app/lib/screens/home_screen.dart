@@ -31,6 +31,7 @@ class HomeScreen extends StatefulWidget {
   final NotificationRepository? notificationRepository;
   final AnalyticsRepository? analyticsRepository;
   final OpportunityRepository? opportunityRepository;
+  final ISessionStore? sessionStore;
   final IOfflineStore? offlineStore;
   final String initialLanguage;
 
@@ -46,6 +47,7 @@ class HomeScreen extends StatefulWidget {
     this.notificationRepository,
     this.analyticsRepository,
     this.opportunityRepository,
+    this.sessionStore,
     this.offlineStore,
     this.initialLanguage = 'en',
   });
@@ -85,13 +87,15 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _offlineStorage = OfflineStorageService(store: widget.offlineStore);
     _isHindi = widget.initialLanguage == 'hi';
-    final sessionStore = SecureFileSessionStore();
+    final store = widget.sessionStore ??
+        (widget.authService?.sessionStore ?? SecureFileSessionStore());
     _apiClient = widget.apiClient ??
         (widget.authService != null
             ? widget.authService!.apiClient
-            : ApiClient(sessionStore: sessionStore));
+            : ApiClient(sessionStore: store));
     _authService = widget.authService ??
-        AuthService(sessionStore: sessionStore, apiClient: _apiClient);
+        AuthService(sessionStore: store, apiClient: _apiClient);
+    _authService.init();
     _farmRepo = widget.farmRepository ??
         FarmRepository(apiClient: _apiClient, offlineStore: _offlineStorage.store);
     _zoneRepo = widget.zoneRepository ??
@@ -680,14 +684,18 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        titleSpacing: 10,
         title: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
             const Text('PRAHAR'),
-            const SizedBox(width: 8),
+            const SizedBox(width: 6),
             Chip(
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              visualDensity: VisualDensity.compact,
               label: Text(_isHindi ? 'किसान v0.3' : 'Farmer v0.3', style: const TextStyle(fontSize: 10, color: Colors.white)),
               backgroundColor: PraharTheme.borderGreen,
-              padding: EdgeInsets.zero,
+              padding: const EdgeInsets.symmetric(horizontal: 4),
             ),
           ],
         ),
@@ -695,7 +703,10 @@ class _HomeScreenState extends State<HomeScreen> {
           // Phase 6B-2: Field Health & Historical Trends Navigation Button
           IconButton(
             key: const Key('analytics_nav_button'),
-            icon: const Icon(Icons.analytics_outlined, color: Colors.white, size: 22),
+            visualDensity: VisualDensity.compact,
+            padding: const EdgeInsets.all(8),
+            constraints: const BoxConstraints(),
+            icon: const Icon(Icons.analytics_outlined, color: Colors.white, size: 20),
             tooltip: _isHindi ? 'खेत स्वास्थ्य एवं रुझान' : 'Field Health & Analytics',
             onPressed: () {
               Navigator.push(
@@ -717,18 +728,23 @@ class _HomeScreenState extends State<HomeScreen> {
           // Phase 6B-4: Opportunity & Scheme Center Navigation Button
           IconButton(
             key: const Key('opportunity_center_nav_button'),
-            icon: const Icon(Icons.account_balance_outlined, color: Colors.white, size: 22),
+            visualDensity: VisualDensity.compact,
+            padding: const EdgeInsets.all(8),
+            constraints: const BoxConstraints(),
+            icon: const Icon(Icons.account_balance_outlined, color: Colors.white, size: 20),
             tooltip: _isHindi ? 'अवसर एवं सरकारी योजना केंद्र' : 'Opportunity & Scheme Center',
             onPressed: _openOpportunityCenterDialog,
           ),
           // Phase 6B-1: Notification Center Bell Button with Dynamic Unread Badge
-
           Stack(
             alignment: Alignment.center,
             children: [
               IconButton(
                 key: const Key('notification_bell_button'),
-                icon: const Icon(Icons.notifications_outlined, color: Colors.white, size: 22),
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.all(8),
+                constraints: const BoxConstraints(),
+                icon: const Icon(Icons.notifications_outlined, color: Colors.white, size: 20),
                 tooltip: _isHindi ? 'सूचना केंद्र' : 'Notification Center',
                 onPressed: () async {
                   await Navigator.push(
@@ -745,19 +761,19 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               if (_unreadNotificationCount > 0)
                 Positioned(
-                  right: 6,
-                  top: 8,
+                  right: 4,
+                  top: 6,
                   child: Container(
                     key: const Key('notification_unread_badge'),
-                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                    padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
                     decoration: BoxDecoration(
                       color: PraharTheme.alertRose,
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                    constraints: const BoxConstraints(minWidth: 14, minHeight: 14),
                     child: Text(
                       '$_unreadNotificationCount',
-                      style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
+                      style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold),
                       textAlign: TextAlign.center,
                     ),
                   ),
@@ -765,22 +781,37 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
           // Language Switcher Toggle (Requirement 9)
-          TextButton.icon(
+          TextButton(
             key: const Key('language_toggle_button'),
-            icon: const Icon(Icons.language, color: PraharTheme.primaryGreen, size: 18),
-            label: Text(
-              _isHindi ? 'English' : 'हिन्दी',
-              style: const TextStyle(color: PraharTheme.primaryGreen, fontWeight: FontWeight.bold),
+            style: TextButton.styleFrom(
+              visualDensity: VisualDensity.compact,
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
             onPressed: _toggleLanguage,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.language, color: PraharTheme.primaryGreen, size: 16),
+                const SizedBox(width: 3),
+                Text(
+                  _isHindi ? 'English' : 'हिन्दी',
+                  style: const TextStyle(color: PraharTheme.primaryGreen, fontWeight: FontWeight.bold, fontSize: 11),
+                ),
+              ],
+            ),
           ),
           IconButton(
             key: const Key('logout_button'),
-            icon: const Icon(Icons.logout, color: Colors.grey, size: 20),
+            visualDensity: VisualDensity.compact,
+            padding: const EdgeInsets.all(8),
+            constraints: const BoxConstraints(),
+            icon: const Icon(Icons.logout, color: Colors.grey, size: 18),
             tooltip: _isHindi ? 'लॉग आउट' : 'Log Out',
             onPressed: _handleLogout,
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 6),
         ],
       ),
       body: ListView(
@@ -1054,10 +1085,13 @@ class _HomeScreenState extends State<HomeScreen> {
                         borderRadius: BorderRadius.circular(6),
                         border: Border.all(color: PraharTheme.alertAmber.withOpacity(0.5)),
                       ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      child: Wrap(
+                        alignment: WrapAlignment.spaceBetween,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        runSpacing: 4,
                         children: [
                           Row(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
                               const Icon(Icons.wb_sunny, color: PraharTheme.alertAmber, size: 16),
                               const SizedBox(width: 6),
@@ -1194,19 +1228,26 @@ class _HomeScreenState extends State<HomeScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Row(
-                          children: [
-                            const Icon(Icons.check_circle, color: PraharTheme.primaryGreen, size: 20),
-                            const SizedBox(width: 8),
-                            Text(
-                              _isHindi ? 'उपचार सत्यापन सफल' : 'Remediation Verified (Closed-Loop)',
-                              style: const TextStyle(fontWeight: FontWeight.bold, color: PraharTheme.primaryGreen),
-                            ),
-                          ],
+                        Expanded(
+                          child: Row(
+                            children: [
+                              const Icon(Icons.check_circle, color: PraharTheme.primaryGreen, size: 20),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  _isHindi ? 'उपचार सत्यापन सफल' : 'Remediation Verified (Closed-Loop)',
+                                  style: const TextStyle(fontWeight: FontWeight.bold, color: PraharTheme.primaryGreen),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
+                        const SizedBox(width: 8),
                         Chip(
+                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          visualDensity: VisualDensity.compact,
                           label: Text(_isHindi ? 'सत्यापित' : 'RESOLVED', style: const TextStyle(fontSize: 10, color: Colors.black)),
                           backgroundColor: PraharTheme.primaryGreen,
                         ),
@@ -1218,13 +1259,15 @@ class _HomeScreenState extends State<HomeScreen> {
                       style: const TextStyle(fontSize: 13),
                     ),
                     const SizedBox(height: 8),
-                    Row(
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 4,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         Text(
                           '${_isHindi ? "पहले" : "Pre"}: ${_latestVerification!.preMoisture}%  →  ${_isHindi ? "बाद में" : "Post"}: ${_latestVerification!.postMoisture}%',
                           style: TextStyle(color: Colors.grey[300], fontWeight: FontWeight.w600, fontSize: 13),
                         ),
-                        const SizedBox(width: 12),
                         Text(
                           '(+${_latestVerification!.moistureDelta}%)',
                           style: const TextStyle(color: PraharTheme.primaryGreen, fontWeight: FontWeight.bold, fontSize: 13),

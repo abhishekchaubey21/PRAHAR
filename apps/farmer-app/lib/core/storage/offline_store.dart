@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:path_provider/path_provider.dart';
 import '../offline_storage.dart';
 
 /// Storage abstraction for offline action queue and domain caching.
@@ -81,12 +82,25 @@ class StructuredFileOfflineStore implements IOfflineStore {
     this.cacheFilePath = '.prahar_farmer_offline_cache.json',
   });
 
+  Future<File> _resolveFile(String path) async {
+    if (path.startsWith('/') || path.contains(':\\') || path.contains(':/')) {
+      return File(path);
+    }
+    try {
+      if (Platform.isAndroid || Platform.isIOS) {
+        final dir = await getApplicationDocumentsDirectory();
+        return File('${dir.path}/$path');
+      }
+    } catch (_) {}
+    return File(path);
+  }
+
   Future<void> _ensureLoaded() async {
     if (_initialized) return;
     _initialized = true;
 
     try {
-      final queueFile = File(queueFilePath);
+      final queueFile = await _resolveFile(queueFilePath);
       if (queueFile.existsSync()) {
         final content = queueFile.readAsStringSync();
         if (content.trim().isNotEmpty) {
@@ -115,7 +129,7 @@ class StructuredFileOfflineStore implements IOfflineStore {
         }
       }
 
-      final cacheFile = File(cacheFilePath);
+      final cacheFile = await _resolveFile(cacheFilePath);
       if (cacheFile.existsSync()) {
         final content = cacheFile.readAsStringSync();
         if (content.trim().isNotEmpty) {
@@ -130,7 +144,10 @@ class StructuredFileOfflineStore implements IOfflineStore {
 
   Future<void> _persistQueue() async {
     try {
-      final file = File(queueFilePath);
+      final file = await _resolveFile(queueFilePath);
+      if (!file.parent.existsSync()) {
+        file.parent.createSync(recursive: true);
+      }
       final jsonList = _actions.map((a) => a.toJson()).toList();
       file.writeAsStringSync(jsonEncode(jsonList), flush: true);
     } catch (_) {}
@@ -138,7 +155,10 @@ class StructuredFileOfflineStore implements IOfflineStore {
 
   Future<void> _persistCache() async {
     try {
-      final file = File(cacheFilePath);
+      final file = await _resolveFile(cacheFilePath);
+      if (!file.parent.existsSync()) {
+        file.parent.createSync(recursive: true);
+      }
       file.writeAsStringSync(jsonEncode(_memoryCache), flush: true);
     } catch (_) {}
   }

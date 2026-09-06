@@ -241,9 +241,12 @@ class _FieldHealthAnalyticsScreenState extends State<FieldHealthAnalyticsScreen>
           children: [
             const Icon(Icons.analytics_outlined, color: PraharTheme.primaryGreen, size: 20),
             const SizedBox(width: 8),
-            Text(
-              _isHindi ? 'खेत स्वास्थ्य एवं रुझान' : 'Field Health & Trends',
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            Expanded(
+              child: Text(
+                _isHindi ? 'खेत स्वास्थ्य एवं रुझान' : 'Field Health & Trends',
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
           ],
         ),

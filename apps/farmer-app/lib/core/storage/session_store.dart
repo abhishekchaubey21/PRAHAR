@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:path_provider/path_provider.dart';
 import '../auth_service.dart';
 
 /// Storage abstraction for farmer authentication sessions.
@@ -79,11 +80,35 @@ class InMemorySessionStore implements ISessionStore {
   }
 }
 
-/// Structured persistent storage for session tokens
+/// Structured persistent storage for session tokens.
+/// Uses app-private persistent directory (via path_provider) on Android/iOS so
+/// session survives app process restarts.
+/// Falls back gracefully to local path for desktop and unit tests.
 class SecureFileSessionStore implements ISessionStore {
   final String filePath;
 
+  // Process-wide synchronized session cache across instances
+  static FarmerSession? _memorySession;
+
   SecureFileSessionStore({this.filePath = '.prahar_farmer_session.json'});
+
+  Future<File> _resolveFile() async {
+    // If an explicit absolute path was given, respect it directly
+    if (filePath.startsWith('/') || filePath.contains(':\\') || filePath.contains(':/')) {
+      return File(filePath);
+    }
+
+    try {
+      if (Platform.isAndroid || Platform.isIOS) {
+        final dir = await getApplicationDocumentsDirectory();
+        return File('${dir.path}/$filePath');
+      }
+    } catch (_) {
+      // Fallback in tests or unsupported environments
+    }
+
+    return File(filePath);
+  }
 
   @override
   Future<void> saveSession({
@@ -91,37 +116,48 @@ class SecureFileSessionStore implements ISessionStore {
     required String? refreshToken,
     required FarmerUser user,
   }) async {
+    final session = FarmerSession(
+      accessToken: accessToken,
+      refreshToken: refreshToken,
+      user: user,
+    );
+    _memorySession = session;
+
     try {
-      final session = FarmerSession(
-        accessToken: accessToken,
-        refreshToken: refreshToken,
-        user: user,
-      );
-      final file = File(filePath);
+      final file = await _resolveFile();
+      if (!file.parent.existsSync()) {
+        file.parent.createSync(recursive: true);
+      }
       file.writeAsStringSync(jsonEncode(session.toJson()), flush: true);
     } catch (e) {
-      // Platform fallback / logging
+      // Memory session remains valid and active even if disk I/O throws
     }
   }
 
   @override
   Future<FarmerSession?> loadSession() async {
+    if (_memorySession != null) {
+      return _memorySession;
+    }
+
     try {
-      final file = File(filePath);
+      final file = await _resolveFile();
       if (!file.existsSync()) return null;
       final content = file.readAsStringSync();
       if (content.trim().isEmpty) return null;
       final json = jsonDecode(content) as Map<String, dynamic>;
-      return FarmerSession.fromJson(json);
+      _memorySession = FarmerSession.fromJson(json);
+      return _memorySession;
     } catch (e) {
-      return null;
+      return _memorySession;
     }
   }
 
   @override
   Future<void> clearSession() async {
+    _memorySession = null;
     try {
-      final file = File(filePath);
+      final file = await _resolveFile();
       if (file.existsSync()) {
         file.deleteSync();
       }

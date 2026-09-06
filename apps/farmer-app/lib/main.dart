@@ -49,6 +49,7 @@ class PraharFarmerApp extends StatelessWidget {
       home: initialHome ??
           (hasValidSession
               ? HomeScreen(
+                  sessionStore: sessionStore,
                   offlineStore: offlineStore,
                   initialLanguage: initialLanguage,
                 )
