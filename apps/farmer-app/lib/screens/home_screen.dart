@@ -12,8 +12,10 @@ import '../data/repositories/alert_repository.dart';
 import '../data/repositories/remediation_repository.dart';
 import '../data/repositories/voice_repository.dart';
 import '../data/repositories/notification_repository.dart';
+import '../data/repositories/analytics_repository.dart';
 import 'login_screen.dart';
 import 'notification_center_screen.dart';
+import 'field_health_analytics_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final ApiClient? apiClient;
@@ -24,6 +26,7 @@ class HomeScreen extends StatefulWidget {
   final RemediationRepository? remediationRepository;
   final VoiceRepository? voiceRepository;
   final NotificationRepository? notificationRepository;
+  final AnalyticsRepository? analyticsRepository;
   final IOfflineStore? offlineStore;
   final String initialLanguage;
 
@@ -37,6 +40,7 @@ class HomeScreen extends StatefulWidget {
     this.remediationRepository,
     this.voiceRepository,
     this.notificationRepository,
+    this.analyticsRepository,
     this.offlineStore,
     this.initialLanguage = 'en',
   });
@@ -59,7 +63,9 @@ class _HomeScreenState extends State<HomeScreen> {
   late final RemediationRepository _remediationRepo;
   late final VoiceRepository _voiceRepo;
   late final NotificationRepository _notificationRepo;
+  late final AnalyticsRepository _analyticsRepo;
   int _unreadNotificationCount = 0;
+
 
   bool _isLoading = false;
   String? _backendError;
@@ -93,10 +99,14 @@ class _HomeScreenState extends State<HomeScreen> {
     _notificationRepo = widget.notificationRepository ??
         NotificationRepository(
             apiClient: _apiClient, offlineStore: _offlineStorage.store);
+    _analyticsRepo = widget.analyticsRepository ??
+        AnalyticsRepository(
+            apiClient: _apiClient, offlineStore: _offlineStorage.store);
 
     _loadRemoteData();
     _loadUnreadNotificationCount();
   }
+
 
   Future<void> _loadRemoteData() async {
     if (!mounted) return;
@@ -813,7 +823,30 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
         actions: [
+          // Phase 6B-2: Field Health & Historical Trends Navigation Button
+          IconButton(
+            key: const Key('analytics_nav_button'),
+            icon: const Icon(Icons.analytics_outlined, color: Colors.white, size: 22),
+            tooltip: _isHindi ? 'खेत स्वास्थ्य एवं रुझान' : 'Field Health & Analytics',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => FieldHealthAnalyticsScreen(
+                    apiClient: _apiClient,
+                    offlineStore: _offlineStorage.store,
+                    farmRepository: _farmRepo,
+                    zoneRepository: _zoneRepo,
+                    analyticsRepository: _analyticsRepo,
+                    initialFarmId: _selectedFarm?.id,
+                    initialIsHindi: _isHindi,
+                  ),
+                ),
+              );
+            },
+          ),
           // Phase 6B-1: Notification Center Bell Button with Dynamic Unread Badge
+
           Stack(
             alignment: Alignment.center,
             children: [

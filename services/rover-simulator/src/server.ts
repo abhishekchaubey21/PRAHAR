@@ -20,6 +20,7 @@ import { HistoricalAnalytics } from './historical-analytics.js';
 import { FieldEvidenceReportGenerator, OpportunityCenter } from './reports-and-opportunities.js';
 import { AuthService } from './auth-service.js';
 import { NotificationService } from './notification-service.js';
+import { AnalyticsService } from './analytics-service.js';
 import { createUserScopedClient, getServiceRoleClient, isSupabaseConfigured } from './supabase-client.js';
 import {
   authenticateRequest,
@@ -60,6 +61,8 @@ const voiceAssistant = new VoiceAssistant(resilientStore, closedLoop);
 const multimodalAssistant = new MultimodalAssistant();
 const historicalAnalytics = new HistoricalAnalytics(resilientStore);
 const notificationService = new NotificationService();
+const analyticsService = new AnalyticsService();
+
 
 async function resolveFarmAndUser(zoneId?: string, farmId?: string, callerUserId?: string): Promise<{ farmId: string; userId: string }> {
   if (isSupabaseConfigured()) {
@@ -1268,6 +1271,133 @@ const server = http.createServer(async (rawReq, res) => {
       }
     }
 
+    // ------------------------------------------------------------------------
+    // Phase 6B-2: Farmer Analytics, Field Health & Historical Trends Endpoints
+    // ------------------------------------------------------------------------
+
+    // 1. Current Field / Zone Health Summary (Authenticated, RLS-enforced)
+    if (pathname === '/api/analytics/summary' && method === 'GET') {
+      const token = extractBearerToken(req);
+      if (!token) {
+        return sendJson(res, 401, { success: false, error: 'Authentication required for analytics.' }, originHeader);
+      }
+
+      const auth = await authenticateRequest(req, res, authService);
+      if (!auth) return;
+
+      const farmId = url.searchParams.get('farm_id');
+      if (!farmId) {
+        return sendJson(res, 400, { success: false, error: 'farm_id query parameter is required.' }, originHeader);
+      }
+      const zoneId = url.searchParams.get('zone_id') || undefined;
+
+      let userScopedClient: any;
+      if (isSupabaseConfigured()) {
+        userScopedClient = createUserScopedClient(token);
+      }
+
+      try {
+        const summary = await analyticsService.getSummary(farmId, zoneId, userScopedClient);
+        return sendJson(res, 200, {
+          success: true,
+          data: summary,
+        }, originHeader);
+      } catch (err: any) {
+        if (
+          err?.message?.includes('access denied') ||
+          err?.message?.includes('not found') ||
+          err?.message?.includes('42501') ||
+          err?.message?.includes('Unauthorized')
+        ) {
+          return sendJson(res, 403, { success: false, error: err.message }, originHeader);
+        }
+        return sendJson(res, 500, { success: false, error: err.message }, originHeader);
+      }
+    }
+
+    // 2. Historical Sensor & Hazard Trends (Authenticated, RLS-enforced)
+    if (pathname === '/api/analytics/trends' && method === 'GET') {
+      const token = extractBearerToken(req);
+      if (!token) {
+        return sendJson(res, 401, { success: false, error: 'Authentication required for analytics.' }, originHeader);
+      }
+
+      const auth = await authenticateRequest(req, res, authService);
+      if (!auth) return;
+
+      const zoneId = url.searchParams.get('zone_id');
+      if (!zoneId) {
+        return sendJson(res, 400, { success: false, error: 'zone_id query parameter is required.' }, originHeader);
+      }
+
+      const from = url.searchParams.get('from') || undefined;
+      const to = url.searchParams.get('to') || undefined;
+      const limitParam = url.searchParams.get('limit');
+      const limit = limitParam ? parseInt(limitParam, 10) : undefined;
+
+      let userScopedClient: any;
+      if (isSupabaseConfigured()) {
+        userScopedClient = createUserScopedClient(token);
+      }
+
+      try {
+        const trends = await analyticsService.getTrends(zoneId, { from, to, limit }, userScopedClient);
+        return sendJson(res, 200, {
+          success: true,
+          data: trends,
+        }, originHeader);
+      } catch (err: any) {
+        if (
+          err?.message?.includes('access denied') ||
+          err?.message?.includes('not found') ||
+          err?.message?.includes('42501') ||
+          err?.message?.includes('Unauthorized')
+        ) {
+          return sendJson(res, 403, { success: false, error: err.message }, originHeader);
+        }
+        return sendJson(res, 500, { success: false, error: err.message }, originHeader);
+      }
+    }
+
+    // 3. Remediation Interventions & Verifications History (Authenticated, RLS-enforced)
+    if (pathname === '/api/analytics/interventions' && method === 'GET') {
+      const token = extractBearerToken(req);
+      if (!token) {
+        return sendJson(res, 401, { success: false, error: 'Authentication required for analytics.' }, originHeader);
+      }
+
+      const auth = await authenticateRequest(req, res, authService);
+      if (!auth) return;
+
+      const farmId = url.searchParams.get('farm_id') || undefined;
+      const zoneId = url.searchParams.get('zone_id') || undefined;
+      const limitParam = url.searchParams.get('limit');
+      const limit = limitParam ? parseInt(limitParam, 10) : undefined;
+
+      let userScopedClient: any;
+      if (isSupabaseConfigured()) {
+        userScopedClient = createUserScopedClient(token);
+      }
+
+      try {
+        const interventions = await analyticsService.getInterventions({ farmId, zoneId, limit }, userScopedClient);
+        return sendJson(res, 200, {
+          success: true,
+          data: interventions,
+        }, originHeader);
+      } catch (err: any) {
+        if (
+          err?.message?.includes('access denied') ||
+          err?.message?.includes('not found') ||
+          err?.message?.includes('42501') ||
+          err?.message?.includes('Unauthorized')
+        ) {
+          return sendJson(res, 403, { success: false, error: err.message }, originHeader);
+        }
+        return sendJson(res, 500, { success: false, error: err.message }, originHeader);
+      }
+    }
+
     // 404 Fallback
     return sendJson(res, 404, {
       success: false,
@@ -1296,6 +1426,10 @@ server.listen(PORT, () => {
   console.log(`  GET   /api/notifications/unread-count`);
   console.log(`  PATCH /api/notifications/:id/read`);
   console.log(`  POST  /api/notifications/read-all`);
+  console.log(`Phase 6B-2 Endpoints:`);
+  console.log(`  GET   /api/analytics/summary`);
+  console.log(`  GET   /api/analytics/trends`);
+  console.log(`  GET   /api/analytics/interventions`);
 });
 
 if (process.argv.some((arg) => arg.includes('test'))) {
@@ -1309,6 +1443,7 @@ export {
   resilientStore,
   authService,
   notificationService,
+  analyticsService,
   config,
   syncEngine,
   decisionEngine,
