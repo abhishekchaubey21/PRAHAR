@@ -19,6 +19,7 @@ import { MultimodalAssistant } from './multimodal-assistant.js';
 import { HistoricalAnalytics } from './historical-analytics.js';
 import { FieldEvidenceReportGenerator, OpportunityCenter } from './reports-and-opportunities.js';
 import { AuthService } from './auth-service.js';
+import { NotificationService } from './notification-service.js';
 import { createUserScopedClient, getServiceRoleClient, isSupabaseConfigured } from './supabase-client.js';
 import {
   authenticateRequest,
@@ -58,6 +59,33 @@ const explainabilityEngine = new ExplainabilityEngine();
 const voiceAssistant = new VoiceAssistant(resilientStore, closedLoop);
 const multimodalAssistant = new MultimodalAssistant();
 const historicalAnalytics = new HistoricalAnalytics(resilientStore);
+const notificationService = new NotificationService();
+
+async function resolveFarmAndUser(zoneId?: string, farmId?: string, callerUserId?: string): Promise<{ farmId: string; userId: string }> {
+  if (isSupabaseConfigured()) {
+    try {
+      const adminClient = getServiceRoleClient();
+      if (zoneId && !farmId) {
+        const { data: zone } = await adminClient.from('zones').select('farm_id').eq('id', zoneId).maybeSingle();
+        if (zone?.farm_id) farmId = zone.farm_id;
+      }
+      if (farmId) {
+        const { data: farm } = await adminClient.from('farms').select('farmer_id').eq('id', farmId).maybeSingle();
+        if (farm?.farmer_id) {
+          const { data: profile } = await adminClient.from('profiles').select('id').eq('farmer_id', farm.farmer_id).maybeSingle();
+          if (profile?.id) {
+            return { farmId, userId: profile.id };
+          }
+        }
+      }
+    } catch (_) {}
+  }
+
+  return {
+    farmId: farmId || 'FARM-DEMO-01',
+    userId: callerUserId || 'usr-demo-farmer-01',
+  };
+}
 
 function parseJsonBody(req: http.IncomingMessage): Promise<any> {
   return new Promise((resolve, reject) => {
@@ -97,7 +125,7 @@ function sendJson(
     'Content-Type': 'application/json',
     'Content-Length': Buffer.byteLength(payload),
     'Access-Control-Allow-Origin': corsOrigin,
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, POST, PATCH, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Rover-Api-Key',
   });
   res.end(payload);
@@ -118,7 +146,7 @@ const server = http.createServer(async (rawReq, res) => {
         : config.allowedOrigins[0] || '*';
     res.writeHead(204, {
       'Access-Control-Allow-Origin': corsOrigin,
-      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Methods': 'GET, POST, PATCH, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Rover-Api-Key',
     });
     return res.end();
@@ -341,6 +369,48 @@ const server = http.createServer(async (rawReq, res) => {
       }
 
       const result = await closedLoop.ingestScan(payload);
+
+      // Phase 6B-1: Generate notifications from meaningful scan events
+      try {
+        const { farmId, userId } = await resolveFarmAndUser(payload.zone_id);
+        if (result.decision?.alerts_to_create) {
+          for (const alert of result.decision.alerts_to_create) {
+            await notificationService.createNotification({
+              user_id: userId,
+              farm_id: farmId,
+              zone_id: payload.zone_id,
+              alert_id: alert.alert_id,
+              type: 'ALERT_CREATED',
+              severity: alert.severity,
+              title: `Hazard Alert: ${alert.type}`,
+              title_hi: `जोखिम चेतावनी: ${alert.type}`,
+              message: alert.message,
+              message_hi: alert.message_hi,
+              deduplication_key: `alert:${alert.alert_id}`,
+              metadata: { hazard_type: alert.type, source: 'decision_engine' },
+            });
+          }
+        }
+        if (result.decision?.action_recommendation) {
+          const rec = result.decision.action_recommendation;
+          await notificationService.createNotification({
+            user_id: userId,
+            farm_id: farmId,
+            zone_id: payload.zone_id,
+            type: 'ACTION_RECOMMENDED',
+            severity: 'HIGH',
+            title: `Action Recommended: ${rec.action_type}`,
+            title_hi: `कार्रवाई अनुशंसित: ${rec.action_type}`,
+            message: rec.description_en,
+            message_hi: rec.description_hi,
+            deduplication_key: `action_rec:${payload.zone_id}:${rec.action_type}`,
+            metadata: { action_type: rec.action_type },
+          });
+        }
+      } catch (err: any) {
+        console.warn('[Server] Error generating scan notifications:', err.message);
+      }
+
       return sendJson(res, 200, {
         success: true,
         data: result,
@@ -490,6 +560,27 @@ const server = http.createServer(async (rawReq, res) => {
           }
         }
 
+        // Phase 6B-1: Generate ACTION_APPROVED notification
+        try {
+          const { farmId, userId } = await resolveFarmAndUser(body.zone_id, undefined, approvedBy);
+          await notificationService.createNotification({
+            user_id: userId,
+            farm_id: farmId,
+            zone_id: body.zone_id,
+            action_id: intervention.action_id,
+            type: 'ACTION_APPROVED',
+            severity: 'MEDIUM',
+            title: `Intervention Approved: ${intervention.action_type}`,
+            title_hi: `हस्तक्षेप स्वीकृत: ${intervention.action_type}`,
+            message: `Action ${intervention.action_id} approved by ${approvedBy} for zone ${body.zone_id}. Ready for execution.`,
+            message_hi: `कार्रवाई ${intervention.action_id} क्षेत्र ${body.zone_id} के लिए स्वीकृत।`,
+            deduplication_key: `action_approved:${intervention.action_id}`,
+            metadata: { approved_by: approvedBy, duration_seconds: intervention.duration_seconds },
+          });
+        } catch (err: any) {
+          console.warn('[Server] Error generating approval notification:', err.message);
+        }
+
         return sendJson(res, 200, {
           success: true,
           message: 'Intervention approved. Ready for execution.',
@@ -517,6 +608,30 @@ const server = http.createServer(async (rawReq, res) => {
       const body = await parseJsonBody(req);
       try {
         const ack = await closedLoop.executeApprovedIntervention(body.action_id);
+        const intervention = closedLoop.getPendingIntervention(body.action_id);
+        const zoneId = intervention?.zone_id;
+
+        // Phase 6B-1: Generate ACTION_EXECUTED notification
+        try {
+          const { farmId, userId } = await resolveFarmAndUser(zoneId);
+          await notificationService.createNotification({
+            user_id: userId,
+            farm_id: farmId,
+            zone_id: zoneId,
+            action_id: body.action_id,
+            type: 'ACTION_EXECUTED',
+            severity: 'INFO',
+            title: 'Intervention Executed',
+            title_hi: 'हस्तक्षेप निष्पादित',
+            message: `Rover successfully executed remediation for action ${body.action_id}.`,
+            message_hi: `रोवर ने कार्रवाई ${body.action_id} का सफलतापूर्वक निष्पादन किया।`,
+            deduplication_key: `action_executed:${body.action_id}`,
+            metadata: { status: ack.status, result: ack.result },
+          });
+        } catch (err: any) {
+          console.warn('[Server] Error generating execute notification:', err.message);
+        }
+
         const statusCode = ack.status === 'REJECTED' ? 400 : ack.status === 'FAILED' ? 500 : 200;
         return sendJson(res, statusCode, {
           success: ack.status === 'COMPLETED',
@@ -553,6 +668,37 @@ const server = http.createServer(async (rawReq, res) => {
           } catch (err: any) {
             console.warn('[Server] Failed to persist verification to Supabase:', err.message);
           }
+        }
+
+        // Phase 6B-1: Generate VERIFICATION_COMPLETED or VERIFICATION_FAILED notification
+        try {
+          const { farmId, userId } = await resolveFarmAndUser(verification.zone_id);
+          const isResolved = Boolean(verification.resolved);
+          await notificationService.createNotification({
+            user_id: userId,
+            farm_id: farmId,
+            zone_id: verification.zone_id,
+            action_id: body.action_id,
+            type: isResolved ? 'VERIFICATION_COMPLETED' : 'VERIFICATION_FAILED',
+            severity: isResolved ? 'INFO' : 'HIGH',
+            title: isResolved
+              ? `Verification Successful: ${verification.zone_id}`
+              : `Verification Target Not Met: ${verification.zone_id}`,
+            title_hi: isResolved
+              ? `सत्यापन सफल: ${verification.zone_id}`
+              : `सत्यापन लक्ष्य पूरा नहीं हुआ: ${verification.zone_id}`,
+            message: verification.summary_en,
+            message_hi: verification.summary_hi,
+            deduplication_key: `verification:${verification.verification_id}`,
+            metadata: {
+              verification_id: verification.verification_id,
+              resolved: isResolved,
+              pre_moisture: verification.pre_moisture,
+              post_moisture: verification.post_moisture,
+            },
+          });
+        } catch (err: any) {
+          console.warn('[Server] Error generating verification notification:', err.message);
         }
 
         return sendJson(res, 200, {
@@ -983,6 +1129,145 @@ const server = http.createServer(async (rawReq, res) => {
       }, originHeader);
     }
 
+    // ------------------------------------------------------------------------
+    // Phase 6B-1: In-App Notification System Endpoints
+    // ------------------------------------------------------------------------
+
+    // 1. List Notifications (Authenticated, RLS-enforced)
+    if (pathname === '/api/notifications' && method === 'GET') {
+      const token = extractBearerToken(req);
+      if (!token) {
+        return sendJson(res, 401, { success: false, error: 'Authentication required for notifications.' }, originHeader);
+      }
+
+      const auth = await authenticateRequest(req, res, authService);
+      if (!auth) return;
+      const userId = auth.user_id;
+      let userScopedClient: any;
+      if (isSupabaseConfigured()) {
+        userScopedClient = createUserScopedClient(token);
+      }
+
+      try {
+        const isReadParam = url.searchParams.get('is_read');
+        const isRead = isReadParam !== null ? isReadParam === 'true' : undefined;
+        const limit = url.searchParams.get('limit') ? parseInt(url.searchParams.get('limit')!, 10) : undefined;
+
+        const list = await notificationService.listNotifications(
+          userId,
+          { is_read: isRead, limit },
+          userScopedClient
+        );
+
+        return sendJson(res, 200, {
+          success: true,
+          count: list.length,
+          data: list,
+        }, originHeader);
+      } catch (err: any) {
+        if (err?.message?.includes('42501') || err?.message?.includes('JWT') || err?.message?.includes('Unauthorized')) {
+          return sendJson(res, 403, { success: false, error: err.message }, originHeader);
+        }
+        return sendJson(res, 500, { success: false, error: err.message }, originHeader);
+      }
+    }
+
+    // 2. Unread Notification Count (Authenticated, RLS-enforced)
+    if (pathname === '/api/notifications/unread-count' && method === 'GET') {
+      const token = extractBearerToken(req);
+      if (!token) {
+        return sendJson(res, 401, { success: false, error: 'Authentication required for notifications.' }, originHeader);
+      }
+
+      const auth = await authenticateRequest(req, res, authService);
+      if (!auth) return;
+      const userId = auth.user_id;
+      let userScopedClient: any;
+      if (isSupabaseConfigured()) {
+        userScopedClient = createUserScopedClient(token);
+      }
+
+      try {
+        const count = await notificationService.getUnreadCount(userId, userScopedClient);
+        return sendJson(res, 200, {
+          success: true,
+          count,
+        }, originHeader);
+      } catch (err: any) {
+        if (err?.message?.includes('42501') || err?.message?.includes('JWT') || err?.message?.includes('Unauthorized')) {
+          return sendJson(res, 403, { success: false, error: err.message }, originHeader);
+        }
+        return sendJson(res, 500, { success: false, error: err.message }, originHeader);
+      }
+    }
+
+    // 3. Mark Individual Notification Read (Authenticated, RLS-enforced)
+    if (pathname.startsWith('/api/notifications/') && pathname.endsWith('/read') && method === 'PATCH') {
+      const token = extractBearerToken(req);
+      if (!token) {
+        return sendJson(res, 401, { success: false, error: 'Authentication required to mark notification read.' }, originHeader);
+      }
+
+      const auth = await authenticateRequest(req, res, authService);
+      if (!auth) return;
+      const userId = auth.user_id;
+      let userScopedClient: any;
+      if (isSupabaseConfigured()) {
+        userScopedClient = createUserScopedClient(token);
+      }
+
+      const parts = pathname.split('/');
+      const notifId = parts[3];
+      if (!notifId) {
+        return sendJson(res, 400, { success: false, error: 'Notification ID required in path.' }, originHeader);
+      }
+
+      try {
+        const updated = await notificationService.markRead(userId, notifId, userScopedClient);
+        if (!updated) {
+          return sendJson(res, 404, { success: false, error: `Notification '${notifId}' not found.` }, originHeader);
+        }
+        return sendJson(res, 200, {
+          success: true,
+          data: updated,
+        }, originHeader);
+      } catch (err: any) {
+        if (err?.message?.includes('42501') || err?.message?.includes('JWT') || err?.message?.includes('Unauthorized')) {
+          return sendJson(res, 403, { success: false, error: err.message }, originHeader);
+        }
+        return sendJson(res, 500, { success: false, error: err.message }, originHeader);
+      }
+    }
+
+    // 4. Mark All Notifications Read (Authenticated, RLS-enforced)
+    if (pathname === '/api/notifications/read-all' && method === 'POST') {
+      const token = extractBearerToken(req);
+      if (!token) {
+        return sendJson(res, 401, { success: false, error: 'Authentication required to mark all notifications read.' }, originHeader);
+      }
+
+      const auth = await authenticateRequest(req, res, authService);
+      if (!auth) return;
+      const userId = auth.user_id;
+      let userScopedClient: any;
+      if (isSupabaseConfigured()) {
+        userScopedClient = createUserScopedClient(token);
+      }
+
+      try {
+        const count = await notificationService.markAllRead(userId, userScopedClient);
+        return sendJson(res, 200, {
+          success: true,
+          count,
+        }, originHeader);
+      } catch (err: any) {
+        if (err?.message?.includes('42501') || err?.message?.includes('JWT') || err?.message?.includes('Unauthorized')) {
+          return sendJson(res, 403, { success: false, error: err.message }, originHeader);
+        }
+        return sendJson(res, 500, { success: false, error: err.message }, originHeader);
+      }
+    }
+
     // 404 Fallback
     return sendJson(res, 404, {
       success: false,
@@ -1006,6 +1291,11 @@ server.listen(PORT, () => {
   console.log(`  POST /api/auth/logout`);
   console.log(`  GET  /api/auth/me`);
   console.log(`  POST /api/auth/promote (Admin Only)`);
+  console.log(`Phase 6B-1 Endpoints:`);
+  console.log(`  GET   /api/notifications`);
+  console.log(`  GET   /api/notifications/unread-count`);
+  console.log(`  PATCH /api/notifications/:id/read`);
+  console.log(`  POST  /api/notifications/read-all`);
 });
 
 if (process.argv.some((arg) => arg.includes('test'))) {
@@ -1018,6 +1308,7 @@ export {
   alertStore,
   resilientStore,
   authService,
+  notificationService,
   config,
   syncEngine,
   decisionEngine,

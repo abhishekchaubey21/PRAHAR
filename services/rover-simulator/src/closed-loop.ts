@@ -119,6 +119,10 @@ export class ClosedLoopCoordinator {
     return intervention;
   }
 
+  public getPendingIntervention(actionId: string): PendingIntervention | undefined {
+    return this.pendingInterventions.get(actionId);
+  }
+
   /**
    * Step 4: SAFETY VALIDATION & Physical Action Execution.
    * Dispatches approved command through the rover engine command processor.

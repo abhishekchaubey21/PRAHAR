@@ -112,6 +112,28 @@ class ApiClient {
     return _processResponse(response);
   }
 
+  Future<dynamic> patch(String path, {dynamic body, Duration timeout = const Duration(seconds: 10)}) async {
+    final uri = _buildUri(path);
+    http.Response response;
+
+    try {
+      final headers = await _buildHeaders();
+      final bodyStr = body != null ? jsonEncode(body) : null;
+      response = await _httpClient.patch(uri, headers: headers, body: bodyStr).timeout(timeout);
+    } on SocketException catch (e) {
+      throw NetworkUnavailableException('Failed to reach backend at $uri (SocketException)', e);
+    } on TimeoutException catch (e) {
+      throw NetworkUnavailableException('Request to $uri timed out after $timeout', e);
+    } on http.ClientException catch (e) {
+      throw NetworkUnavailableException('Client connection error at $uri', e);
+    } catch (e) {
+      if (e is NetworkUnavailableException || e is ApiException) rethrow;
+      throw NetworkUnavailableException('Unexpected network error reaching $uri: $e', e);
+    }
+
+    return _processResponse(response);
+  }
+
   dynamic _processResponse(http.Response response) {
     dynamic decoded;
     try {

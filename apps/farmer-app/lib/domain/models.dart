@@ -215,3 +215,89 @@ class RemediationVerificationModel {
         'summary_hi': summaryHi,
       };
 }
+
+class NotificationModel {
+  final String id;
+  final String notificationId;
+  final String userId;
+  final String farmId;
+  final String? zoneId;
+  final String? alertId;
+  final String? actionId;
+  final String type;
+  final String severity;
+  final String title;
+  final String? titleHi;
+  final String message;
+  final String? messageHi;
+  bool isRead;
+  final DateTime createdAt;
+  final DateTime? readAt;
+  final Map<String, dynamic>? metadata;
+  final String? deduplicationKey;
+
+  NotificationModel({
+    required this.id,
+    required this.notificationId,
+    required this.userId,
+    required this.farmId,
+    this.zoneId,
+    this.alertId,
+    this.actionId,
+    required this.type,
+    required this.severity,
+    required this.title,
+    this.titleHi,
+    required this.message,
+    this.messageHi,
+    this.isRead = false,
+    required this.createdAt,
+    this.readAt,
+    this.metadata,
+    this.deduplicationKey,
+  });
+
+  factory NotificationModel.fromJson(Map<String, dynamic> json) {
+    return NotificationModel(
+      id: (json['id'] ?? '') as String,
+      notificationId: (json['notification_id'] ?? json['id'] ?? '') as String,
+      userId: (json['user_id'] ?? '') as String,
+      farmId: (json['farm_id'] ?? '') as String,
+      zoneId: json['zone_id'] as String?,
+      alertId: json['alert_id'] as String?,
+      actionId: json['action_id'] as String?,
+      type: (json['type'] ?? 'SYSTEM') as String,
+      severity: (json['severity'] ?? 'INFO') as String,
+      title: (json['title'] ?? '') as String,
+      titleHi: json['title_hi'] as String?,
+      message: (json['message'] ?? '') as String,
+      messageHi: json['message_hi'] as String?,
+      isRead: (json['is_read'] as bool?) ?? false,
+      createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : DateTime.now(),
+      readAt: json['read_at'] != null ? DateTime.parse(json['read_at']) : null,
+      metadata: json['metadata'] as Map<String, dynamic>?,
+      deduplicationKey: json['deduplication_key'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'notification_id': notificationId,
+        'user_id': userId,
+        'farm_id': farmId,
+        'zone_id': zoneId,
+        'alert_id': alertId,
+        'action_id': actionId,
+        'type': type,
+        'severity': severity,
+        'title': title,
+        'title_hi': titleHi,
+        'message': message,
+        'message_hi': messageHi,
+        'is_read': isRead,
+        'created_at': createdAt.toIso8601String(),
+        'read_at': readAt?.toIso8601String(),
+        'metadata': metadata,
+        'deduplication_key': deduplicationKey,
+      };
+}

@@ -11,7 +11,9 @@ import '../data/repositories/zone_repository.dart';
 import '../data/repositories/alert_repository.dart';
 import '../data/repositories/remediation_repository.dart';
 import '../data/repositories/voice_repository.dart';
+import '../data/repositories/notification_repository.dart';
 import 'login_screen.dart';
+import 'notification_center_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final ApiClient? apiClient;
@@ -21,6 +23,7 @@ class HomeScreen extends StatefulWidget {
   final AlertRepository? alertRepository;
   final RemediationRepository? remediationRepository;
   final VoiceRepository? voiceRepository;
+  final NotificationRepository? notificationRepository;
   final IOfflineStore? offlineStore;
   final String initialLanguage;
 
@@ -33,6 +36,7 @@ class HomeScreen extends StatefulWidget {
     this.alertRepository,
     this.remediationRepository,
     this.voiceRepository,
+    this.notificationRepository,
     this.offlineStore,
     this.initialLanguage = 'en',
   });
@@ -54,6 +58,8 @@ class _HomeScreenState extends State<HomeScreen> {
   late final AlertRepository _alertRepo;
   late final RemediationRepository _remediationRepo;
   late final VoiceRepository _voiceRepo;
+  late final NotificationRepository _notificationRepo;
+  int _unreadNotificationCount = 0;
 
   bool _isLoading = false;
   String? _backendError;
@@ -84,8 +90,12 @@ class _HomeScreenState extends State<HomeScreen> {
         RemediationRepository(
             apiClient: _apiClient, offlineStore: _offlineStorage.store);
     _voiceRepo = widget.voiceRepository ?? VoiceRepository(apiClient: _apiClient);
+    _notificationRepo = widget.notificationRepository ??
+        NotificationRepository(
+            apiClient: _apiClient, offlineStore: _offlineStorage.store);
 
     _loadRemoteData();
+    _loadUnreadNotificationCount();
   }
 
   Future<void> _loadRemoteData() async {
@@ -138,6 +148,8 @@ class _HomeScreenState extends State<HomeScreen> {
           _latestVerification = verifs.first;
         });
       }
+
+      await _loadUnreadNotificationCount();
     } on ApiException catch (e) {
       if (mounted) {
         setState(() {
@@ -193,6 +205,17 @@ class _HomeScreenState extends State<HomeScreen> {
         });
       }
     }
+  }
+
+  Future<void> _loadUnreadNotificationCount() async {
+    try {
+      final count = await _notificationRepo.getUnreadCount();
+      if (mounted) {
+        setState(() {
+          _unreadNotificationCount = count;
+        });
+      }
+    } catch (_) {}
   }
 
   Future<void> _toggleLanguage() async {
@@ -790,6 +813,48 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
         actions: [
+          // Phase 6B-1: Notification Center Bell Button with Dynamic Unread Badge
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              IconButton(
+                key: const Key('notification_bell_button'),
+                icon: const Icon(Icons.notifications_outlined, color: Colors.white, size: 22),
+                tooltip: _isHindi ? 'सूचना केंद्र' : 'Notification Center',
+                onPressed: () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => NotificationCenterScreen(
+                        notificationRepository: _notificationRepo,
+                        isHindi: _isHindi,
+                      ),
+                    ),
+                  );
+                  _loadUnreadNotificationCount();
+                },
+              ),
+              if (_unreadNotificationCount > 0)
+                Positioned(
+                  right: 6,
+                  top: 8,
+                  child: Container(
+                    key: const Key('notification_unread_badge'),
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: PraharTheme.alertRose,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                    child: Text(
+                      '$_unreadNotificationCount',
+                      style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+            ],
+          ),
           // Language Switcher Toggle (Requirement 9)
           TextButton.icon(
             key: const Key('language_toggle_button'),
