@@ -1092,30 +1092,155 @@ const server = http.createServer(async (rawReq, res) => {
       }, originHeader);
     }
 
-    // PRAHAR Field Evidence Report
+    // PRAHAR Field Evidence Report (Phase 6B-3 Authenticated & Authoritative)
     if (pathname === '/api/reports/field-evidence' && method === 'GET') {
-      const zoneId = url.searchParams.get('zone_id') || 'DEMO-ZONE-02';
-      const farmId = url.searchParams.get('farm_id') || 'FARM-DEMO-01';
-      const farmName = url.searchParams.get('farm_name') || 'Kisan Demo Farm Alpha (डेमो खेत अल्फा)';
+      const token = extractBearerToken(req);
+      if (!token) {
+        if (!config.allowSimulatorBypass || isSupabaseConfigured() || url.searchParams.has('farm_id')) {
+          return sendJson(res, 401, { success: false, error: 'Authentication required for field evidence reports.' }, originHeader);
+        }
+        // Legacy offline demo fallback for Phase 4 backward-compatibility when Supabase is not configured
+        const zoneId = url.searchParams.get('zone_id') || 'DEMO-ZONE-02';
+        const farmId = url.searchParams.get('farm_id') || 'FARM-DEMO-01';
+        const farmName = url.searchParams.get('farm_name') || 'Kisan Demo Farm Alpha (डेमो खेत अल्फा)';
+        const scan = engine.simulateScanCycle(zoneId, false);
+        const verifications = (await resilientStore.getVerifications?.(zoneId)) || [];
+        const latestVerif = verifications[0];
+        const report = FieldEvidenceReportGenerator.generateReport({
+          farmId,
+          farmName,
+          zoneId,
+          scan,
+          actionExecuted: latestVerif ? '30s Micro-irrigation (~7.5L)' : 'Scheduled Rover Agronomic Scan Cycle',
+          approvedBy: latestVerif ? 'dr_sharma_kvk_expert' : undefined,
+          verification: latestVerif,
+        });
+        return sendJson(res, 200, { success: true, report }, originHeader);
+      }
 
-      const scan = engine.simulateScanCycle(zoneId, false);
-      const verifications = (await resilientStore.getVerifications?.(zoneId)) || [];
-      const latestVerif = verifications[0];
+      const auth = await authenticateRequest(req, res, authService);
+      if (!auth) return;
 
-      const report = FieldEvidenceReportGenerator.generateReport({
-        farmId,
-        farmName,
-        zoneId,
-        scan,
-        actionExecuted: latestVerif ? '30s Micro-irrigation (~7.5L)' : 'Scheduled Rover Agronomic Scan Cycle',
-        approvedBy: latestVerif ? 'dr_sharma_kvk_expert' : undefined,
-        verification: latestVerif,
-      });
+      const farmId = url.searchParams.get('farm_id');
+      if (!farmId) {
+        return sendJson(res, 400, { success: false, error: 'farm_id query parameter is required.' }, originHeader);
+      }
+      const zoneId = url.searchParams.get('zone_id') || undefined;
+      const from = url.searchParams.get('from') || undefined;
+      const to = url.searchParams.get('to') || undefined;
+      const format = url.searchParams.get('format') || (req.headers.accept?.includes('application/pdf') ? 'pdf' : 'json');
+      const download = url.searchParams.get('download') === 'true';
 
-      return sendJson(res, 200, {
-        success: true,
-        report,
-      }, originHeader);
+      let userScopedClient: any;
+      if (isSupabaseConfigured()) {
+        userScopedClient = createUserScopedClient(token);
+      }
+
+      try {
+        const { report, pdfBuffer } = await FieldEvidenceReportGenerator.generateAuthoritativeReport({
+          farmId,
+          zoneId,
+          from,
+          to,
+          client: userScopedClient,
+          analyticsService,
+        });
+
+        if (format === 'pdf' || download) {
+          res.writeHead(200, {
+            'Content-Type': 'application/pdf',
+            'Content-Disposition': `attachment; filename="PRAHAR_Field_Evidence_Report_${report.report_id}.pdf"`,
+            'Content-Length': pdfBuffer.length,
+            'Access-Control-Allow-Origin': originHeader || '*',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization, Accept',
+          });
+          res.end(pdfBuffer);
+          return;
+        }
+
+        return sendJson(res, 200, {
+          success: true,
+          data: report,
+          report,
+          pdf_base64: report.pdf_base64,
+        }, originHeader);
+      } catch (err: any) {
+        if (
+          err?.message?.includes('access denied') ||
+          err?.message?.includes('not found') ||
+          err?.message?.includes('42501') ||
+          err?.message?.includes('Unauthorized')
+        ) {
+          return sendJson(res, 403, { success: false, error: err.message }, originHeader);
+        }
+        return sendJson(res, 500, { success: false, error: err.message }, originHeader);
+      }
+    }
+
+    // POST /api/reports/field-evidence/generate (Phase 6B-3 Generate Report Action)
+    if (pathname === '/api/reports/field-evidence/generate' && method === 'POST') {
+      const token = extractBearerToken(req);
+      if (!token) {
+        return sendJson(res, 401, { success: false, error: 'Authentication required to generate field evidence reports.' }, originHeader);
+      }
+
+      const auth = await authenticateRequest(req, res, authService);
+      if (!auth) return;
+
+      const body = await parseJsonBody(req);
+      const farmId = body.farm_id;
+      if (!farmId) {
+        return sendJson(res, 400, { success: false, error: 'farm_id is required in request body.' }, originHeader);
+      }
+      const zoneId = body.zone_id || undefined;
+      const from = body.from || undefined;
+      const to = body.to || undefined;
+      const format = body.format || (req.headers.accept?.includes('application/pdf') ? 'pdf' : 'json');
+
+      let userScopedClient: any;
+      if (isSupabaseConfigured()) {
+        userScopedClient = createUserScopedClient(token);
+      }
+
+      try {
+        const { report, pdfBuffer } = await FieldEvidenceReportGenerator.generateAuthoritativeReport({
+          farmId,
+          zoneId,
+          from,
+          to,
+          client: userScopedClient,
+          analyticsService,
+        });
+
+        if (format === 'pdf') {
+          res.writeHead(200, {
+            'Content-Type': 'application/pdf',
+            'Content-Disposition': `attachment; filename="PRAHAR_Field_Evidence_Report_${report.report_id}.pdf"`,
+            'Content-Length': pdfBuffer.length,
+            'Access-Control-Allow-Origin': originHeader || '*',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization, Accept',
+          });
+          res.end(pdfBuffer);
+          return;
+        }
+
+        return sendJson(res, 200, {
+          success: true,
+          data: report,
+          report,
+          pdf_base64: report.pdf_base64,
+        }, originHeader);
+      } catch (err: any) {
+        if (
+          err?.message?.includes('access denied') ||
+          err?.message?.includes('not found') ||
+          err?.message?.includes('42501') ||
+          err?.message?.includes('Unauthorized')
+        ) {
+          return sendJson(res, 403, { success: false, error: err.message }, originHeader);
+        }
+        return sendJson(res, 500, { success: false, error: err.message }, originHeader);
+      }
     }
 
     // Farmer Opportunity Center

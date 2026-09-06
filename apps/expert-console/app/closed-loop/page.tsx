@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { apiFetch } from '../../lib/api-client';
+import { apiFetch, getGatewayUrl } from '../../lib/api-client';
 
 interface VerificationRecord {
   verification_id: string;
@@ -37,6 +37,9 @@ export default function ClosedLoopPage() {
   const [actionId, setActionId] = useState('');
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [reportFarmId, setReportFarmId] = useState('farm-demo-01');
+  const [reportZoneId, setReportZoneId] = useState('DEMO-ZONE-02');
+  const [exportingPdf, setExportingPdf] = useState(false);
 
   useEffect(() => {
     apiFetch<VerificationRecord[]>('/api/remediation/verifications')
@@ -103,6 +106,56 @@ export default function ClosedLoopPage() {
       setStatusMsg(`Gateway connection error: ${err.message}`);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const downloadEvidenceReportPdf = async () => {
+    if (!reportFarmId.trim()) {
+      setStatusMsg('Please specify a valid Farm ID for report export.');
+      return;
+    }
+    setExportingPdf(true);
+    setStatusMsg(null);
+    try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('prahar_expert_jwt') : null;
+      const headers: Record<string, string> = {
+        'Accept': 'application/pdf',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const params = new URLSearchParams({
+        farm_id: reportFarmId.trim(),
+        format: 'pdf',
+      });
+      if (reportZoneId.trim()) {
+        params.set('zone_id', reportZoneId.trim());
+      }
+
+      const url = `${getGatewayUrl()}/api/reports/field-evidence?${params.toString()}`;
+      const res = await fetch(url, { headers });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ message: `HTTP ${res.status}` }));
+        setStatusMsg(`Report export error: ${err.message || res.statusText}`);
+        return;
+      }
+
+      const blob = await res.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = downloadUrl;
+      a.download = `PRAHAR_Field_Evidence_${reportFarmId}_${Date.now()}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(downloadUrl);
+      setStatusMsg('Field Evidence Report (PDF-1.4) successfully exported and downloaded.');
+    } catch (err: any) {
+      setStatusMsg(`Failed to download report: ${err.message}`);
+    } finally {
+      setExportingPdf(false);
     }
   };
 
@@ -282,6 +335,100 @@ export default function ClosedLoopPage() {
             {statusMsg}
           </p>
         )}
+      </div>
+
+      {/* Phase 6B-3: Official Field Evidence Report & Audit Export */}
+      <div className="card" style={{ border: '1px solid rgba(16, 185, 129, 0.3)' }}>
+        <div className="card-header">
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <h3 className="card-title" style={{ fontSize: '1.05rem', color: 'var(--text-primary)' }}>
+                Field Evidence Report &amp; Audit Export (Phase 6B-3)
+              </h3>
+              <span className="badge badge-success" style={{ fontSize: '0.7rem' }}>
+                PDF-1.4 CERTIFIED
+              </span>
+            </div>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '4px' }}>
+              Export authoritative field-evidence summaries compiled directly from verified observations, edge detections, and remediation outcomes.
+            </p>
+          </div>
+        </div>
+
+        {/* Mandatory Exact Non-Government Disclaimer Banner */}
+        <div style={{
+          background: 'rgba(245, 158, 11, 0.12)',
+          border: '1px solid rgba(245, 158, 11, 0.5)',
+          borderRadius: '8px',
+          padding: '12px 16px',
+          marginBottom: '16px',
+          fontSize: '0.82rem',
+          lineHeight: '1.45',
+          color: '#fef3c7',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700, color: '#f59e0b', marginBottom: '4px' }}>
+            <span>⚠️</span> MANDATORY LEGAL NOTICE / DISCLAIMER:
+          </div>
+          This report is an informational field-evidence summary generated from PRAHAR system observations and AI/edge outputs. It is not an official government certificate, legal warranty, or guaranteed diagnosis.
+        </div>
+
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Farm ID</label>
+            <input
+              type="text"
+              placeholder="Farm ID"
+              value={reportFarmId}
+              onChange={(e) => setReportFarmId(e.target.value)}
+              style={{
+                background: 'var(--bg-primary)',
+                border: '1px solid var(--border-color)',
+                color: 'var(--text-primary)',
+                padding: '8px 12px',
+                borderRadius: '6px',
+                fontSize: '0.88rem',
+                width: '180px',
+              }}
+            />
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <label style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Zone ID (Optional)</label>
+            <input
+              type="text"
+              placeholder="Zone ID"
+              value={reportZoneId}
+              onChange={(e) => setReportZoneId(e.target.value)}
+              style={{
+                background: 'var(--bg-primary)',
+                border: '1px solid var(--border-color)',
+                color: 'var(--text-primary)',
+                padding: '8px 12px',
+                borderRadius: '6px',
+                fontSize: '0.88rem',
+                width: '180px',
+              }}
+            />
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignSelf: 'flex-end' }}>
+            <button
+              className="btn btn-outline"
+              disabled={exportingPdf}
+              onClick={downloadEvidenceReportPdf}
+              style={{
+                borderColor: 'var(--accent-emerald)',
+                color: 'var(--accent-emerald)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '9px 18px',
+              }}
+            >
+              {exportingPdf ? '⏳ Generating PDF...' : '📄 Generate & Download PDF Report'}
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Previous Verification Records Section (Requirement 3: Clearly Labelled Below Hero) */}

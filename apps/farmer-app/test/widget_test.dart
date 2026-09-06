@@ -122,9 +122,9 @@ void main() {
     await tester.tap(find.text('Evidence Report'));
     await tester.pumpAndSettle();
 
-    expect(find.text('PRAHAR Field Evidence Report'), findsOneWidget);
-    expect(find.textContaining('LEGAL DISCLAIMER'), findsOneWidget);
-    await tester.tap(find.text('Close'));
+    expect(find.text('Field Evidence Report'), findsOneWidget);
+    expect(find.textContaining('informational field-evidence summary'), findsOneWidget);
+    await tester.tap(find.byType(BackButton));
     await tester.pumpAndSettle();
 
     // Open Farmer Opportunity Center and verify official portal notice

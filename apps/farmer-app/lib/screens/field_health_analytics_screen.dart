@@ -6,6 +6,7 @@ import '../domain/models.dart';
 import '../data/repositories/farm_repository.dart';
 import '../data/repositories/zone_repository.dart';
 import '../data/repositories/analytics_repository.dart';
+import 'field_evidence_report_screen.dart';
 
 class FieldHealthAnalyticsScreen extends StatefulWidget {
   final ApiClient apiClient;
@@ -259,6 +260,27 @@ class _FieldHealthAnalyticsScreenState extends State<FieldHealthAnalyticsScreen>
               setState(() {
                 _isHindi = !_isHindi;
               });
+            },
+          ),
+          IconButton(
+            key: const Key('export_report_button'),
+            icon: const Icon(Icons.picture_as_pdf_outlined, color: PraharTheme.primaryGreen, size: 20),
+            tooltip: _isHindi ? 'साक्ष्य रिपोर्ट जनरेट करें' : 'Export Evidence Report',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => FieldEvidenceReportScreen(
+                    apiClient: widget.apiClient,
+                    offlineStore: widget.offlineStore,
+                    farmRepository: _farmRepo,
+                    zoneRepository: _zoneRepo,
+                    initialFarmId: _selectedFarm?.id,
+                    initialZoneId: _selectedZone?.id,
+                    initialIsHindi: _isHindi,
+                  ),
+                ),
+              );
             },
           ),
           IconButton(

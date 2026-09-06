@@ -11,7 +11,6 @@ import 'package:farmer_app/core/auth_service.dart';
 import 'package:farmer_app/core/storage/session_store.dart';
 import 'package:farmer_app/core/storage/offline_store.dart';
 import 'package:farmer_app/data/repositories/notification_repository.dart';
-import 'package:farmer_app/domain/models.dart';
 import 'package:farmer_app/screens/home_screen.dart';
 import 'package:farmer_app/screens/notification_center_screen.dart';
 

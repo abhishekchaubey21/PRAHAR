@@ -7,14 +7,9 @@ import 'package:http/testing.dart';
 
 import 'package:farmer_app/core/api_client.dart';
 import 'package:farmer_app/core/auth_service.dart';
-import 'package:farmer_app/core/offline_storage.dart';
 import 'package:farmer_app/core/storage/session_store.dart';
 import 'package:farmer_app/core/storage/offline_store.dart';
 import 'package:farmer_app/data/repositories/farm_repository.dart';
-import 'package:farmer_app/data/repositories/zone_repository.dart';
-import 'package:farmer_app/data/repositories/alert_repository.dart';
-import 'package:farmer_app/data/repositories/remediation_repository.dart';
-import 'package:farmer_app/domain/models.dart';
 import 'package:farmer_app/screens/login_screen.dart';
 import 'package:farmer_app/screens/register_screen.dart';
 import 'package:farmer_app/screens/home_screen.dart';

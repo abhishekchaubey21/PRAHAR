@@ -677,3 +677,199 @@ class AnalyticsInterventionsModel {
         'evaluated_at': evaluatedAt,
       };
 }
+
+class ReportPeriodModel {
+  final String from;
+  final String to;
+
+  const ReportPeriodModel({required this.from, required this.to});
+
+  factory ReportPeriodModel.fromJson(Map<String, dynamic> json) {
+    return ReportPeriodModel(
+      from: (json['from'] ?? '') as String,
+      to: (json['to'] ?? '') as String,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {'from': from, 'to': to};
+}
+
+class ReportHazardItemModel {
+  final String timestamp;
+  final String hazardType;
+  final String hazardName;
+  final String severity;
+  final double confidence;
+
+  const ReportHazardItemModel({
+    required this.timestamp,
+    required this.hazardType,
+    required this.hazardName,
+    required this.severity,
+    required this.confidence,
+  });
+
+  factory ReportHazardItemModel.fromJson(Map<String, dynamic> json) {
+    return ReportHazardItemModel(
+      timestamp: (json['timestamp'] ?? '') as String,
+      hazardType: (json['hazard_type'] ?? '') as String,
+      hazardName: (json['hazard_name'] ?? json['hazard_type'] ?? '') as String,
+      severity: (json['severity'] ?? 'MEDIUM') as String,
+      confidence: (json['confidence'] as num?)?.toDouble() ?? 0.85,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'timestamp': timestamp,
+        'hazard_type': hazardType,
+        'hazard_name': hazardName,
+        'severity': severity,
+        'confidence': confidence,
+      };
+}
+
+class ReportAlertItemModel {
+  final String id;
+  final String title;
+  final String severity;
+  final String status;
+  final String createdAt;
+
+  const ReportAlertItemModel({
+    required this.id,
+    required this.title,
+    required this.severity,
+    required this.status,
+    required this.createdAt,
+  });
+
+  factory ReportAlertItemModel.fromJson(Map<String, dynamic> json) {
+    return ReportAlertItemModel(
+      id: (json['id'] ?? '') as String,
+      title: (json['title'] ?? '') as String,
+      severity: (json['severity'] ?? 'LOW') as String,
+      status: (json['status'] ?? 'OPEN') as String,
+      createdAt: (json['created_at'] ?? '') as String,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'title': title,
+        'severity': severity,
+        'status': status,
+        'created_at': createdAt,
+      };
+}
+
+class FieldEvidenceReportModel {
+  final String reportId;
+  final String reportTitle;
+  final String farmId;
+  final String farmName;
+  final String? location;
+  final String? cropType;
+  final String zoneId;
+  final String? zoneName;
+  final String? soilType;
+  final String generatedAt;
+  final String scanTime;
+  final ReportPeriodModel? period;
+  final String healthStatus;
+  final String healthLabel;
+  final String summaryEn;
+  final String summaryHi;
+  final double moisture;
+  final double temperature;
+  final double humidity;
+  final double ph;
+  final List<ReportHazardItemModel> hazardHistory;
+  final List<ReportAlertItemModel> alertsHistory;
+  final List<InterventionHistoryItemModel> interventionsHistory;
+  final String recommendationMade;
+  final List<String> recommendations;
+  final String actionExecuted;
+  final String? actionApprovedBy;
+  final Map<String, dynamic>? beforeAfterMetrics;
+  final String verificationOutcome;
+  final String disclaimer;
+  final String? pdfBase64;
+
+  const FieldEvidenceReportModel({
+    required this.reportId,
+    required this.reportTitle,
+    required this.farmId,
+    required this.farmName,
+    this.location,
+    this.cropType,
+    required this.zoneId,
+    this.zoneName,
+    this.soilType,
+    required this.generatedAt,
+    required this.scanTime,
+    this.period,
+    required this.healthStatus,
+    required this.healthLabel,
+    required this.summaryEn,
+    required this.summaryHi,
+    required this.moisture,
+    required this.temperature,
+    required this.humidity,
+    required this.ph,
+    required this.hazardHistory,
+    required this.alertsHistory,
+    required this.interventionsHistory,
+    required this.recommendationMade,
+    required this.recommendations,
+    required this.actionExecuted,
+    this.actionApprovedBy,
+    this.beforeAfterMetrics,
+    required this.verificationOutcome,
+    required this.disclaimer,
+    this.pdfBase64,
+  });
+
+  factory FieldEvidenceReportModel.fromJson(Map<String, dynamic> json) {
+    final periodMap = json['period'] as Map<String, dynamic>?;
+    final healthMap = json['field_health_summary'] as Map<String, dynamic>?;
+    final sensorMap = (json['sensor_evidence'] as Map<String, dynamic>?) ?? {};
+    final rawHazards = (json['hazard_history'] as List?) ?? [];
+    final rawAlerts = (json['alerts_history'] as List?) ?? [];
+    final rawInterventions = (json['interventions_history'] as List?) ?? [];
+    final rawRecs = (json['recommendations'] as List?) ?? [];
+
+    return FieldEvidenceReportModel(
+      reportId: (json['report_id'] ?? '') as String,
+      reportTitle: (json['report_title'] ?? 'PRAHAR Field Evidence Report') as String,
+      farmId: (json['farm_id'] ?? '') as String,
+      farmName: (json['farm_name'] ?? '') as String,
+      location: json['location'] as String?,
+      cropType: json['crop_type'] as String?,
+      zoneId: (json['zone_id'] ?? '') as String,
+      zoneName: json['zone_name'] as String?,
+      soilType: json['soil_type'] as String?,
+      generatedAt: (json['generated_at'] ?? '') as String,
+      scanTime: (json['scan_time'] ?? '') as String,
+      period: periodMap != null ? ReportPeriodModel.fromJson(periodMap) : null,
+      healthStatus: (healthMap?['status'] ?? 'OPTIMAL') as String,
+      healthLabel: (healthMap?['health_label'] ?? 'PRAHAR Field-Health & Risk Summary') as String,
+      summaryEn: (healthMap?['summary_en'] ?? '') as String,
+      summaryHi: (healthMap?['summary_hi'] ?? '') as String,
+      moisture: (sensorMap['moisture'] as num?)?.toDouble() ?? 0.0,
+      temperature: (sensorMap['temperature'] as num?)?.toDouble() ?? 0.0,
+      humidity: (sensorMap['humidity'] as num?)?.toDouble() ?? 0.0,
+      ph: (sensorMap['ph'] as num?)?.toDouble() ?? 7.0,
+      hazardHistory: rawHazards.map((h) => ReportHazardItemModel.fromJson(h as Map<String, dynamic>)).toList(),
+      alertsHistory: rawAlerts.map((a) => ReportAlertItemModel.fromJson(a as Map<String, dynamic>)).toList(),
+      interventionsHistory: rawInterventions.map((i) => InterventionHistoryItemModel.fromJson(i as Map<String, dynamic>)).toList(),
+      recommendationMade: (json['recommendation_made'] ?? '') as String,
+      recommendations: rawRecs.map((r) => r.toString()).toList(),
+      actionExecuted: (json['action_executed'] ?? 'Routine Agronomic Observation') as String,
+      actionApprovedBy: json['action_approved_by'] as String?,
+      beforeAfterMetrics: json['before_after_metrics'] as Map<String, dynamic>?,
+      verificationOutcome: (json['verification_outcome'] ?? '') as String,
+      disclaimer: (json['disclaimer'] ?? '') as String,
+      pdfBase64: json['pdf_base64'] as String?,
+    );
+  }
+}

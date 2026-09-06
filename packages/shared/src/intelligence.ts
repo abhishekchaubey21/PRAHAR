@@ -205,9 +205,23 @@ export interface FieldEvidenceReport {
   report_title: 'PRAHAR Field Evidence Report';
   farm_id: string;
   farm_name: string;
+  location?: string;
+  crop_type?: string;
   zone_id: string;
+  zone_name?: string;
+  soil_type?: string;
   generated_at: string;
   scan_time: string;
+  period?: {
+    from: string;
+    to: string;
+  };
+  field_health_summary?: {
+    status: string;
+    health_label: string;
+    summary_en: string;
+    summary_hi: string;
+  };
   hazard_summary: {
     hazard_type: HazardType;
     hazard_name: string;
@@ -220,8 +234,41 @@ export interface FieldEvidenceReport {
     humidity: number;
     ph: number;
   };
+  hazard_history?: Array<{
+    timestamp: string;
+    hazard_type: string;
+    hazard_name: string;
+    severity: string;
+    confidence: number;
+  }>;
+  alerts_history?: Array<{
+    id: string;
+    title: string;
+    severity: string;
+    status: string;
+    created_at: string;
+  }>;
+  interventions_history?: Array<{
+    action_id: string;
+    action_type: string;
+    duration_seconds?: number;
+    volume_liters?: number;
+    approved_by?: string;
+    approved_at?: string;
+    status: string;
+    created_at: string;
+    verification?: {
+      verification_id: string;
+      pre_moisture: number;
+      post_moisture: number;
+      moisture_delta: number;
+      resolution_status: string;
+      verified_at: string;
+    };
+  }>;
   weather_context_summary: string;
   recommendation_made: string;
+  recommendations?: string[];
   action_approved_by?: string;
   action_executed: string;
   before_after_metrics?: {
@@ -232,6 +279,15 @@ export interface FieldEvidenceReport {
   };
   verification_outcome: string;
   disclaimer: string; // Explicit non-government declaration
+  pdf_base64?: string;
+}
+
+export interface GenerateReportOptions {
+  farm_id: string;
+  zone_id?: string;
+  from?: string;
+  to?: string;
+  format?: 'json' | 'pdf';
 }
 
 // ============================================================================

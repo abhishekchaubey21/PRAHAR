@@ -134,6 +134,33 @@ class ApiClient {
     return _processResponse(response);
   }
 
+  Future<List<int>> getBytes(String path, {Map<String, String>? queryParams, Duration timeout = const Duration(seconds: 15)}) async {
+    final uri = _buildUri(path, queryParams);
+    http.Response response;
+
+    try {
+      final headers = await _buildHeaders();
+      headers['Accept'] = 'application/pdf, application/octet-stream, */*';
+      response = await _httpClient.get(uri, headers: headers).timeout(timeout);
+    } on SocketException catch (e) {
+      throw NetworkUnavailableException('Failed to reach backend at $uri (SocketException)', e);
+    } on TimeoutException catch (e) {
+      throw NetworkUnavailableException('Request to $uri timed out after $timeout', e);
+    } on http.ClientException catch (e) {
+      throw NetworkUnavailableException('Client connection error at $uri', e);
+    } catch (e) {
+      if (e is NetworkUnavailableException || e is ApiException) rethrow;
+      throw NetworkUnavailableException('Unexpected network error reaching $uri: $e', e);
+    }
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return response.bodyBytes;
+    }
+
+    _processResponse(response);
+    return response.bodyBytes;
+  }
+
   dynamic _processResponse(http.Response response) {
     dynamic decoded;
     try {
