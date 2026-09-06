@@ -17,6 +17,8 @@ import 'login_screen.dart';
 import 'notification_center_screen.dart';
 import 'field_health_analytics_screen.dart';
 import 'field_evidence_report_screen.dart';
+import 'opportunity_center_screen.dart';
+import '../data/repositories/opportunity_repository.dart';
 
 class HomeScreen extends StatefulWidget {
   final ApiClient? apiClient;
@@ -28,6 +30,7 @@ class HomeScreen extends StatefulWidget {
   final VoiceRepository? voiceRepository;
   final NotificationRepository? notificationRepository;
   final AnalyticsRepository? analyticsRepository;
+  final OpportunityRepository? opportunityRepository;
   final IOfflineStore? offlineStore;
   final String initialLanguage;
 
@@ -42,6 +45,7 @@ class HomeScreen extends StatefulWidget {
     this.voiceRepository,
     this.notificationRepository,
     this.analyticsRepository,
+    this.opportunityRepository,
     this.offlineStore,
     this.initialLanguage = 'en',
   });
@@ -65,6 +69,7 @@ class _HomeScreenState extends State<HomeScreen> {
   late final VoiceRepository _voiceRepo;
   late final NotificationRepository _notificationRepo;
   late final AnalyticsRepository _analyticsRepo;
+  late final OpportunityRepository _opportunityRepo;
   int _unreadNotificationCount = 0;
 
 
@@ -102,6 +107,9 @@ class _HomeScreenState extends State<HomeScreen> {
             apiClient: _apiClient, offlineStore: _offlineStorage.store);
     _analyticsRepo = widget.analyticsRepository ??
         AnalyticsRepository(
+            apiClient: _apiClient, offlineStore: _offlineStorage.store);
+    _opportunityRepo = widget.opportunityRepository ??
+        OpportunityRepository(
             apiClient: _apiClient, offlineStore: _offlineStorage.store);
 
     _loadRemoteData();
@@ -653,97 +661,17 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // Phase 4: Farmer Opportunity Center (Verified Indian Government Portals)
+  // Phase 6B-4: Farmer Opportunity Center (Verified Indian Government Portals)
   void _openOpportunityCenterDialog() {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF131F19),
-        title: Row(
-          children: [
-            const Icon(Icons.account_balance, color: PraharTheme.alertSky),
-            const SizedBox(width: 8),
-            Text(
-              _isHindi ? 'किसान अवसर केंद्र' : 'Farmer Opportunity Center',
-              style: const TextStyle(fontSize: 16),
-            ),
-          ],
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => OpportunityCenterScreen(
+          opportunityRepository: _opportunityRepo,
+          isHindi: _isHindi,
+          currentFarmId: _selectedFarm?.id,
+          landAcres: _selectedFarm != null ? _selectedFarm!.totalHectares * 2.47105 : null,
         ),
-        content: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Clear distinction notice
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: PraharTheme.alertSky.withOpacity(0.15),
-                  border: Border.all(color: PraharTheme.alertSky),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  _isHindi
-                      ? 'सरकारी योजनाएं आधिकारिक स्रोतों से सत्यापित हैं। प्रहार केवल मार्गदर्शन प्रदान करता है और आपकी ओर से आवेदन जमा नहीं करता है।'
-                      : 'Government schemes verified from official ministry portals. PRAHAR provides advisory guidance only and does NOT submit government applications.',
-                  style: const TextStyle(color: PraharTheme.alertSky, fontSize: 11),
-                ),
-              ),
-              const SizedBox(height: 12),
-              _buildSchemeTile(
-                'PM-KUSUM',
-                'https://pmkusum.mnre.gov.in',
-                _isHindi ? 'सौर सिंचाई पंप के लिए 60% सब्सिडी' : '60% subsidy for solar-powered irrigation pumps',
-              ),
-              _buildSchemeTile(
-                'PMKSY - Per Drop More Crop',
-                'https://pmksy.gov.in',
-                _isHindi ? 'ड्रिप/स्प्रिंकलर सूक्ष्म-सिंचाई के लिए 45-55% वित्तीय सहायता' : '45-55% assistance for micro-irrigation systems',
-              ),
-              _buildSchemeTile(
-                'SMAM (कृषि यंत्रीकरण)',
-                'https://agrimachinery.nic.in',
-                _isHindi ? 'कृषि रोबोटिक्स और मशीनरी खरीद पर 40-50% सब्सिडी' : '40-50% subsidy for robotic farm implements',
-              ),
-              _buildSchemeTile(
-                'PMFBY (फसल बीमा योजना)',
-                'https://pmfby.gov.in',
-                _isHindi ? 'मौसम और कीट के कारण नुकसान पर वित्तीय सुरक्षा' : 'Comprehensive risk insurance for crop loss',
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(_isHindi ? 'बंद करें' : 'Close'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSchemeTile(String name, String url, String desc) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: const Color(0xFF0C1410),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: PraharTheme.borderGreen),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white)),
-          const SizedBox(height: 2),
-          Text(desc, style: TextStyle(color: Colors.grey[300], fontSize: 11)),
-          const SizedBox(height: 4),
-          Text(
-            'Official Portal: $url',
-            style: const TextStyle(color: PraharTheme.alertSky, fontSize: 10, decoration: TextDecoration.underline),
-          ),
-        ],
       ),
     );
   }
@@ -785,6 +713,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               );
             },
+          ),
+          // Phase 6B-4: Opportunity & Scheme Center Navigation Button
+          IconButton(
+            key: const Key('opportunity_center_nav_button'),
+            icon: const Icon(Icons.account_balance_outlined, color: Colors.white, size: 22),
+            tooltip: _isHindi ? 'अवसर एवं सरकारी योजना केंद्र' : 'Opportunity & Scheme Center',
+            onPressed: _openOpportunityCenterDialog,
           ),
           // Phase 6B-1: Notification Center Bell Button with Dynamic Unread Badge
 

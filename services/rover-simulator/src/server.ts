@@ -1243,16 +1243,227 @@ const server = http.createServer(async (rawReq, res) => {
       }
     }
 
-    // Farmer Opportunity Center
-    if (pathname === '/api/opportunities' && method === 'GET') {
-      const category = url.searchParams.get('category');
-      let schemes = OpportunityCenter.getSchemes();
-      if (category) {
-        schemes = schemes.filter((s) => s.category === category);
+    // ========================================================================
+    // Phase 6B-4: Opportunity & Scheme Center Endpoints
+    // ========================================================================
+
+    // 1. Check Eligibility (Authenticated, Deterministic guidance)
+    if (pathname === '/api/opportunities/check-eligibility' && method === 'POST') {
+      const token = extractBearerToken(req);
+      if (!token) {
+        return sendJson(res, 401, { success: false, error: 'Authentication required to evaluate scheme eligibility.' }, originHeader);
+      }
+
+      const auth = await authenticateRequest(req, res, authService);
+      if (!auth) return;
+      const userId = auth.user_id;
+
+      const body = await parseJsonBody(req);
+      const opportunityId = body.opportunity_id;
+      if (!opportunityId) {
+        return sendJson(res, 400, { success: false, error: 'opportunity_id is required in request body.' }, originHeader);
+      }
+
+      const scheme = OpportunityCenter.getSchemeById(opportunityId);
+      if (!scheme) {
+        return sendJson(res, 404, { success: false, error: `Opportunity '${opportunityId}' not found in authoritative catalogue.` }, originHeader);
+      }
+
+      let userScopedClient: any;
+      if (isSupabaseConfigured()) {
+        userScopedClient = createUserScopedClient(token);
+      }
+
+      try {
+        const evaluation = await OpportunityCenter.evaluateEligibility(
+          opportunityId,
+          {
+            userId,
+            farmId: body.farm_id,
+            landAcres: body.land_acres !== undefined ? Number(body.land_acres) : undefined,
+            cropType: body.crop_type,
+            state: body.state,
+          },
+          userScopedClient
+        );
+
+        return sendJson(res, 200, {
+          success: true,
+          data: evaluation,
+          evaluation,
+        }, originHeader);
+      } catch (err: any) {
+        return sendJson(res, 500, { success: false, error: err.message }, originHeader);
+      }
+    }
+
+    // 2. Application Tracking - List User Tracking (Authenticated, RLS-enforced)
+    if (pathname === '/api/opportunities/tracking' && method === 'GET') {
+      const token = extractBearerToken(req);
+      if (!token) {
+        return sendJson(res, 401, { success: false, error: 'Authentication required to access tracking records.' }, originHeader);
+      }
+
+      const auth = await authenticateRequest(req, res, authService);
+      if (!auth) return;
+      const userId = auth.user_id;
+      const role = auth.role;
+
+      const requestedUserId = url.searchParams.get('farmer_user_id');
+      let targetUserId = userId;
+
+      if (requestedUserId && requestedUserId !== userId) {
+        if (role !== 'EXPERT' && role !== 'ADMIN') {
+          return sendJson(res, 403, { success: false, error: 'Access denied: Farmers can only query their own tracking records.' }, originHeader);
+        }
+
+        // Enforce expert tenant/farm boundary if caller is EXPERT
+        if (role === 'EXPERT' && isSupabaseConfigured()) {
+          const admin = getServiceRoleClient();
+          const { data: prof } = await admin.from('profiles').select('farmer_id').eq('id', requestedUserId).maybeSingle();
+          const farmerId = prof?.farmer_id;
+          if (!farmerId) {
+            return sendJson(res, 403, { success: false, error: 'Expert access denied: Farmer profile not found.' }, originHeader);
+          }
+          const { data: farmerFarms } = await admin.from('farms').select('id').eq('farmer_id', farmerId);
+          const farmIds = (farmerFarms || []).map((f: any) => f.id);
+          if (farmIds.length === 0) {
+            return sendJson(res, 403, { success: false, error: 'Expert access denied: No farms associated with this farmer.' }, originHeader);
+          }
+          const { data: assignment } = await admin
+            .from('expert_farm_assignments')
+            .select('*')
+            .eq('expert_id', userId)
+            .in('farm_id', farmIds)
+            .limit(1);
+
+          if (!assignment || assignment.length === 0) {
+            return sendJson(res, 403, { success: false, error: 'Expert access denied: You are not assigned to this farmer\'s farm.' }, originHeader);
+          }
+        }
+
+        targetUserId = requestedUserId;
+      }
+
+      let trackingClient: any;
+      if (isSupabaseConfigured()) {
+        if (requestedUserId && requestedUserId !== userId) {
+          // Expert/Admin verified boundary check passed above; use service role for cross-user read
+          trackingClient = getServiceRoleClient();
+        } else {
+          // Farmer querying their own records: strictly user-scoped client preserving RLS
+          trackingClient = createUserScopedClient(token);
+        }
+      }
+
+      try {
+        const tracking = await OpportunityCenter.getTracking(targetUserId, trackingClient);
+        return sendJson(res, 200, {
+          success: true,
+          count: tracking.length,
+          data: tracking,
+        }, originHeader);
+      } catch (err: any) {
+        if (err?.message?.includes('42501') || err?.message?.includes('Unauthorized')) {
+          return sendJson(res, 403, { success: false, error: err.message }, originHeader);
+        }
+        return sendJson(res, 500, { success: false, error: err.message }, originHeader);
+      }
+    }
+
+    // 3. Application Tracking - Update Tracking Record (Authenticated, RLS-enforced)
+    if (pathname === '/api/opportunities/tracking' && method === 'POST') {
+      const token = extractBearerToken(req);
+      if (!token) {
+        return sendJson(res, 401, { success: false, error: 'Authentication required to update tracking record.' }, originHeader);
+      }
+
+      const auth = await authenticateRequest(req, res, authService);
+      if (!auth) return;
+      const userId = auth.user_id;
+
+      const body = await parseJsonBody(req);
+      const opportunityId = body.opportunity_id;
+      const status = body.status;
+      const notes = body.notes;
+
+      if (!opportunityId) {
+        return sendJson(res, 400, { success: false, error: 'opportunity_id is required in request body.' }, originHeader);
+      }
+      if (!status) {
+        return sendJson(res, 400, { success: false, error: 'status is required in request body.' }, originHeader);
+      }
+
+      let userScopedClient: any;
+      if (isSupabaseConfigured()) {
+        userScopedClient = createUserScopedClient(token);
+      }
+
+      try {
+        const updated = await OpportunityCenter.updateTracking(
+          userId,
+          { opportunity_id: opportunityId, status, notes },
+          userScopedClient
+        );
+
+        return sendJson(res, 200, {
+          success: true,
+          data: updated,
+        }, originHeader);
+      } catch (err: any) {
+        if (err?.message?.includes('not found in authoritative catalogue')) {
+          return sendJson(res, 404, { success: false, error: err.message }, originHeader);
+        }
+        if (err?.message?.includes('Invalid status')) {
+          return sendJson(res, 400, { success: false, error: err.message }, originHeader);
+        }
+        if (err?.message?.includes('42501') || err?.message?.includes('Unauthorized')) {
+          return sendJson(res, 403, { success: false, error: err.message }, originHeader);
+        }
+        return sendJson(res, 500, { success: false, error: err.message }, originHeader);
+      }
+    }
+
+    // 4. Application Guide for Opportunity
+    if (pathname.startsWith('/api/opportunities/') && pathname.endsWith('/application-guide') && method === 'GET') {
+      const parts = pathname.split('/');
+      const oppId = decodeURIComponent(parts[3] || '');
+      const guide = OpportunityCenter.getApplicationGuide(oppId);
+      if (!guide) {
+        return sendJson(res, 404, { success: false, error: `Application guide for '${oppId}' not found.` }, originHeader);
       }
       return sendJson(res, 200, {
         success: true,
+        data: guide,
+      }, originHeader);
+    }
+
+    // 5. Single Opportunity Detail
+    if (pathname.startsWith('/api/opportunities/') && method === 'GET') {
+      const parts = pathname.split('/');
+      const oppId = decodeURIComponent(parts[3] || '');
+      if (oppId && oppId !== 'tracking' && oppId !== 'check-eligibility') {
+        const scheme = OpportunityCenter.getSchemeById(oppId);
+        if (!scheme) {
+          return sendJson(res, 404, { success: false, error: `Opportunity '${oppId}' not found.` }, originHeader);
+        }
+        return sendJson(res, 200, {
+          success: true,
+          data: scheme,
+          scheme,
+        }, originHeader);
+      }
+    }
+
+    // 6. List Opportunities Catalogue (Public/Authenticated)
+    if (pathname === '/api/opportunities' && method === 'GET') {
+      const category = url.searchParams.get('category') || undefined;
+      const type = url.searchParams.get('type') || undefined;
+      const schemes = OpportunityCenter.getSchemes({ category, type });
+      return sendJson(res, 200, {
+        success: true,
         count: schemes.length,
+        data: schemes,
         schemes,
       }, originHeader);
     }

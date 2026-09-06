@@ -58,6 +58,71 @@ Widget createTestApp() {
         headers: {'content-type': 'application/json'},
       );
     }
+    if (request.url.path == '/api/opportunities') {
+      return http.Response(
+        jsonEncode({
+          'success': true,
+          'data': [
+            {
+              'id': 'PM-KUSUM',
+              'scheme_id': 'PM-KUSUM',
+              'title_en': 'PM-KUSUM Solar Irrigation',
+              'title_hi': 'पीएम-कुसुम सोलर सिंचाई',
+              'type': 'SUBSIDY',
+              'category': 'SOLAR_PUMP',
+              'department_authority': 'MNRE',
+              'description_en': 'Solar irrigation pump subsidy',
+              'description_hi': 'सोलर सिंचाई पंप सब्सिडी',
+              'benefits_summary_en': '60% subsidy',
+              'benefits_summary_hi': '60% सब्सिडी',
+              'target_profile_en': 'Farmers',
+              'target_profile_hi': 'किसान',
+              'eligibility_criteria_en': ['Land ownership'],
+              'eligibility_criteria_hi': ['भूमि स्वामित्व'],
+              'required_documents': ['Aadhaar'],
+              'official_portal_url': 'https://pmkusum.mnre.gov.in',
+              'application_procedure_summary_en': 'Apply online',
+              'application_procedure_summary_hi': 'ऑनलाइन आवेदन करें',
+              'application_steps': [],
+              'prahar_assistance_note_en': 'Guidance',
+              'prahar_assistance_note_hi': 'मार्गदर्शन',
+              'last_verified_at': '2026-09-01T00:00:00Z',
+              'status': 'VERIFIED',
+              'disclaimer': 'Guidance only',
+            },
+            {
+              'id': 'PMFBY',
+              'scheme_id': 'PMFBY',
+              'title_en': 'PMFBY Crop Insurance',
+              'title_hi': 'पीएम फसल बीमा',
+              'type': 'INSURANCE',
+              'category': 'CROP_INSURANCE',
+              'department_authority': 'MoA&FW',
+              'description_en': 'Crop insurance',
+              'description_hi': 'फसल बीमा',
+              'benefits_summary_en': 'Insurance protection',
+              'benefits_summary_hi': 'बीमा सुरक्षा',
+              'target_profile_en': 'Farmers',
+              'target_profile_hi': 'किसान',
+              'eligibility_criteria_en': ['Notified crop'],
+              'eligibility_criteria_hi': ['अधिसूचित फसल'],
+              'required_documents': ['Aadhaar'],
+              'official_portal_url': 'https://pmfby.gov.in',
+              'application_procedure_summary_en': 'Apply online',
+              'application_procedure_summary_hi': 'ऑनलाइन आवेदन करें',
+              'application_steps': [],
+              'prahar_assistance_note_en': 'Guidance',
+              'prahar_assistance_note_hi': 'मार्गदर्शन',
+              'last_verified_at': '2026-09-01T00:00:00Z',
+              'status': 'VERIFIED',
+              'disclaimer': 'Guidance only',
+            }
+          ]
+        }),
+        200,
+        headers: {'content-type': 'application/json'},
+      );
+    }
     return http.Response(jsonEncode({'success': true, 'data': []}), 200, headers: {'content-type': 'application/json'});
   });
 
@@ -127,16 +192,14 @@ void main() {
     await tester.tap(find.byType(BackButton));
     await tester.pumpAndSettle();
 
-    // Open Farmer Opportunity Center and verify official portal notice
+    // Open Farmer Opportunity Center and verify screen and verified schemes
     await tester.tap(find.text('Opportunities'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Farmer Opportunity Center'), findsOneWidget);
+    expect(find.text('Opportunity & Scheme Center'), findsOneWidget);
     expect(find.textContaining('PM-KUSUM'), findsOneWidget);
-    expect(find.textContaining('PMKSY - Per Drop More Crop'), findsOneWidget);
-    expect(find.textContaining('SMAM'), findsOneWidget);
     expect(find.textContaining('PMFBY'), findsOneWidget);
-    await tester.tap(find.text('Close'));
+    await tester.tap(find.byType(BackButton));
     await tester.pumpAndSettle();
 
     // Open Voice Assistant and verify honest simulation notice

@@ -299,21 +299,114 @@ export type OpportunitySourceType =
   | 'PRAHAR_GUIDANCE'
   | 'UNVERIFIED';
 
-export interface FarmerOpportunity {
-  scheme_id: string;
+export type OpportunityType = 'SCHEME' | 'SUBSIDY' | 'LOAN' | 'INSURANCE' | 'SUPPORT';
+
+export type OpportunityCategory =
+  | 'SOLAR_PUMP'
+  | 'CROP_INSURANCE'
+  | 'EQUIPMENT_SUBSIDY'
+  | 'SOIL_HEALTH'
+  | 'MICRO_IRRIGATION'
+  | 'DIRECT_BENEFIT'
+  | 'CREDIT';
+
+export type OpportunityVerificationStatus = 'VERIFIED' | 'NEEDS_VERIFICATION';
+
+export interface OpportunityApplicationStep {
+  step_number: number;
   title_en: string;
   title_hi: string;
-  category: 'SOLAR_PUMP' | 'CROP_INSURANCE' | 'EQUIPMENT_SUBSIDY' | 'SOIL_HEALTH' | 'MICRO_IRRIGATION';
-  source_type: OpportunitySourceType; // Clearly distinguishes official vs guidance
-  sponsoring_agency: string; // e.g., "Ministry of Agriculture & Farmers Welfare, Govt of India"
   description_en: string;
   description_hi: string;
+  is_online: boolean;
+  portal_url?: string;
+}
+
+export interface DeterministicEligibilityRule {
+  field: 'land_acres' | 'crop_type' | 'state' | 'aadhaar_verified' | 'bank_account';
+  operator: 'gte' | 'lte' | 'in' | 'eq' | 'required';
+  value?: any;
+  label_en: string;
+  label_hi: string;
+}
+
+export interface FarmerOpportunity {
+  id: string;
+  scheme_id: string; // compatibility alias for id
+  title_en: string;
+  title_hi: string;
+  type: OpportunityType;
+  category: OpportunityCategory;
+  source_type: OpportunitySourceType; // Clearly distinguishes official vs guidance
+  sponsoring_agency: string; // e.g., "Ministry of Agriculture & Farmers Welfare, Govt of India"
+  department_authority: string; // e.g., "Ministry of Agriculture & Farmers Welfare, Govt of India"
+  description_en: string;
+  description_hi: string;
+  benefits_summary_en: string;
+  benefits_summary_hi: string;
+  target_profile_en: string;
+  target_profile_hi: string;
   eligibility_criteria_en: string[];
   eligibility_criteria_hi: string[];
   required_documents: string[];
-  official_portal_url: string; // Verified real Indian government URL
+  official_portal_url: string; // Verified real Indian government URL (.gov.in / .nic.in)
   application_procedure_summary_en: string;
   application_procedure_summary_hi: string;
+  application_steps: OpportunityApplicationStep[];
   prahar_assistance_note_en: string; // Clarifies PRAHAR does not directly submit apps
   prahar_assistance_note_hi: string;
+  last_verified_at: string;
+  status: OpportunityVerificationStatus;
+  disclaimer: string; // Mandatory non-government guidance declaration
+  deterministic_rules?: DeterministicEligibilityRule[];
+}
+
+export type EligibilityResultStatus =
+  | 'LIKELY_ELIGIBLE'
+  | 'MAY_BE_ELIGIBLE'
+  | 'INSUFFICIENT_INFORMATION'
+  | 'LIKELY_NOT_ELIGIBLE';
+
+export type ApplicationTrackingStatus =
+  | 'NOT_STARTED'
+  | 'PREPARING'
+  | 'READY_TO_APPLY'
+  | 'USER_SUBMITTED'
+  | 'COMPLETED';
+
+export interface OpportunityEligibilityEvaluation {
+  opportunity_id: string;
+  status: EligibilityResultStatus;
+  matched_criteria_en: string[];
+  matched_criteria_hi: string[];
+  unmatched_criteria_en: string[];
+  unmatched_criteria_hi: string[];
+  missing_information_en: string[];
+  missing_information_hi: string[];
+  disclaimer: string;
+  evaluated_at: string;
+}
+
+export interface FarmerOpportunityTrackingRecord {
+  id: string;
+  user_id: string;
+  opportunity_id: string;
+  status: ApplicationTrackingStatus;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CheckEligibilityInput {
+  opportunity_id: string;
+  farm_id?: string;
+  crop_type?: string;
+  land_acres?: number;
+  state?: string;
+}
+
+export interface UpdateTrackingInput {
+  opportunity_id: string;
+  status: ApplicationTrackingStatus;
+  notes?: string;
 }

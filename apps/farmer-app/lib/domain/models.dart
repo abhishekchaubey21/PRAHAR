@@ -873,3 +873,500 @@ class FieldEvidenceReportModel {
     );
   }
 }
+
+// ============================================================================
+// Phase 6B-4: Opportunity & Scheme Center Models
+// ============================================================================
+
+enum OpportunityType {
+  scheme,
+  subsidy,
+  loan,
+  insurance,
+  support;
+
+  static OpportunityType fromString(String? val) {
+    switch (val?.toUpperCase()) {
+      case 'SUBSIDY':
+        return OpportunityType.subsidy;
+      case 'LOAN':
+        return OpportunityType.loan;
+      case 'INSURANCE':
+        return OpportunityType.insurance;
+      case 'SUPPORT':
+        return OpportunityType.support;
+      case 'SCHEME':
+      default:
+        return OpportunityType.scheme;
+    }
+  }
+
+  String toDbString() {
+    switch (this) {
+      case OpportunityType.subsidy:
+        return 'SUBSIDY';
+      case OpportunityType.loan:
+        return 'LOAN';
+      case OpportunityType.insurance:
+        return 'INSURANCE';
+      case OpportunityType.support:
+        return 'SUPPORT';
+      case OpportunityType.scheme:
+        return 'SCHEME';
+    }
+  }
+}
+
+enum OpportunityVerificationStatus {
+  verified,
+  needsVerification;
+
+  static OpportunityVerificationStatus fromString(String? val) {
+    switch (val?.toUpperCase()) {
+      case 'NEEDS_VERIFICATION':
+        return OpportunityVerificationStatus.needsVerification;
+      case 'VERIFIED':
+      default:
+        return OpportunityVerificationStatus.verified;
+    }
+  }
+
+  String toDbString() => this == OpportunityVerificationStatus.verified ? 'VERIFIED' : 'NEEDS_VERIFICATION';
+}
+
+enum ApplicationTrackingStatus {
+  notStarted,
+  preparing,
+  readyToApply,
+  userSubmitted,
+  completed;
+
+  static ApplicationTrackingStatus fromString(String? val) {
+    switch (val?.toUpperCase()) {
+      case 'PREPARING':
+        return ApplicationTrackingStatus.preparing;
+      case 'READY_TO_APPLY':
+        return ApplicationTrackingStatus.readyToApply;
+      case 'USER_SUBMITTED':
+        return ApplicationTrackingStatus.userSubmitted;
+      case 'COMPLETED':
+        return ApplicationTrackingStatus.completed;
+      case 'NOT_STARTED':
+      default:
+        return ApplicationTrackingStatus.notStarted;
+    }
+  }
+
+  String toDbString() {
+    switch (this) {
+      case ApplicationTrackingStatus.preparing:
+        return 'PREPARING';
+      case ApplicationTrackingStatus.readyToApply:
+        return 'READY_TO_APPLY';
+      case ApplicationTrackingStatus.userSubmitted:
+        return 'USER_SUBMITTED';
+      case ApplicationTrackingStatus.completed:
+        return 'COMPLETED';
+      case ApplicationTrackingStatus.notStarted:
+        return 'NOT_STARTED';
+    }
+  }
+
+  String labelEn() {
+    switch (this) {
+      case ApplicationTrackingStatus.preparing:
+        return 'Preparing Documents';
+      case ApplicationTrackingStatus.readyToApply:
+        return 'Ready to Apply';
+      case ApplicationTrackingStatus.userSubmitted:
+        return 'Application Submitted (Self-Reported)';
+      case ApplicationTrackingStatus.completed:
+        return 'Completed';
+      case ApplicationTrackingStatus.notStarted:
+        return 'Not Started';
+    }
+  }
+
+  String labelHi() {
+    switch (this) {
+      case ApplicationTrackingStatus.preparing:
+        return 'दस्तावेज तैयार हो रहे हैं';
+      case ApplicationTrackingStatus.readyToApply:
+        return 'आवेदन के लिए तैयार';
+      case ApplicationTrackingStatus.userSubmitted:
+        return 'आवेदन जमा किया गया (स्वयं सूचित)';
+      case ApplicationTrackingStatus.completed:
+        return 'पूर्ण हुआ';
+      case ApplicationTrackingStatus.notStarted:
+        return 'प्रारंभ नहीं हुआ';
+    }
+  }
+}
+
+enum EligibilityResultStatus {
+  likelyEligible,
+  mayBeEligible,
+  insufficientInformation,
+  likelyNotEligible;
+
+  static EligibilityResultStatus fromString(String? val) {
+    switch (val?.toUpperCase()) {
+      case 'MAY_BE_ELIGIBLE':
+        return EligibilityResultStatus.mayBeEligible;
+      case 'INSUFFICIENT_INFORMATION':
+        return EligibilityResultStatus.insufficientInformation;
+      case 'LIKELY_NOT_ELIGIBLE':
+        return EligibilityResultStatus.likelyNotEligible;
+      case 'LIKELY_ELIGIBLE':
+      default:
+        return EligibilityResultStatus.likelyEligible;
+    }
+  }
+
+  String toDbString() {
+    switch (this) {
+      case EligibilityResultStatus.mayBeEligible:
+        return 'MAY_BE_ELIGIBLE';
+      case EligibilityResultStatus.insufficientInformation:
+        return 'INSUFFICIENT_INFORMATION';
+      case EligibilityResultStatus.likelyNotEligible:
+        return 'LIKELY_NOT_ELIGIBLE';
+      case EligibilityResultStatus.likelyEligible:
+        return 'LIKELY_ELIGIBLE';
+    }
+  }
+
+  String labelEn() {
+    switch (this) {
+      case EligibilityResultStatus.likelyEligible:
+        return 'Likely Eligible';
+      case EligibilityResultStatus.mayBeEligible:
+        return 'May Be Eligible';
+      case EligibilityResultStatus.insufficientInformation:
+        return 'Insufficient Profile Information';
+      case EligibilityResultStatus.likelyNotEligible:
+        return 'Likely Not Eligible';
+    }
+  }
+
+  String labelHi() {
+    switch (this) {
+      case EligibilityResultStatus.likelyEligible:
+        return 'संभावित रूप से पात्र';
+      case EligibilityResultStatus.mayBeEligible:
+        return 'शायद पात्र';
+      case EligibilityResultStatus.insufficientInformation:
+        return 'अधूरी प्रोफाइल जानकारी';
+      case EligibilityResultStatus.likelyNotEligible:
+        return 'संभावित रूप से अपात्र';
+    }
+  }
+}
+
+class OpportunityApplicationStepModel {
+  final int stepNumber;
+  final String titleEn;
+  final String titleHi;
+  final String descriptionEn;
+  final String descriptionHi;
+  final bool isOnline;
+  final String? portalUrl;
+
+  const OpportunityApplicationStepModel({
+    required this.stepNumber,
+    required this.titleEn,
+    required this.titleHi,
+    required this.descriptionEn,
+    required this.descriptionHi,
+    required this.isOnline,
+    this.portalUrl,
+  });
+
+  factory OpportunityApplicationStepModel.fromJson(Map<String, dynamic> json) {
+    return OpportunityApplicationStepModel(
+      stepNumber: (json['step_number'] as num?)?.toInt() ?? 1,
+      titleEn: (json['title_en'] ?? '') as String,
+      titleHi: (json['title_hi'] ?? '') as String,
+      descriptionEn: (json['description_en'] ?? '') as String,
+      descriptionHi: (json['description_hi'] ?? '') as String,
+      isOnline: json['is_online'] == true,
+      portalUrl: json['portal_url'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'step_number': stepNumber,
+    'title_en': titleEn,
+    'title_hi': titleHi,
+    'description_en': descriptionEn,
+    'description_hi': descriptionHi,
+    'is_online': isOnline,
+    if (portalUrl != null) 'portal_url': portalUrl,
+  };
+}
+
+class OpportunityModel {
+  final String id;
+  final String schemeId;
+  final String titleEn;
+  final String titleHi;
+  final OpportunityType type;
+  final String category;
+  final String departmentAuthority;
+  final String descriptionEn;
+  final String descriptionHi;
+  final String benefitsSummaryEn;
+  final String benefitsSummaryHi;
+  final String targetProfileEn;
+  final String targetProfileHi;
+  final List<String> eligibilityCriteriaEn;
+  final List<String> eligibilityCriteriaHi;
+  final List<String> requiredDocuments;
+  final String officialPortalUrl;
+  final String applicationProcedureSummaryEn;
+  final String applicationProcedureSummaryHi;
+  final List<OpportunityApplicationStepModel> applicationSteps;
+  final String praharAssistanceNoteEn;
+  final String praharAssistanceNoteHi;
+  final String lastVerifiedAt;
+  final OpportunityVerificationStatus status;
+  final String disclaimer;
+
+  const OpportunityModel({
+    required this.id,
+    required this.schemeId,
+    required this.titleEn,
+    required this.titleHi,
+    required this.type,
+    required this.category,
+    required this.departmentAuthority,
+    required this.descriptionEn,
+    required this.descriptionHi,
+    required this.benefitsSummaryEn,
+    required this.benefitsSummaryHi,
+    required this.targetProfileEn,
+    required this.targetProfileHi,
+    required this.eligibilityCriteriaEn,
+    required this.eligibilityCriteriaHi,
+    required this.requiredDocuments,
+    required this.officialPortalUrl,
+    required this.applicationProcedureSummaryEn,
+    required this.applicationProcedureSummaryHi,
+    required this.applicationSteps,
+    required this.praharAssistanceNoteEn,
+    required this.praharAssistanceNoteHi,
+    required this.lastVerifiedAt,
+    required this.status,
+    required this.disclaimer,
+  });
+
+  factory OpportunityModel.fromJson(Map<String, dynamic> json) {
+    final rawSteps = (json['application_steps'] as List?) ?? [];
+    final rawDocs = (json['required_documents'] as List?) ?? [];
+    final rawCritEn = (json['eligibility_criteria_en'] as List?) ?? [];
+    final rawCritHi = (json['eligibility_criteria_hi'] as List?) ?? [];
+
+    return OpportunityModel(
+      id: (json['id'] ?? json['scheme_id'] ?? '') as String,
+      schemeId: (json['scheme_id'] ?? json['id'] ?? '') as String,
+      titleEn: (json['title_en'] ?? '') as String,
+      titleHi: (json['title_hi'] ?? '') as String,
+      type: OpportunityType.fromString(json['type'] as String?),
+      category: (json['category'] ?? '') as String,
+      departmentAuthority: (json['department_authority'] ?? json['sponsoring_agency'] ?? '') as String,
+      descriptionEn: (json['description_en'] ?? '') as String,
+      descriptionHi: (json['description_hi'] ?? '') as String,
+      benefitsSummaryEn: (json['benefits_summary_en'] ?? '') as String,
+      benefitsSummaryHi: (json['benefits_summary_hi'] ?? '') as String,
+      targetProfileEn: (json['target_profile_en'] ?? '') as String,
+      targetProfileHi: (json['target_profile_hi'] ?? '') as String,
+      eligibilityCriteriaEn: rawCritEn.map((e) => e.toString()).toList(),
+      eligibilityCriteriaHi: rawCritHi.map((e) => e.toString()).toList(),
+      requiredDocuments: rawDocs.map((e) => e.toString()).toList(),
+      officialPortalUrl: (json['official_portal_url'] ?? '') as String,
+      applicationProcedureSummaryEn: (json['application_procedure_summary_en'] ?? '') as String,
+      applicationProcedureSummaryHi: (json['application_procedure_summary_hi'] ?? '') as String,
+      applicationSteps: rawSteps.map((s) => OpportunityApplicationStepModel.fromJson(s as Map<String, dynamic>)).toList(),
+      praharAssistanceNoteEn: (json['prahar_assistance_note_en'] ?? '') as String,
+      praharAssistanceNoteHi: (json['prahar_assistance_note_hi'] ?? '') as String,
+      lastVerifiedAt: (json['last_verified_at'] ?? '') as String,
+      status: OpportunityVerificationStatus.fromString(json['status'] as String?),
+      disclaimer: (json['disclaimer'] ?? 'Eligibility shown by PRAHAR is guidance only. Final eligibility is determined by the concerned government department/bank/authority.') as String,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'scheme_id': schemeId,
+    'title_en': titleEn,
+    'title_hi': titleHi,
+    'type': type.toDbString(),
+    'category': category,
+    'department_authority': departmentAuthority,
+    'description_en': descriptionEn,
+    'description_hi': descriptionHi,
+    'benefits_summary_en': benefitsSummaryEn,
+    'benefits_summary_hi': benefitsSummaryHi,
+    'target_profile_en': targetProfileEn,
+    'target_profile_hi': targetProfileHi,
+    'eligibility_criteria_en': eligibilityCriteriaEn,
+    'eligibility_criteria_hi': eligibilityCriteriaHi,
+    'required_documents': requiredDocuments,
+    'official_portal_url': officialPortalUrl,
+    'application_procedure_summary_en': applicationProcedureSummaryEn,
+    'application_procedure_summary_hi': applicationProcedureSummaryHi,
+    'application_steps': applicationSteps.map((s) => s.toJson()).toList(),
+    'prahar_assistance_note_en': praharAssistanceNoteEn,
+    'prahar_assistance_note_hi': praharAssistanceNoteHi,
+    'last_verified_at': lastVerifiedAt,
+    'status': status.toDbString(),
+    'disclaimer': disclaimer,
+  };
+}
+
+class EligibilityEvaluationModel {
+  final String opportunityId;
+  final EligibilityResultStatus status;
+  final List<String> matchedCriteriaEn;
+  final List<String> matchedCriteriaHi;
+  final List<String> unmatchedCriteriaEn;
+  final List<String> unmatchedCriteriaHi;
+  final List<String> missingInformationEn;
+  final List<String> missingInformationHi;
+  final String disclaimer;
+  final String evaluatedAt;
+
+  const EligibilityEvaluationModel({
+    required this.opportunityId,
+    required this.status,
+    required this.matchedCriteriaEn,
+    required this.matchedCriteriaHi,
+    required this.unmatchedCriteriaEn,
+    required this.unmatchedCriteriaHi,
+    required this.missingInformationEn,
+    required this.missingInformationHi,
+    required this.disclaimer,
+    required this.evaluatedAt,
+  });
+
+  factory EligibilityEvaluationModel.fromJson(Map<String, dynamic> json) {
+    final rawMatchedEn = (json['matched_criteria_en'] as List?) ?? [];
+    final rawMatchedHi = (json['matched_criteria_hi'] as List?) ?? [];
+    final rawUnmatchedEn = (json['unmatched_criteria_en'] as List?) ?? [];
+    final rawUnmatchedHi = (json['unmatched_criteria_hi'] as List?) ?? [];
+    final rawMissingEn = (json['missing_information_en'] as List?) ?? [];
+    final rawMissingHi = (json['missing_information_hi'] as List?) ?? [];
+
+    return EligibilityEvaluationModel(
+      opportunityId: (json['opportunity_id'] ?? '') as String,
+      status: EligibilityResultStatus.fromString(json['status'] as String?),
+      matchedCriteriaEn: rawMatchedEn.map((e) => e.toString()).toList(),
+      matchedCriteriaHi: rawMatchedHi.map((e) => e.toString()).toList(),
+      unmatchedCriteriaEn: rawUnmatchedEn.map((e) => e.toString()).toList(),
+      unmatchedCriteriaHi: rawUnmatchedHi.map((e) => e.toString()).toList(),
+      missingInformationEn: rawMissingEn.map((e) => e.toString()).toList(),
+      missingInformationHi: rawMissingHi.map((e) => e.toString()).toList(),
+      disclaimer: (json['disclaimer'] ?? 'Eligibility shown by PRAHAR is guidance only. Final eligibility is determined by the concerned government department/bank/authority.') as String,
+      evaluatedAt: (json['evaluated_at'] ?? '') as String,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'opportunity_id': opportunityId,
+    'status': status.toDbString(),
+    'matched_criteria_en': matchedCriteriaEn,
+    'matched_criteria_hi': matchedCriteriaHi,
+    'unmatched_criteria_en': unmatchedCriteriaEn,
+    'unmatched_criteria_hi': unmatchedCriteriaHi,
+    'missing_information_en': missingInformationEn,
+    'missing_information_hi': missingInformationHi,
+    'disclaimer': disclaimer,
+    'evaluated_at': evaluatedAt,
+  };
+}
+
+class OpportunityTrackingModel {
+  final String id;
+  final String userId;
+  final String opportunityId;
+  final ApplicationTrackingStatus status;
+  final String? notes;
+  final String createdAt;
+  final String updatedAt;
+
+  const OpportunityTrackingModel({
+    required this.id,
+    required this.userId,
+    required this.opportunityId,
+    required this.status,
+    this.notes,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+
+  factory OpportunityTrackingModel.fromJson(Map<String, dynamic> json) {
+    return OpportunityTrackingModel(
+      id: (json['id'] ?? '') as String,
+      userId: (json['user_id'] ?? '') as String,
+      opportunityId: (json['opportunity_id'] ?? '') as String,
+      status: ApplicationTrackingStatus.fromString(json['status'] as String?),
+      notes: json['notes'] as String?,
+      createdAt: (json['created_at'] ?? '') as String,
+      updatedAt: (json['updated_at'] ?? '') as String,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'user_id': userId,
+    'opportunity_id': opportunityId,
+    'status': status.toDbString(),
+    if (notes != null) 'notes': notes,
+    'created_at': createdAt,
+    'updated_at': updatedAt,
+  };
+}
+
+class ApplicationGuideModel {
+  final String opportunityId;
+  final String titleEn;
+  final String titleHi;
+  final String departmentAuthority;
+  final String officialPortalUrl;
+  final List<String> requiredDocuments;
+  final List<OpportunityApplicationStepModel> applicationSteps;
+  final String praharAssistanceNoteEn;
+  final String praharAssistanceNoteHi;
+  final String disclaimer;
+
+  const ApplicationGuideModel({
+    required this.opportunityId,
+    required this.titleEn,
+    required this.titleHi,
+    required this.departmentAuthority,
+    required this.officialPortalUrl,
+    required this.requiredDocuments,
+    required this.applicationSteps,
+    required this.praharAssistanceNoteEn,
+    required this.praharAssistanceNoteHi,
+    required this.disclaimer,
+  });
+
+  factory ApplicationGuideModel.fromJson(Map<String, dynamic> json) {
+    final rawDocs = (json['required_documents'] as List?) ?? [];
+    final rawSteps = (json['application_steps'] as List?) ?? [];
+
+    return ApplicationGuideModel(
+      opportunityId: (json['opportunity_id'] ?? '') as String,
+      titleEn: (json['title_en'] ?? '') as String,
+      titleHi: (json['title_hi'] ?? '') as String,
+      departmentAuthority: (json['department_authority'] ?? '') as String,
+      officialPortalUrl: (json['official_portal_url'] ?? '') as String,
+      requiredDocuments: rawDocs.map((e) => e.toString()).toList(),
+      applicationSteps: rawSteps.map((s) => OpportunityApplicationStepModel.fromJson(s as Map<String, dynamic>)).toList(),
+      praharAssistanceNoteEn: (json['prahar_assistance_note_en'] ?? '') as String,
+      praharAssistanceNoteHi: (json['prahar_assistance_note_hi'] ?? '') as String,
+      disclaimer: (json['disclaimer'] ?? 'Eligibility shown by PRAHAR is guidance only. Final eligibility is determined by the concerned government department/bank/authority.') as String,
+    );
+  }
+}

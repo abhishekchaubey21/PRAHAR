@@ -516,6 +516,85 @@ export default function ClosedLoopPage() {
         </div>
       </div>
 
+      {/* Opportunity & Scheme Guidance Card (Phase 6B-4) */}
+      <div className="card" style={{ borderColor: 'var(--accent-amber)', background: 'linear-gradient(145deg, #1f1a10 0%, #14120b 100%)' }}>
+        <div className="card-header">
+          <div>
+            <h3 className="card-title" style={{ color: 'var(--accent-amber)' }}>
+              Agricultural Scheme & Support Guidance
+            </h3>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+              Verified Indian Agricultural Schemes, Subsidies & Financial Support (Phase 6B-4)
+            </span>
+          </div>
+          <span className="badge" style={{ background: 'rgba(245, 158, 11, 0.15)', color: 'var(--accent-amber)' }}>
+            INFORMATIONAL GUIDANCE
+          </span>
+        </div>
+
+        <div style={{ background: 'var(--bg-primary)', padding: '16px', borderRadius: '10px', fontSize: '0.88rem', border: '1px solid var(--border-subtle)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '14px', marginBottom: '14px' }}>
+            <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '8px', padding: '12px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                <strong style={{ color: 'var(--text-primary)' }}>PM-KISAN Samman Nidhi</strong>
+                <span style={{ fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', background: 'rgba(16, 185, 129, 0.2)', color: 'var(--accent-emerald)' }}>SCHEME</span>
+              </div>
+              <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '8px' }}>
+                ₹6,000/year direct income support in 3 equal installments.
+              </p>
+              <a href="https://pmkisan.gov.in" target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.75rem', color: 'var(--accent-sky)' }}>
+                Official Portal: pmkisan.gov.in &rarr;
+              </a>
+            </div>
+
+            <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '8px', padding: '12px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                <strong style={{ color: 'var(--text-primary)' }}>PM-KUSUM Solar Pumps</strong>
+                <span style={{ fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', background: 'rgba(14, 165, 233, 0.2)', color: 'var(--accent-sky)' }}>SUBSIDY</span>
+              </div>
+              <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '8px' }}>
+                Up to 60% total subsidy (30% Central + 30% State) for solar irrigation pumps.
+              </p>
+              <a href="https://pmkusum.mnre.gov.in" target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.75rem', color: 'var(--accent-sky)' }}>
+                Official Portal: pmkusum.mnre.gov.in &rarr;
+              </a>
+            </div>
+
+            <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '8px', padding: '12px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                <strong style={{ color: 'var(--text-primary)' }}>PMKSY Per Drop More Crop</strong>
+                <span style={{ fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', background: 'rgba(14, 165, 233, 0.2)', color: 'var(--accent-sky)' }}>SUBSIDY</span>
+              </div>
+              <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '8px' }}>
+                45% to 55% subsidy on drip and sprinkler precision irrigation.
+              </p>
+              <a href="https://pmksy.gov.in" target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.75rem', color: 'var(--accent-sky)' }}>
+                Official Portal: pmksy.gov.in &rarr;
+              </a>
+            </div>
+
+            <div style={{ border: '1px solid var(--border-subtle)', borderRadius: '8px', padding: '12px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                <strong style={{ color: 'var(--text-primary)' }}>Kisan Credit Card (KCC)</strong>
+                <span style={{ fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', background: 'rgba(245, 158, 11, 0.2)', color: 'var(--accent-amber)' }}>LOAN</span>
+              </div>
+              <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '8px' }}>
+                Concessional agricultural credit up to ₹3 Lakh at 4% effective interest.
+              </p>
+              <a href="https://myscheme.gov.in/schemes/kcc" target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.75rem', color: 'var(--accent-sky)' }}>
+                Official Portal: myscheme.gov.in &rarr;
+              </a>
+            </div>
+          </div>
+
+          <div style={{ padding: '10px 14px', background: 'rgba(245, 158, 11, 0.1)', borderRadius: '8px', border: '1px solid rgba(245, 158, 11, 0.25)' }}>
+            <p style={{ fontSize: '0.75rem', color: 'var(--accent-amber)', fontStyle: 'italic', margin: 0, lineHeight: 1.45 }}>
+              DISCLAIMER: Eligibility shown by PRAHAR is guidance only. Final eligibility is determined by the concerned government department/bank/authority. PRAHAR does not submit official applications on behalf of farmers.
+            </p>
+          </div>
+        </div>
+      </div>
+
       <div>
         <Link href="/queue" className="btn btn-outline">
           &larr; Back to Triage Queue
