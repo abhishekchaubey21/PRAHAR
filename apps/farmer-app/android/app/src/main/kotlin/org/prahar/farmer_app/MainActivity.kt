@@ -21,6 +21,8 @@ class MainActivity : FlutterActivity() {
     private var speechRecognizer: SpeechRecognizer? = null
     private var pendingMethodResult: MethodChannel.Result? = null
 
+    private var voiceChannel: MethodChannel? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // Initialize TTS eagerly so it's ready when the user first taps the mic
@@ -32,12 +34,16 @@ class MainActivity : FlutterActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, VOICE_CHANNEL)
-            .setMethodCallHandler { call, result ->
+        voiceChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, VOICE_CHANNEL)
+        voiceChannel!!.setMethodCallHandler { call, result ->
                 when (call.method) {
 
                     "isTtsAvailable" -> {
                         result.success(ttsReady)
+                    }
+
+                    "isSpeaking" -> {
+                        result.success(tts?.isSpeaking ?: false)
                     }
 
                     "speak" -> {
@@ -61,10 +67,22 @@ class MainActivity : FlutterActivity() {
                             tts!!.setLanguage(Locale("en", "IN"))
                         }
                         tts!!.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
-                            override fun onStart(utteranceId: String?) {}
-                            override fun onDone(utteranceId: String?) {}
+                            override fun onStart(utteranceId: String?) {
+                                runOnUiThread {
+                                    voiceChannel?.invokeMethod("onTtsStart", mapOf("utteranceId" to (utteranceId ?: "")))
+                                }
+                            }
+                            override fun onDone(utteranceId: String?) {
+                                runOnUiThread {
+                                    voiceChannel?.invokeMethod("onTtsDone", mapOf("utteranceId" to (utteranceId ?: "")))
+                                }
+                            }
                             @Deprecated("Deprecated in Java")
-                            override fun onError(utteranceId: String?) {}
+                            override fun onError(utteranceId: String?) {
+                                runOnUiThread {
+                                    voiceChannel?.invokeMethod("onTtsError", mapOf("utteranceId" to (utteranceId ?: "")))
+                                }
+                            }
                         })
                         val utteranceId = "prahar_${System.currentTimeMillis()}"
                         tts!!.speak(text, TextToSpeech.QUEUE_FLUSH, null, utteranceId)

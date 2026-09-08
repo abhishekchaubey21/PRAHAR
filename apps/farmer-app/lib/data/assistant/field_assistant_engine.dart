@@ -10,7 +10,12 @@ class FieldAssistantEngine {
   // Local pending confirmation cache for two-stage safety
   final Map<String, AssistantPendingAction> _pendingConfirmations = {};
 
+  // Multi-turn active zone memory per session
+  final Map<String, String> _sessionActiveZones = {};
+
   FieldAssistantEngine({FieldAssistantRepository? repository}) : _repository = repository;
+
+  String? getSessionActiveZone(String sessionId) => _sessionActiveZones[sessionId];
 
   Future<AssistantStructuredResponse> processQuery(
     String query, {
@@ -37,6 +42,9 @@ class FieldAssistantEngine {
         if (remote.requiresConfirmation && remote.pendingAction != null) {
           _pendingConfirmations[effectiveSessionId] = remote.pendingAction!;
         }
+        if (remote.referencedZone != null && remote.referencedZone!.isNotEmpty) {
+          _sessionActiveZones[effectiveSessionId] = remote.referencedZone!;
+        }
         return remote;
       } catch (_) {
         // Fall back to local client processing on error / offline
@@ -45,7 +53,7 @@ class FieldAssistantEngine {
 
     if (confirmAction == true) {
       final pending = _pendingConfirmations.remove(effectiveSessionId);
-      final zone = pending?.zoneId ?? 'DEMO-ZONE-02';
+      final zone = pending?.zoneId ?? _sessionActiveZones[effectiveSessionId] ?? 'DEMO-ZONE-02';
       return AssistantStructuredResponse(
         answer: _translate(
           'SIMULATION ONLY: Irrigation action for $zone confirmed and executed. Dispatched to rover simulator.',
@@ -165,6 +173,9 @@ class FieldAssistantEngine {
         if (remote.requiresConfirmation && remote.pendingAction != null) {
           _pendingConfirmations[effectiveSessionId] = remote.pendingAction!;
         }
+        if (remote.referencedZone != null && remote.referencedZone!.isNotEmpty) {
+          _sessionActiveZones[effectiveSessionId] = remote.referencedZone!;
+        }
         return remote;
       } catch (_) {
         // Fall back to local client processing on error / offline
@@ -172,7 +183,11 @@ class FieldAssistantEngine {
     }
 
     // 3. Local Contextual Intelligence Fallback
-    return _processLocally(query, language, context, effectiveSessionId);
+    final res = _processLocally(query, language, context, effectiveSessionId);
+    if (res.referencedZone != null && res.referencedZone!.isNotEmpty) {
+      _sessionActiveZones[effectiveSessionId] = res.referencedZone!;
+    }
+    return res;
   }
 
   AssistantStructuredResponse _processLocally(
@@ -183,7 +198,7 @@ class FieldAssistantEngine {
   ) {
     final text = rawQuery.trim().toLowerCase();
     final intent = _classifyIntent(text);
-    final targetZoneId = _resolveZoneId(text);
+    final targetZoneId = _resolveZoneId(text, sessionId);
 
     switch (intent) {
       case AssistantIntent.fieldStatus:
@@ -801,22 +816,31 @@ class FieldAssistantEngine {
         text.contains('खेत') ||
         text.contains('हाल') ||
         text.contains('स्थिति') ||
+        text.contains('शेत') ||
+        text.contains('शेतात') ||
+        text.contains('ਖੇਤ') ||
+        text.contains('ਹਾਲ') ||
         text.contains('ਕਿਹੜਾ ਜ਼ੋਨ')) {
       return AssistantIntent.fieldStatus;
     }
     return AssistantIntent.unknown;
   }
 
-  String? _resolveZoneId(String text) {
+  String? _resolveZoneId(String text, [String? sessionId]) {
     if (text.contains('zone 1') || text.contains('north') || text.contains('ज़ोन 1') || text.contains('उत्तर')) {
+      if (sessionId != null) _sessionActiveZones[sessionId] = 'DEMO-ZONE-01';
       return 'DEMO-ZONE-01';
     }
     if (text.contains('zone 2') ||
         text.contains('east') ||
         text.contains('water stress') ||
+        text.contains('dry') ||
+        text.contains('dryness') ||
+        text.contains('सूख') ||
         text.contains('जल तनाव') ||
         text.contains('पूर्व') ||
         text.contains('ज़ोन 2')) {
+      if (sessionId != null) _sessionActiveZones[sessionId] = 'DEMO-ZONE-02';
       return 'DEMO-ZONE-02';
     }
     if (text.contains('zone 3') ||
@@ -826,6 +850,7 @@ class FieldAssistantEngine {
         text.contains('spodoptera') ||
         text.contains('दक्षिण') ||
         text.contains('ज़ोन 3')) {
+      if (sessionId != null) _sessionActiveZones[sessionId] = 'DEMO-ZONE-03';
       return 'DEMO-ZONE-03';
     }
     if (text.contains('zone 4') ||
@@ -835,7 +860,11 @@ class FieldAssistantEngine {
         text.contains('पोषण') ||
         text.contains('पश्चिम') ||
         text.contains('ज़ोन 4')) {
+      if (sessionId != null) _sessionActiveZones[sessionId] = 'DEMO-ZONE-04';
       return 'DEMO-ZONE-04';
+    }
+    if (sessionId != null && _sessionActiveZones.containsKey(sessionId)) {
+      return _sessionActiveZones[sessionId];
     }
     return null;
   }
