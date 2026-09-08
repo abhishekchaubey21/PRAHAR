@@ -47,6 +47,7 @@ import {
 
 const config = loadConfig();
 const PORT = config.port;
+const HOST = process.env.HOST || '0.0.0.0';
 
 const engine = new RoverEngine({
   roverId: process.env.ROVER_ID || 'ROVER-DEMO-01',
@@ -1917,10 +1918,10 @@ const server = http.createServer(async (rawReq, res) => {
   }
 });
 
-server.listen(PORT, () => {
+server.listen(PORT, HOST, () => {
   console.log(`[PRAHAR Rover Simulator & Decision Gateway v0.5] Online`);
   console.log(`Rover ID: ${engine.getRoverId()}`);
-  console.log(`HTTP Server listening on http://localhost:${PORT}`);
+  console.log(`HTTP Server listening on http://${HOST}:${PORT} (Local: http://localhost:${PORT}, LAN: http://192.168.1.8:${PORT})`);
   console.log(`Phase 5A Endpoints:`);
   console.log(`  POST /api/auth/register (Farmer Registration)`);
   console.log(`  POST /api/auth/login (JWT Login)`);

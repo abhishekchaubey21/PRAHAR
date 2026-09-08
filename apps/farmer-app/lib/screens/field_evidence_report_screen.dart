@@ -432,7 +432,7 @@ class _FieldEvidenceReportScreenState extends State<FieldEvidenceReportScreen> {
 
   Widget _buildControlsCard() {
     return Card(
-      color: PraharTheme.cardBg,
+      key: const Key('report_controls_card'),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -441,7 +441,7 @@ class _FieldEvidenceReportScreenState extends State<FieldEvidenceReportScreen> {
             Text(
               _isHindi ? 'रिपोर्ट कॉन्फ़िगरेशन' : 'Report Configuration',
               style: const TextStyle(
-                color: Colors.white,
+                color: PraharTheme.textHeading,
                 fontWeight: FontWeight.bold,
                 fontSize: 16,
               ),
@@ -451,15 +451,15 @@ class _FieldEvidenceReportScreenState extends State<FieldEvidenceReportScreen> {
             // Farm Selector
             Text(
               _isHindi ? 'खेत (Farm):' : 'Farm:',
-              style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.7)),
+              style: const TextStyle(fontSize: 12, color: PraharTheme.textMuted),
             ),
             const SizedBox(height: 6),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               decoration: BoxDecoration(
-                color: PraharTheme.darkBg,
+                color: Colors.white,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: PraharTheme.borderGreen),
+                border: Border.all(color: PraharTheme.borderLight),
               ),
               child: DropdownButtonHideUnderline(
                 child: DropdownButton<String>(
@@ -467,11 +467,11 @@ class _FieldEvidenceReportScreenState extends State<FieldEvidenceReportScreen> {
                   isExpanded: true,
                   value: _selectedFarm?.id,
                   dropdownColor: PraharTheme.cardBg,
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                  style: const TextStyle(color: PraharTheme.textHeading, fontWeight: FontWeight.bold, fontSize: 14),
                   items: _farms.map((farm) {
                     return DropdownMenuItem<String>(
                       value: farm.id,
-                      child: Text(farm.name, style: const TextStyle(color: Colors.white)),
+                      child: Text(farm.name, style: const TextStyle(color: PraharTheme.textHeading)),
                     );
                   }).toList(),
                   onChanged: (farmId) async {
@@ -499,15 +499,15 @@ class _FieldEvidenceReportScreenState extends State<FieldEvidenceReportScreen> {
             // Zone Selector
             Text(
               _isHindi ? 'ज़ोन (Zone - वैकल्पिक):' : 'Zone (Optional):',
-              style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.7)),
+              style: const TextStyle(fontSize: 12, color: PraharTheme.textMuted),
             ),
             const SizedBox(height: 6),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               decoration: BoxDecoration(
-                color: PraharTheme.darkBg,
+                color: Colors.white,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: PraharTheme.borderGreen),
+                border: Border.all(color: PraharTheme.borderLight),
               ),
               child: DropdownButtonHideUnderline(
                 child: DropdownButton<String?>(
@@ -515,19 +515,19 @@ class _FieldEvidenceReportScreenState extends State<FieldEvidenceReportScreen> {
                   isExpanded: true,
                   value: _selectedZone?.id,
                   dropdownColor: PraharTheme.cardBg,
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                  style: const TextStyle(color: PraharTheme.textHeading, fontWeight: FontWeight.bold, fontSize: 14),
                   items: [
                     DropdownMenuItem<String?>(
                       value: null,
                       child: Text(
                         _isHindi ? 'संपूर्ण खेत (All Zones)' : 'Entire Farm (All Zones)',
-                        style: const TextStyle(color: Colors.white70),
+                        style: const TextStyle(color: PraharTheme.textMuted),
                       ),
                     ),
                     ..._zones.map((zone) {
                       return DropdownMenuItem<String?>(
                         value: zone.id,
-                        child: Text(zone.name, style: const TextStyle(color: Colors.white)),
+                        child: Text(zone.name, style: const TextStyle(color: PraharTheme.textHeading)),
                       );
                     }),
                   ],
@@ -544,8 +544,8 @@ class _FieldEvidenceReportScreenState extends State<FieldEvidenceReportScreen> {
             // Period Selector
             Text(
               _isHindi ? 'अवधि चुनें:' : 'Select Period:',
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.7),
+              style: const TextStyle(
+                color: PraharTheme.textMuted,
                 fontSize: 13,
               ),
             ),
@@ -578,7 +578,7 @@ class _FieldEvidenceReportScreenState extends State<FieldEvidenceReportScreen> {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 8),
           decoration: BoxDecoration(
-            color: isSelected ? PraharTheme.primaryGreen : PraharTheme.darkBg,
+            color: isSelected ? PraharTheme.primaryGreen : PraharTheme.primaryGreenLight,
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
               color: isSelected ? PraharTheme.primaryGreen : PraharTheme.borderGreen,
@@ -588,7 +588,7 @@ class _FieldEvidenceReportScreenState extends State<FieldEvidenceReportScreen> {
           child: Text(
             label,
             style: TextStyle(
-              color: isSelected ? Colors.black : Colors.white70,
+              color: isSelected ? Colors.white : PraharTheme.darkGreen,
               fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
               fontSize: 12,
             ),
@@ -604,11 +604,11 @@ class _FieldEvidenceReportScreenState extends State<FieldEvidenceReportScreen> {
       onPressed: _isLoading ? null : _generateReport,
       style: ElevatedButton.styleFrom(
         backgroundColor: PraharTheme.primaryGreen,
-        foregroundColor: Colors.black,
+        foregroundColor: Colors.white,
         padding: const EdgeInsets.symmetric(vertical: 14),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
-      icon: const Icon(Icons.analytics_outlined, color: Colors.black),
+      icon: const Icon(Icons.analytics_outlined, color: Colors.white),
       label: Text(
         _isHindi ? 'साक्ष्य रिपोर्ट तैयार करें' : 'Generate Evidence Report',
         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
@@ -622,7 +622,7 @@ class _FieldEvidenceReportScreenState extends State<FieldEvidenceReportScreen> {
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: PraharTheme.alertRose.withValues(alpha: 0.15),
+        color: PraharTheme.alertRoseLight,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: PraharTheme.alertRose),
       ),
@@ -633,7 +633,7 @@ class _FieldEvidenceReportScreenState extends State<FieldEvidenceReportScreen> {
           Expanded(
             child: Text(
               _errorMessage ?? 'Report generation requires live connectivity.',
-              style: const TextStyle(color: Colors.white, fontSize: 13),
+              style: const TextStyle(color: PraharTheme.alertRose, fontSize: 13),
             ),
           ),
         ],
@@ -647,7 +647,7 @@ class _FieldEvidenceReportScreenState extends State<FieldEvidenceReportScreen> {
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: PraharTheme.alertRose.withValues(alpha: 0.15),
+        color: PraharTheme.alertRoseLight,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: PraharTheme.alertRose),
       ),
@@ -658,7 +658,7 @@ class _FieldEvidenceReportScreenState extends State<FieldEvidenceReportScreen> {
           Expanded(
             child: Text(
               _errorMessage!,
-              style: const TextStyle(color: Colors.white, fontSize: 13),
+              style: const TextStyle(color: PraharTheme.alertRose, fontSize: 13),
             ),
           ),
         ],
@@ -672,14 +672,14 @@ class _FieldEvidenceReportScreenState extends State<FieldEvidenceReportScreen> {
       alignment: Alignment.center,
       child: Column(
         children: [
-          Icon(Icons.document_scanner_outlined, size: 48, color: Colors.white.withValues(alpha: 0.3)),
+          const Icon(Icons.document_scanner_outlined, size: 48, color: PraharTheme.textMuted),
           const SizedBox(height: 12),
           Text(
             _isHindi
                 ? 'लाइव फ़ील्ड साक्ष्य रिपोर्ट तैयार करने के लिए ऊपर दिए गए बटन पर टैप करें।'
                 : 'Configure farm & period, then tap Generate Evidence Report.',
             textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 14),
+            style: const TextStyle(color: PraharTheme.textMuted, fontSize: 14),
           ),
         ],
       ),
@@ -698,7 +698,6 @@ class _FieldEvidenceReportScreenState extends State<FieldEvidenceReportScreen> {
 
     return Card(
       key: const Key('report_preview_card'),
-      color: PraharTheme.cardBg,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -717,7 +716,7 @@ class _FieldEvidenceReportScreenState extends State<FieldEvidenceReportScreen> {
                         report.reportTitle,
                         key: const Key('report_title_text'),
                         style: const TextStyle(
-                          color: Colors.white,
+                          color: PraharTheme.textHeading,
                           fontWeight: FontWeight.bold,
                           fontSize: 17,
                         ),
@@ -726,8 +725,8 @@ class _FieldEvidenceReportScreenState extends State<FieldEvidenceReportScreen> {
                       Text(
                         'ID: ${report.reportId}',
                         key: const Key('report_id_text'),
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.5),
+                        style: const TextStyle(
+                          color: PraharTheme.textMuted,
                           fontFamily: 'monospace',
                           fontSize: 11,
                         ),
@@ -754,7 +753,7 @@ class _FieldEvidenceReportScreenState extends State<FieldEvidenceReportScreen> {
                 ),
               ],
             ),
-            const Divider(color: PraharTheme.borderGreen, height: 24),
+            const Divider(color: PraharTheme.borderLight, height: 24),
 
             // Metadata Grid: Farm, Zone, Timestamp
             Row(
@@ -806,7 +805,7 @@ class _FieldEvidenceReportScreenState extends State<FieldEvidenceReportScreen> {
             Text(
               _isHindi && report.summaryHi.isNotEmpty ? report.summaryHi : report.summaryEn,
               key: const Key('report_health_summary'),
-              style: const TextStyle(color: Colors.white, fontSize: 13, height: 1.4),
+              style: const TextStyle(color: PraharTheme.textBody, fontSize: 13, height: 1.4),
             ),
             const SizedBox(height: 16),
 
@@ -814,7 +813,7 @@ class _FieldEvidenceReportScreenState extends State<FieldEvidenceReportScreen> {
             Text(
               _isHindi ? 'नवीनतम सेंसर माप' : 'Latest Sensor Evidence',
               style: const TextStyle(
-                color: Colors.white70,
+                color: PraharTheme.textHeading,
                 fontWeight: FontWeight.bold,
                 fontSize: 13,
               ),
@@ -837,7 +836,7 @@ class _FieldEvidenceReportScreenState extends State<FieldEvidenceReportScreen> {
             Text(
               _isHindi ? 'पहचाने गए खतरे (${report.hazardHistory.length})' : 'Detected Hazards (${report.hazardHistory.length})',
               style: const TextStyle(
-                color: Colors.white70,
+                color: PraharTheme.textHeading,
                 fontWeight: FontWeight.bold,
                 fontSize: 13,
               ),
@@ -848,7 +847,7 @@ class _FieldEvidenceReportScreenState extends State<FieldEvidenceReportScreen> {
               child: report.hazardHistory.isEmpty
                   ? Text(
                       _isHindi ? 'चयनित अवधि में कोई गंभीर खतरा दर्ज नहीं हुआ।' : 'No active hazards detected in period.',
-                      style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 12),
+                      style: const TextStyle(color: PraharTheme.textMuted, fontSize: 12),
                     )
                   : Column(
                       children: report.hazardHistory.take(3).map((h) {
@@ -856,7 +855,7 @@ class _FieldEvidenceReportScreenState extends State<FieldEvidenceReportScreen> {
                           margin: const EdgeInsets.only(bottom: 6),
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                           decoration: BoxDecoration(
-                            color: PraharTheme.darkBg,
+                            color: PraharTheme.cardBgGreen,
                             borderRadius: BorderRadius.circular(6),
                             border: Border.all(color: PraharTheme.borderGreen),
                           ),
@@ -865,7 +864,7 @@ class _FieldEvidenceReportScreenState extends State<FieldEvidenceReportScreen> {
                             children: [
                               Text(
                                 h.hazardName,
-                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                                style: const TextStyle(color: PraharTheme.textHeading, fontWeight: FontWeight.bold, fontSize: 12),
                               ),
                               Text(
                                 '${h.severity} (${(h.confidence * 100).toInt()}%)',
@@ -886,7 +885,7 @@ class _FieldEvidenceReportScreenState extends State<FieldEvidenceReportScreen> {
             Text(
               _isHindi ? 'हस्तक्षेप व सत्यापन परिणाम' : 'Intervention & Verification Outcome',
               style: const TextStyle(
-                color: Colors.white70,
+                color: PraharTheme.textHeading,
                 fontWeight: FontWeight.bold,
                 fontSize: 13,
               ),
@@ -896,7 +895,7 @@ class _FieldEvidenceReportScreenState extends State<FieldEvidenceReportScreen> {
               key: const Key('report_interventions_list'),
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: PraharTheme.darkBg,
+                color: PraharTheme.cardBgGreen,
                 borderRadius: BorderRadius.circular(6),
                 border: Border.all(color: PraharTheme.borderGreen),
               ),
@@ -905,7 +904,7 @@ class _FieldEvidenceReportScreenState extends State<FieldEvidenceReportScreen> {
                 children: [
                   Text(
                     'Action: ${report.actionExecuted}',
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                    style: const TextStyle(color: PraharTheme.textHeading, fontWeight: FontWeight.bold, fontSize: 12),
                   ),
                   const SizedBox(height: 4),
                   Text(
@@ -923,7 +922,7 @@ class _FieldEvidenceReportScreenState extends State<FieldEvidenceReportScreen> {
               Text(
                 _isHindi ? 'प्रहार सिफारिशें' : 'PRAHAR Recommendations',
                 style: const TextStyle(
-                  color: Colors.white70,
+                  color: PraharTheme.textHeading,
                   fontWeight: FontWeight.bold,
                   fontSize: 13,
                 ),
@@ -943,7 +942,7 @@ class _FieldEvidenceReportScreenState extends State<FieldEvidenceReportScreen> {
                           Expanded(
                             child: Text(
                               r,
-                              style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 12),
+                              style: const TextStyle(color: PraharTheme.textBody, fontSize: 12),
                             ),
                           ),
                         ],
@@ -966,12 +965,12 @@ class _FieldEvidenceReportScreenState extends State<FieldEvidenceReportScreen> {
       children: [
         Text(
           label,
-          style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 11),
+          style: const TextStyle(color: PraharTheme.textMuted, fontSize: 11),
         ),
         const SizedBox(height: 2),
         Text(
           value,
-          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+          style: const TextStyle(color: PraharTheme.textHeading, fontWeight: FontWeight.bold, fontSize: 13),
         ),
       ],
     );
@@ -982,7 +981,7 @@ class _FieldEvidenceReportScreenState extends State<FieldEvidenceReportScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
         decoration: BoxDecoration(
-          color: PraharTheme.darkBg,
+          color: PraharTheme.cardBgGreen,
           borderRadius: BorderRadius.circular(6),
           border: Border.all(color: PraharTheme.borderGreen),
         ),
@@ -990,12 +989,12 @@ class _FieldEvidenceReportScreenState extends State<FieldEvidenceReportScreen> {
           children: [
             Text(
               label,
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 10),
+              style: const TextStyle(color: PraharTheme.textMuted, fontSize: 10),
             ),
             const SizedBox(height: 2),
             Text(
               value,
-              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+              style: const TextStyle(color: PraharTheme.textHeading, fontWeight: FontWeight.bold, fontSize: 12),
             ),
           ],
         ),
@@ -1008,8 +1007,8 @@ class _FieldEvidenceReportScreenState extends State<FieldEvidenceReportScreen> {
       key: const Key('download_pdf_button'),
       onPressed: _isDownloadingPdf ? null : _downloadPdf,
       style: ElevatedButton.styleFrom(
-        backgroundColor: PraharTheme.darkBg,
-        foregroundColor: PraharTheme.primaryGreen,
+        backgroundColor: PraharTheme.cardBgGreen,
+        foregroundColor: PraharTheme.darkGreen,
         side: const BorderSide(color: PraharTheme.primaryGreen, width: 1.5),
         padding: const EdgeInsets.symmetric(vertical: 14),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),

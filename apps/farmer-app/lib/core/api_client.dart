@@ -34,11 +34,27 @@ class ApiException implements Exception {
 /// - Auth / Validation / 4xx / 5xx errors throw ApiException (NEVER fall back silently).
 class ApiClient {
   static String get defaultBaseUrl {
+    // 1. Explicit full Gateway URL from compilation environment
     const fromEnv = String.fromEnvironment('PRAHAR_GATEWAY_URL');
     if (fromEnv.isNotEmpty) return fromEnv;
+
+    // 2. Explicit Host/Port from compilation environment
+    const envHost = String.fromEnvironment('PRAHAR_GATEWAY_HOST');
+    const envPort = String.fromEnvironment('PRAHAR_GATEWAY_PORT', defaultValue: '3001');
+    if (envHost.isNotEmpty) {
+      return 'http://$envHost:$envPort';
+    }
+
     try {
       if (Platform.isAndroid) {
-        return 'http://10.0.2.2:3001';
+        // Physical phone development LAN gateway fallback (192.168.1.8:3001)
+        // Can be overridden at build time via --dart-define=PRAHAR_LAN_GATEWAY_IP=<ip>
+        // Or for Android Emulator via --dart-define=PRAHAR_GATEWAY_HOST=10.0.2.2
+        const devLanIp = String.fromEnvironment(
+          'PRAHAR_LAN_GATEWAY_IP',
+          defaultValue: '192.168.1.8',
+        );
+        return 'http://$devLanIp:$envPort';
       }
     } catch (_) {}
     return 'http://127.0.0.1:3001';

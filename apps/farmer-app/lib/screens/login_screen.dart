@@ -186,7 +186,42 @@ class _LoginScreenState extends State<LoginScreen> {
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                           // Error Banner
+                  const SizedBox(height: 10),
+                  // SIH & Institute Identity Banner
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: PraharTheme.cardBgGreen,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: PraharTheme.borderGreen),
+                    ),
+                    child: Column(
+                      children: const [
+                        Text(
+                          'SIH 2026 • Team KYROS',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: PraharTheme.darkGreen,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                        SizedBox(height: 2),
+                        Text(
+                          'Vivekananda Institute of Professional Studies',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: PraharTheme.textBody,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  // Error Banner
                   if (_errorMessage != null) ...[
                     Container(
                       key: const Key('login_error_banner'),
@@ -357,7 +392,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
       // SIH identity footer
       bottomNavigationBar: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
         decoration: const BoxDecoration(
           color: PraharTheme.primaryGreenLight,
           border: Border(top: BorderSide(color: PraharTheme.borderGreen)),
@@ -371,8 +406,7 @@ class _LoginScreenState extends State<LoginScreen> {
               child: Text(
                 'PRAHAR  |  SIH 2026 • Team KYROS  |  Vivekananda Institute of Professional Studies',
                 textAlign: TextAlign.center,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 10, color: PraharTheme.darkGreen, fontWeight: FontWeight.w600),
+                style: TextStyle(fontSize: 10, color: PraharTheme.darkGreen, fontWeight: FontWeight.bold),
               ),
             ),
           ],

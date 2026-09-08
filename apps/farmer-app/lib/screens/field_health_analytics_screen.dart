@@ -378,7 +378,7 @@ class _FieldHealthAnalyticsScreenState extends State<FieldHealthAnalyticsScreen>
                 children: [
                   Text(
                     _isHindi ? 'खेत और ज़ोन चयन' : 'Farm & Zone Selection',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.grey),
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: PraharTheme.textHeading),
                   ),
                   const SizedBox(height: 10),
                   Row(
@@ -388,22 +388,22 @@ class _FieldHealthAnalyticsScreenState extends State<FieldHealthAnalyticsScreen>
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(_isHindi ? 'खेत:' : 'Farm:', style: TextStyle(fontSize: 11, color: Colors.grey[400])),
+                            Text(_isHindi ? 'खेत:' : 'Farm:', style: const TextStyle(fontSize: 11, color: PraharTheme.textMuted)),
                             const SizedBox(height: 4),
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF0C1410),
+                                color: Colors.white,
                                 borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: PraharTheme.borderGreen),
+                                border: Border.all(color: PraharTheme.borderLight),
                               ),
                               child: DropdownButtonHideUnderline(
                                 child: DropdownButton<String>(
                                   key: const Key('analytics_farm_selector'),
                                   isExpanded: true,
                                   value: _selectedFarm?.id,
-                                  dropdownColor: const Color(0xFF131F19),
-                                  style: const TextStyle(fontSize: 13, color: Colors.white, fontWeight: FontWeight.bold),
+                                  dropdownColor: PraharTheme.cardBg,
+                                  style: const TextStyle(fontSize: 13, color: PraharTheme.textHeading, fontWeight: FontWeight.bold),
                                   items: _farms.map((f) {
                                     return DropdownMenuItem(value: f.id, child: Text(f.name, overflow: TextOverflow.ellipsis));
                                   }).toList(),
@@ -420,21 +420,21 @@ class _FieldHealthAnalyticsScreenState extends State<FieldHealthAnalyticsScreen>
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(_isHindi ? 'ज़ोन:' : 'Zone:', style: TextStyle(fontSize: 11, color: Colors.grey[400])),
+                            Text(_isHindi ? 'ज़ोन:' : 'Zone:', style: const TextStyle(fontSize: 11, color: PraharTheme.textMuted)),
                             const SizedBox(height: 4),
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF0C1410),
+                                color: Colors.white,
                                 borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: PraharTheme.borderGreen),
+                                border: Border.all(color: PraharTheme.borderLight),
                               ),
                               child: DropdownButtonHideUnderline(
                                 child: DropdownButton<String>(
                                   key: const Key('analytics_zone_selector'),
                                   isExpanded: true,
                                   value: _selectedZone?.id,
-                                  dropdownColor: const Color(0xFF131F19),
+                                  dropdownColor: PraharTheme.cardBg,
                                   style: const TextStyle(fontSize: 13, color: PraharTheme.primaryGreen, fontWeight: FontWeight.bold),
                                   items: _zones.map((z) {
                                     return DropdownMenuItem(value: z.id, child: Text(z.name, overflow: TextOverflow.ellipsis));
@@ -519,12 +519,12 @@ class _FieldHealthAnalyticsScreenState extends State<FieldHealthAnalyticsScreen>
                     children: [
                       Text(
                         _isHindi ? 'प्रहार खेत-स्वास्थ्य सारांश' : 'PRAHAR Field-Health & Risk Summary',
-                        style: const TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.bold),
+                        style: const TextStyle(color: PraharTheme.textMuted, fontSize: 11, fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         _selectedZone?.name ?? _selectedFarm?.name ?? 'Farm Health',
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: PraharTheme.textHeading),
                       ),
                     ],
                   ),
@@ -548,9 +548,9 @@ class _FieldHealthAnalyticsScreenState extends State<FieldHealthAnalyticsScreen>
             Text(
               summaryText,
               key: const Key('field_health_summary_text'),
-              style: TextStyle(color: Colors.grey[300], fontSize: 12),
+              style: const TextStyle(color: PraharTheme.textBody, fontSize: 12),
             ),
-            const Divider(height: 20, color: PraharTheme.borderGreen),
+            const Divider(height: 20, color: PraharTheme.borderLight),
             // Latest Sensor Metrics Grid
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -581,7 +581,7 @@ class _FieldHealthAnalyticsScreenState extends State<FieldHealthAnalyticsScreen>
                   label: _isHindi ? 'मृदा pH' : 'Soil pH',
                   value: metrics?.ph != null ? metrics!.ph!.toStringAsFixed(1) : '—',
                   icon: Icons.science,
-                  color: Colors.purpleAccent,
+                  color: Colors.purple,
                 ),
               ],
             ),
@@ -603,8 +603,8 @@ class _FieldHealthAnalyticsScreenState extends State<FieldHealthAnalyticsScreen>
       children: [
         Icon(icon, color: color, size: 18),
         const SizedBox(height: 4),
-        Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-        Text(label, style: TextStyle(color: Colors.grey[400], fontSize: 10)),
+        Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: PraharTheme.textHeading)),
+        Text(label, style: const TextStyle(color: PraharTheme.textMuted, fontSize: 10)),
       ],
     );
   }
@@ -628,7 +628,7 @@ class _FieldHealthAnalyticsScreenState extends State<FieldHealthAnalyticsScreen>
               children: [
                 Text(
                   _isHindi ? 'सेंसर रुझान (इतिहास)' : 'Historical Sensor Trends',
-                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: PraharTheme.textHeading),
                 ),
                 // Metric switcher chips
                 Row(
@@ -649,19 +649,19 @@ class _FieldHealthAnalyticsScreenState extends State<FieldHealthAnalyticsScreen>
                 padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF0C1410),
+                  color: PraharTheme.cardBgGreen,
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: PraharTheme.borderGreen),
                 ),
                 child: Column(
                   children: [
-                    const Icon(Icons.show_chart, color: Colors.grey, size: 36),
+                    const Icon(Icons.show_chart, color: PraharTheme.textMuted, size: 36),
                     const SizedBox(height: 8),
                     Text(
                       _isHindi
                           ? 'इस ज़ोन के लिए पर्याप्त ऐतिहासिक डेटा उपलब्ध नहीं है।'
                           : 'No historical sensor telemetry recorded yet for this zone.',
-                      style: TextStyle(color: Colors.grey[400], fontSize: 12),
+                      style: const TextStyle(color: PraharTheme.textMuted, fontSize: 12),
                       textAlign: TextAlign.center,
                     ),
                   ],
@@ -674,7 +674,7 @@ class _FieldHealthAnalyticsScreenState extends State<FieldHealthAnalyticsScreen>
                 width: double.infinity,
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF0C1410),
+                  color: PraharTheme.cardBgGreen,
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: PraharTheme.borderGreen),
                 ),
@@ -705,7 +705,7 @@ class _FieldHealthAnalyticsScreenState extends State<FieldHealthAnalyticsScreen>
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: isSelected ? PraharTheme.primaryGreen : const Color(0xFF10281F),
+          color: isSelected ? PraharTheme.primaryGreen : PraharTheme.primaryGreenLight,
           borderRadius: BorderRadius.circular(6),
           border: Border.all(color: isSelected ? PraharTheme.primaryGreen : PraharTheme.borderGreen),
         ),
@@ -714,7 +714,7 @@ class _FieldHealthAnalyticsScreenState extends State<FieldHealthAnalyticsScreen>
           style: TextStyle(
             fontSize: 10,
             fontWeight: FontWeight.bold,
-            color: isSelected ? Colors.black : Colors.white,
+            color: isSelected ? Colors.white : PraharTheme.darkGreen,
           ),
         ),
       ),
@@ -736,7 +736,7 @@ class _FieldHealthAnalyticsScreenState extends State<FieldHealthAnalyticsScreen>
           children: [
             Text(
               _isHindi ? 'जोखिम एवं पहचान रुझान' : 'Hazard & Detection Risk Trends',
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: PraharTheme.textHeading),
             ),
             const SizedBox(height: 10),
             if (hazards.isEmpty)
@@ -744,7 +744,7 @@ class _FieldHealthAnalyticsScreenState extends State<FieldHealthAnalyticsScreen>
                 key: const Key('empty_hazards_view'),
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF0C1410),
+                  color: PraharTheme.cardBgGreen,
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: PraharTheme.borderGreen),
                 ),
@@ -757,7 +757,7 @@ class _FieldHealthAnalyticsScreenState extends State<FieldHealthAnalyticsScreen>
                         _isHindi
                             ? 'इस अवधि में कोई सक्रिय रोग या कीट जोखिम दर्ज नहीं हुआ।'
                             : 'No disease or pest risk detections recorded in this period.',
-                        style: TextStyle(color: Colors.grey[400], fontSize: 12),
+                        style: const TextStyle(color: PraharTheme.textMuted, fontSize: 12),
                       ),
                     ),
                   ],
@@ -776,7 +776,7 @@ class _FieldHealthAnalyticsScreenState extends State<FieldHealthAnalyticsScreen>
                     margin: const EdgeInsets.only(bottom: 8),
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF0C1410),
+                      color: PraharTheme.cardBgGreen,
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(color: PraharTheme.borderGreen),
                     ),
@@ -790,10 +790,10 @@ class _FieldHealthAnalyticsScreenState extends State<FieldHealthAnalyticsScreen>
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(h.hazardName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                Text(h.hazardName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: PraharTheme.textHeading)),
                                 Text(
                                   '${h.occurrenceCount} ${_isHindi ? "पहचान" : "detections"} • ${(h.latestConfidence * 100).toInt()}% conf',
-                                  style: TextStyle(color: Colors.grey[400], fontSize: 10),
+                                  style: const TextStyle(color: PraharTheme.textMuted, fontSize: 10),
                                 ),
                               ],
                             ),
@@ -837,7 +837,7 @@ class _FieldHealthAnalyticsScreenState extends State<FieldHealthAnalyticsScreen>
           children: [
             Text(
               _isHindi ? 'हस्तक्षेप एवं सत्यापन इतिहास' : 'Intervention & Verification History',
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: PraharTheme.textHeading),
             ),
             const SizedBox(height: 10),
             if (items.isEmpty)
@@ -845,18 +845,18 @@ class _FieldHealthAnalyticsScreenState extends State<FieldHealthAnalyticsScreen>
                 key: const Key('empty_interventions_view'),
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF0C1410),
+                  color: PraharTheme.cardBgGreen,
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: PraharTheme.borderGreen),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.history, color: Colors.grey, size: 18),
+                    const Icon(Icons.history, color: PraharTheme.textMuted, size: 18),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         _isHindi ? 'कोई उपचार या सत्यापन इतिहास नहीं है।' : 'No remediation actions or verifications on record.',
-                        style: TextStyle(color: Colors.grey[400], fontSize: 12),
+                        style: const TextStyle(color: PraharTheme.textMuted, fontSize: 12),
                       ),
                     ),
                   ],
@@ -872,7 +872,7 @@ class _FieldHealthAnalyticsScreenState extends State<FieldHealthAnalyticsScreen>
                     margin: const EdgeInsets.only(bottom: 10),
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF0C1410),
+                      color: PraharTheme.cardBgGreen,
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
                         color: isResolved ? PraharTheme.primaryGreen : PraharTheme.borderGreen,
@@ -891,7 +891,7 @@ class _FieldHealthAnalyticsScreenState extends State<FieldHealthAnalyticsScreen>
                                 const SizedBox(width: 6),
                                 Text(
                                   '${item.actionType} (${item.durationSeconds}s, ~${item.volumeLiters}L)',
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: PraharTheme.textHeading),
                                 ),
                               ],
                             ),
@@ -911,15 +911,16 @@ class _FieldHealthAnalyticsScreenState extends State<FieldHealthAnalyticsScreen>
                         const SizedBox(height: 4),
                         Text(
                           '${_isHindi ? "स्वीकृतकर्ता" : "Approved by"}: ${item.approvedBy}',
-                          style: TextStyle(color: Colors.grey[400], fontSize: 11),
+                          style: const TextStyle(color: PraharTheme.textMuted, fontSize: 11),
                         ),
                         if (hasVerif) ...[
                           const SizedBox(height: 8),
                           Container(
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF10281F),
+                              color: Colors.white,
                               borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: PraharTheme.borderLight),
                             ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -945,14 +946,14 @@ class _FieldHealthAnalyticsScreenState extends State<FieldHealthAnalyticsScreen>
                                     const Spacer(),
                                     Text(
                                       '${item.verification!.preMoisture}% → ${item.verification!.postMoisture}% (+${item.verification!.moistureDelta}%)',
-                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: PraharTheme.textHeading),
                                     ),
                                   ],
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
                                   _isHindi ? item.verification!.summaryHi : item.verification!.summaryEn,
-                                  style: TextStyle(color: Colors.grey[300], fontSize: 10),
+                                  style: const TextStyle(color: PraharTheme.textBody, fontSize: 10),
                                 ),
                               ],
                             ),
@@ -1034,7 +1035,7 @@ class _SparklineChartPainter extends CustomPainter {
       ..style = PaintingStyle.fill;
 
     final gridPaint = Paint()
-      ..color = Colors.white10
+      ..color = PraharTheme.borderGreen.withValues(alpha: 0.5)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 0.5;
 
@@ -1066,7 +1067,7 @@ class _SparklineChartPainter extends CustomPainter {
     final textPainter = TextPainter(
       text: TextSpan(
         text: 'Max: ${maxVal.toStringAsFixed(1)} | Min: ${minVal.toStringAsFixed(1)}',
-        style: const TextStyle(color: Colors.grey, fontSize: 9),
+        style: const TextStyle(color: PraharTheme.darkGreen, fontSize: 9, fontWeight: FontWeight.bold),
       ),
       textDirection: TextDirection.ltr,
     );

@@ -250,10 +250,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF08100C),
+      backgroundColor: PraharTheme.lightBg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0C1410),
+        backgroundColor: PraharTheme.cardBg,
         elevation: 0,
+        surfaceTintColor: Colors.transparent,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(height: 1, color: PraharTheme.borderLight),
+        ),
         title: Row(
           children: [
             const Text(
@@ -267,15 +272,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
-                color: PraharTheme.borderGreen,
+                color: PraharTheme.primaryGreenLight,
                 borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: PraharTheme.borderGreen),
               ),
               child: Text(
                 widget.isEditing ? 'PROFILE EDIT' : 'ONBOARDING',
                 style: const TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
-                    color: Colors.white),
+                    color: PraharTheme.darkGreen),
               ),
             ),
           ],
@@ -333,7 +339,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      color: const Color(0xFF0E1813),
+      color: PraharTheme.cardBgGreen,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -343,20 +349,20 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               Text(
                 'Step ${_currentStep + 1} of 5: ${titles[_currentStep]}',
                 style: const TextStyle(
-                    color: PraharTheme.primaryGreen,
+                    color: PraharTheme.darkGreen,
                     fontWeight: FontWeight.bold,
                     fontSize: 13),
               ),
               Text(
                 '${((_currentStep + 1) / 5 * 100).toInt()}%',
-                style: TextStyle(color: Colors.grey[400], fontSize: 11),
+                style: const TextStyle(color: PraharTheme.textMuted, fontSize: 11),
               ),
             ],
           ),
           const SizedBox(height: 6),
           LinearProgressIndicator(
             value: (_currentStep + 1) / 5,
-            backgroundColor: const Color(0xFF1B2B22),
+            backgroundColor: PraharTheme.borderLight,
             valueColor:
                 const AlwaysStoppedAnimation<Color>(PraharTheme.primaryGreen),
             minHeight: 4,
@@ -390,12 +396,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       children: [
         Text(
           _t('step_language_title'),
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: PraharTheme.textHeading),
         ),
         const SizedBox(height: 4),
         Text(
           _t('step_language_desc'),
-          style: TextStyle(fontSize: 12, color: Colors.grey[400]),
+          style: const TextStyle(fontSize: 12, color: PraharTheme.textMuted),
         ),
         const SizedBox(height: 16),
         ...AppLocalizations.supportedLanguages.map((code) {
@@ -403,13 +409,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           final name = AppLocalizations.languageDisplayNames[code] ?? code;
           return Card(
             key: Key('lang_option_$code'),
-            color: isSelected ? const Color(0xFF13281F) : const Color(0xFF0F1B15),
+            color: isSelected ? PraharTheme.cardBgGreen : PraharTheme.cardBg,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10),
               side: BorderSide(
                 color: isSelected
                     ? PraharTheme.primaryGreen
-                    : PraharTheme.borderGreen,
+                    : PraharTheme.borderLight,
                 width: isSelected ? 1.5 : 1,
               ),
             ),
@@ -427,7 +433,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 name,
                 style: TextStyle(
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                  color: isSelected ? Colors.white : Colors.grey[300],
+                  color: isSelected ? PraharTheme.darkGreen : PraharTheme.textBody,
                 ),
               ),
               trailing: isSelected
@@ -449,20 +455,21 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       children: [
         Text(
           _t('step_profile_title'),
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: PraharTheme.textHeading),
         ),
         const SizedBox(height: 4),
         Text(
           _t('step_profile_desc'),
-          style: TextStyle(fontSize: 12, color: Colors.grey[400]),
+          style: const TextStyle(fontSize: 12, color: PraharTheme.textMuted),
         ),
         const SizedBox(height: 16),
         Text(_t('farmer_name_label'),
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: PraharTheme.textHeading)),
         const SizedBox(height: 6),
         TextFormField(
           key: const Key('onboarding_name_field'),
           controller: _nameController,
+          style: const TextStyle(color: PraharTheme.textBody),
           decoration: InputDecoration(
             hintText: _t('farmer_name_hint'),
             prefixIcon: const Icon(Icons.person, color: PraharTheme.primaryGreen, size: 18),
@@ -477,12 +484,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         ),
         const SizedBox(height: 14),
         Text(_t('state_label'),
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: PraharTheme.textHeading)),
         const SizedBox(height: 6),
         DropdownButtonFormField<String>(
           key: const Key('onboarding_state_dropdown'),
           value: _selectedState,
-          dropdownColor: const Color(0xFF131F19),
+          dropdownColor: PraharTheme.cardBg,
+          style: const TextStyle(color: PraharTheme.textBody),
           decoration: InputDecoration(
             prefixIcon: const Icon(Icons.map, color: PraharTheme.primaryGreen, size: 18),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
@@ -496,11 +504,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         ),
         const SizedBox(height: 14),
         Text(_t('district_label'),
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: PraharTheme.textHeading)),
         const SizedBox(height: 6),
         TextFormField(
           key: const Key('onboarding_district_field'),
           controller: _districtController,
+          style: const TextStyle(color: PraharTheme.textBody),
           decoration: InputDecoration(
             hintText: _t('district_hint'),
             prefixIcon: const Icon(Icons.location_city, color: PraharTheme.primaryGreen, size: 18),
@@ -509,11 +518,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         ),
         const SizedBox(height: 14),
         Text(_t('village_label'),
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: PraharTheme.textHeading)),
         const SizedBox(height: 6),
         TextFormField(
           key: const Key('onboarding_village_field'),
           controller: _villageController,
+          style: const TextStyle(color: PraharTheme.textBody),
           decoration: InputDecoration(
             hintText: _t('village_hint'),
             prefixIcon: const Icon(Icons.home, color: PraharTheme.primaryGreen, size: 18),
@@ -531,21 +541,22 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       children: [
         Text(
           _t('step_farm_title'),
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: PraharTheme.textHeading),
         ),
         const SizedBox(height: 4),
         Text(
           _t('step_farm_desc'),
-          style: TextStyle(fontSize: 12, color: Colors.grey[400]),
+          style: const TextStyle(fontSize: 12, color: PraharTheme.textMuted),
         ),
         const SizedBox(height: 16),
         Text(_t('land_area_label'),
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: PraharTheme.textHeading)),
         const SizedBox(height: 6),
         TextFormField(
           key: const Key('onboarding_area_field'),
           controller: _areaController,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          style: const TextStyle(color: PraharTheme.textBody),
           decoration: InputDecoration(
             hintText: _t('land_area_hint'),
             prefixIcon: const Icon(Icons.square_foot, color: PraharTheme.primaryGreen, size: 18),
@@ -560,12 +571,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         ),
         const SizedBox(height: 14),
         Text(_t('ownership_label'),
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: PraharTheme.textHeading)),
         const SizedBox(height: 6),
         DropdownButtonFormField<String>(
           key: const Key('onboarding_ownership_dropdown'),
           value: _ownershipType,
-          dropdownColor: const Color(0xFF131F19),
+          dropdownColor: PraharTheme.cardBg,
+          style: const TextStyle(color: PraharTheme.textBody),
           decoration: InputDecoration(
             prefixIcon: const Icon(Icons.assignment, color: PraharTheme.primaryGreen, size: 18),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
@@ -582,12 +594,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         ),
         const SizedBox(height: 14),
         Text(_t('irrigation_label'),
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: PraharTheme.textHeading)),
         const SizedBox(height: 6),
         DropdownButtonFormField<String>(
           key: const Key('onboarding_irrigation_dropdown'),
           value: _irrigationStatus,
-          dropdownColor: const Color(0xFF131F19),
+          dropdownColor: PraharTheme.cardBg,
+          style: const TextStyle(color: PraharTheme.textBody),
           decoration: InputDecoration(
             prefixIcon: const Icon(Icons.water_drop, color: PraharTheme.alertSky, size: 18),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
@@ -606,12 +619,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         ),
         const SizedBox(height: 14),
         Text(_t('water_source_label'),
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: PraharTheme.textHeading)),
         const SizedBox(height: 6),
         DropdownButtonFormField<String>(
           key: const Key('onboarding_water_source_dropdown'),
           value: _waterSource,
-          dropdownColor: const Color(0xFF131F19),
+          dropdownColor: PraharTheme.cardBg,
+          style: const TextStyle(color: PraharTheme.textBody),
           decoration: InputDecoration(
             prefixIcon: const Icon(Icons.waves, color: PraharTheme.alertSky, size: 18),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
@@ -629,12 +643,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         ),
         const SizedBox(height: 14),
         Text(_t('soil_type_label'),
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: PraharTheme.textHeading)),
         const SizedBox(height: 6),
         DropdownButtonFormField<String>(
           key: const Key('onboarding_soil_dropdown'),
           value: _soilType,
-          dropdownColor: const Color(0xFF131F19),
+          dropdownColor: PraharTheme.cardBg,
+          style: const TextStyle(color: PraharTheme.textBody),
           decoration: InputDecoration(
             prefixIcon: const Icon(Icons.landscape, color: PraharTheme.alertAmber, size: 18),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
@@ -657,20 +672,21 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       children: [
         Text(
           _t('step_crop_title'),
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: PraharTheme.textHeading),
         ),
         const SizedBox(height: 4),
         Text(
           _t('step_crop_desc'),
-          style: TextStyle(fontSize: 12, color: Colors.grey[400]),
+          style: const TextStyle(fontSize: 12, color: PraharTheme.textMuted),
         ),
         const SizedBox(height: 16),
         Text(_t('crops_label'),
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: PraharTheme.textHeading)),
         const SizedBox(height: 6),
         TextFormField(
           key: const Key('onboarding_crops_field'),
           controller: _cropsController,
+          style: const TextStyle(color: PraharTheme.textBody),
           decoration: InputDecoration(
             hintText: _t('crops_hint'),
             prefixIcon: const Icon(Icons.grass, color: PraharTheme.primaryGreen, size: 18),
@@ -691,8 +707,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           children: ['Soybean', 'Wheat', 'Cotton', 'Rice', 'Tomato', 'Gram'].map((c) {
             return ActionChip(
               visualDensity: VisualDensity.compact,
-              label: Text(c, style: const TextStyle(fontSize: 11)),
-              backgroundColor: const Color(0xFF122019),
+              label: Text(c, style: const TextStyle(fontSize: 11, color: PraharTheme.darkGreen)),
+              backgroundColor: PraharTheme.cardBgGreen,
+              side: const BorderSide(color: PraharTheme.borderGreen),
               onPressed: () {
                 final current = _cropsController.text.trim();
                 if (current.isEmpty) {
@@ -706,12 +723,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         ),
         const SizedBox(height: 14),
         Text(_t('season_label'),
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: PraharTheme.textHeading)),
         const SizedBox(height: 6),
         DropdownButtonFormField<String>(
           key: const Key('onboarding_season_dropdown'),
           value: _season,
-          dropdownColor: const Color(0xFF131F19),
+          dropdownColor: PraharTheme.cardBg,
+          style: const TextStyle(color: PraharTheme.textBody),
           decoration: InputDecoration(
             prefixIcon: const Icon(Icons.calendar_today, color: PraharTheme.primaryGreen, size: 18),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
@@ -729,11 +747,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         ),
         const SizedBox(height: 14),
         Text(_t('variety_label'),
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: PraharTheme.textHeading)),
         const SizedBox(height: 6),
         TextFormField(
           key: const Key('onboarding_variety_field'),
           controller: _varietyController,
+          style: const TextStyle(color: PraharTheme.textBody),
           decoration: InputDecoration(
             hintText: _t('variety_hint'),
             prefixIcon: const Icon(Icons.eco, color: PraharTheme.primaryGreen, size: 18),
@@ -742,11 +761,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         ),
         const SizedBox(height: 14),
         Text(_t('sowing_date_label'),
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: PraharTheme.textHeading)),
         const SizedBox(height: 6),
         TextFormField(
           key: const Key('onboarding_sowing_date_field'),
           controller: _sowingDateController,
+          style: const TextStyle(color: PraharTheme.textBody),
           decoration: InputDecoration(
             hintText: 'YYYY-MM-DD (e.g. 2026-06-25)',
             prefixIcon: const Icon(Icons.event, color: PraharTheme.primaryGreen, size: 18),
@@ -764,20 +784,20 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       children: [
         Text(
           _t('step_review_title'),
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: PraharTheme.textHeading),
         ),
         const SizedBox(height: 4),
         Text(
           _t('step_review_desc'),
-          style: TextStyle(fontSize: 12, color: Colors.grey[400]),
+          style: const TextStyle(fontSize: 12, color: PraharTheme.textMuted),
         ),
         const SizedBox(height: 16),
         // Review Card
         Card(
-          color: const Color(0xFF101F18),
+          color: PraharTheme.cardBg,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
-            side: const BorderSide(color: PraharTheme.borderGreen),
+            side: const BorderSide(color: PraharTheme.borderLight),
           ),
           child: Padding(
             padding: const EdgeInsets.all(16.0),
@@ -791,37 +811,37 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       ? _nameController.text.trim()
                       : 'Ramesh Patil',
                 ),
-                const Divider(height: 16, color: PraharTheme.borderGreen),
+                const Divider(height: 16, color: PraharTheme.borderLight),
                 _buildReviewRow(
                   Icons.location_on,
                   _t('state_label') + ' & District',
                   '$_selectedState, ${_districtController.text.trim().isNotEmpty ? _districtController.text.trim() : "Amravati"}',
                 ),
-                const Divider(height: 16, color: PraharTheme.borderGreen),
+                const Divider(height: 16, color: PraharTheme.borderLight),
                 _buildReviewRow(
                   Icons.crop_free,
                   _t('land_area_label'),
                   '${_areaController.text.trim().isNotEmpty ? _areaController.text.trim() : "4.2"} Acres ($_ownershipType)',
                 ),
-                const Divider(height: 16, color: PraharTheme.borderGreen),
+                const Divider(height: 16, color: PraharTheme.borderLight),
                 _buildReviewRow(
                   Icons.water_drop,
                   _t('irrigation_label'),
                   '$_irrigationStatus ($_waterSource)',
                 ),
-                const Divider(height: 16, color: PraharTheme.borderGreen),
+                const Divider(height: 16, color: PraharTheme.borderLight),
                 _buildReviewRow(
                   Icons.landscape,
                   _t('soil_type_label'),
                   _soilType,
                 ),
-                const Divider(height: 16, color: PraharTheme.borderGreen),
+                const Divider(height: 16, color: PraharTheme.borderLight),
                 _buildReviewRow(
                   Icons.grass,
                   _t('crops_label'),
                   '${_cropsController.text.trim().isNotEmpty ? _cropsController.text.trim() : "Soybean, Wheat"} ($_season)',
                 ),
-                const Divider(height: 16, color: PraharTheme.borderGreen),
+                const Divider(height: 16, color: PraharTheme.borderLight),
                 _buildReviewRow(
                   Icons.language,
                   _t('step_language_title'),
@@ -837,7 +857,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: PraharTheme.alertAmber.withValues(alpha: 0.1),
+            color: PraharTheme.alertAmberLight,
             borderRadius: BorderRadius.circular(8),
             border: Border.all(color: PraharTheme.alertAmber.withValues(alpha: 0.4)),
           ),
@@ -850,7 +870,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 child: Text(
                   _t('demo_banner_subtitle'),
                   style: const TextStyle(
-                      fontSize: 11, color: PraharTheme.alertAmber),
+                      fontSize: 11, color: PraharTheme.alertAmber, fontWeight: FontWeight.w600),
                 ),
               ),
             ],
@@ -867,14 +887,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         Icon(icon, size: 16, color: PraharTheme.primaryGreen),
         const SizedBox(width: 8),
         Text('$label: ',
-            style: TextStyle(fontSize: 12, color: Colors.grey[400])),
+            style: const TextStyle(fontSize: 12, color: PraharTheme.textMuted)),
         Expanded(
           child: Text(
             value,
             style: const TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.bold,
-                color: Colors.white),
+                color: PraharTheme.textHeading),
             textAlign: TextAlign.end,
           ),
         ),
@@ -885,7 +905,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   Widget _buildBottomNavigation() {
     return Container(
       padding: const EdgeInsets.all(16),
-      color: const Color(0xFF0C1410),
+      decoration: const BoxDecoration(
+        color: PraharTheme.cardBg,
+        border: Border(top: BorderSide(color: PraharTheme.borderLight)),
+      ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -895,8 +918,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               icon: const Icon(Icons.arrow_back, size: 16),
               label: Text(_t('back_btn')),
               style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.white,
-                side: const BorderSide(color: PraharTheme.borderGreen),
+                foregroundColor: PraharTheme.textHeading,
+                side: const BorderSide(color: PraharTheme.borderLight),
               ),
               onPressed: () => setState(() => _currentStep--),
             )
@@ -918,7 +941,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             ),
             style: ElevatedButton.styleFrom(
               backgroundColor: PraharTheme.primaryGreen,
-              foregroundColor: Colors.black,
+              foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             ),
             onPressed: () {

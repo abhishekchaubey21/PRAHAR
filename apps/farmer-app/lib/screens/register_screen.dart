@@ -137,46 +137,109 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF08100C),
+      backgroundColor: PraharTheme.lightBg,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
+        backgroundColor: PraharTheme.cardBg,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          icon: const Icon(Icons.arrow_back, color: PraharTheme.textHeading),
           onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: const Text(
+          'किसान पंजीकरण / Registration',
+          style: TextStyle(
+            color: PraharTheme.textHeading,
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(height: 1, color: PraharTheme.borderLight),
         ),
       ),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20.0),
             child: Form(
               key: _formKey,
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Header
-                  const Text(
-                    'किसान पंजीकरण',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w900,
-                      color: Colors.white,
+                  // App Logo Header
+                  Center(
+                    child: Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: PraharTheme.primaryGreen.withOpacity(0.15),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: PraharTheme.primaryGreen, width: 2),
+                      ),
+                      child: const Icon(
+                        Icons.person_add_alt_1,
+                        size: 38,
+                        color: PraharTheme.primaryGreen,
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 14),
                   const Text(
-                    'Register Farmer Account',
+                    'नया किसान खाता बनाएं',
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      fontSize: 14,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w900,
+                      color: PraharTheme.textHeading,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Create Your Farmer Account',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 13,
                       color: PraharTheme.primaryGreen,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 10),
+
+                  // SIH & Institute Identity Banner
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: PraharTheme.cardBgGreen,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: PraharTheme.borderGreen),
+                    ),
+                    child: Column(
+                      children: const [
+                        Text(
+                          'SIH 2026 • Team KYROS',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: PraharTheme.darkGreen,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                        SizedBox(height: 2),
+                        Text(
+                          'Vivekananda Institute of Professional Studies',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: PraharTheme.textBody,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 18),
 
                   // Error Banner
                   if (_errorMessage != null) ...[
@@ -184,19 +247,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       key: const Key('register_error_banner'),
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: Colors.red.withOpacity(0.15),
-                        border: Border.all(color: Colors.redAccent),
+                        color: PraharTheme.alertRoseLight,
+                        border: Border.all(color: PraharTheme.alertRose),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Icon(Icons.error_outline, color: Colors.redAccent, size: 20),
+                          const Icon(Icons.error_outline, color: PraharTheme.alertRose, size: 20),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
                               _errorMessage!,
-                              style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+                              style: const TextStyle(color: PraharTheme.alertRose, fontSize: 12),
                             ),
                           ),
                         ],
@@ -209,24 +272,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   TextFormField(
                     key: const Key('register_name_field'),
                     controller: _fullNameController,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: InputDecoration(
+                    style: const TextStyle(color: PraharTheme.textBody),
+                    decoration: const InputDecoration(
                       labelText: 'पूरा नाम / Full Name',
-                      prefixIcon: const Icon(Icons.person_outline, color: PraharTheme.primaryGreen),
-                      filled: true,
-                      fillColor: const Color(0xFF131F19),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: PraharTheme.borderGreen),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: PraharTheme.borderGreen),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: PraharTheme.primaryGreen, width: 2),
-                      ),
+                      prefixIcon: Icon(Icons.person_outline, color: PraharTheme.primaryGreen),
                     ),
                     validator: (val) {
                       if (val == null || val.trim().isEmpty) {
@@ -242,24 +291,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     key: const Key('register_email_field'),
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: InputDecoration(
+                    style: const TextStyle(color: PraharTheme.textBody),
+                    decoration: const InputDecoration(
                       labelText: 'ईमेल / Email Address',
-                      prefixIcon: const Icon(Icons.email_outlined, color: PraharTheme.primaryGreen),
-                      filled: true,
-                      fillColor: const Color(0xFF131F19),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: PraharTheme.borderGreen),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: PraharTheme.borderGreen),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: PraharTheme.primaryGreen, width: 2),
-                      ),
+                      prefixIcon: Icon(Icons.email_outlined, color: PraharTheme.primaryGreen),
                     ),
                     validator: (val) {
                       if (val == null || val.trim().isEmpty) {
@@ -278,34 +313,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     key: const Key('register_password_field'),
                     controller: _passwordController,
                     obscureText: _obscurePassword,
-                    style: const TextStyle(color: Colors.white),
+                    style: const TextStyle(color: PraharTheme.textBody),
                     decoration: InputDecoration(
                       labelText: 'पासवर्ड / Password',
                       prefixIcon: const Icon(Icons.lock_outline, color: PraharTheme.primaryGreen),
                       suffixIcon: IconButton(
                         icon: Icon(
                           _obscurePassword ? Icons.visibility_off : Icons.visibility,
-                          color: Colors.grey,
+                          color: PraharTheme.textMuted,
                         ),
                         onPressed: () {
                           setState(() {
                             _obscurePassword = !_obscurePassword;
                           });
                         },
-                      ),
-                      filled: true,
-                      fillColor: const Color(0xFF131F19),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: PraharTheme.borderGreen),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: PraharTheme.borderGreen),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: PraharTheme.primaryGreen, width: 2),
                       ),
                     ),
                     validator: (val) {
@@ -325,34 +346,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     key: const Key('register_confirm_password_field'),
                     controller: _confirmPasswordController,
                     obscureText: _obscureConfirmPassword,
-                    style: const TextStyle(color: Colors.white),
+                    style: const TextStyle(color: PraharTheme.textBody),
                     decoration: InputDecoration(
                       labelText: 'पासवर्ड की पुष्टि करें / Confirm Password',
                       prefixIcon: const Icon(Icons.lock_reset, color: PraharTheme.primaryGreen),
                       suffixIcon: IconButton(
                         icon: Icon(
                           _obscureConfirmPassword ? Icons.visibility_off : Icons.visibility,
-                          color: Colors.grey,
+                          color: PraharTheme.textMuted,
                         ),
                         onPressed: () {
                           setState(() {
                             _obscureConfirmPassword = !_obscureConfirmPassword;
                           });
                         },
-                      ),
-                      filled: true,
-                      fillColor: const Color(0xFF131F19),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: PraharTheme.borderGreen),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: PraharTheme.borderGreen),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: PraharTheme.primaryGreen, width: 2),
                       ),
                     ),
                     validator: (val) {
@@ -372,12 +379,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     key: const Key('register_submit_button'),
                     onPressed: _isLoading ? null : _handleRegister,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: PraharTheme.primaryGreen,
-                      foregroundColor: Colors.black,
+                      foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
                     ),
                     child: _isLoading
                         ? const SizedBox(
@@ -402,7 +405,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     children: [
                       const Text(
                         'पहले से खाता है? / Already registered? ',
-                        style: TextStyle(color: Colors.grey, fontSize: 13),
+                        style: TextStyle(color: PraharTheme.textMuted, fontSize: 13),
                       ),
                       TextButton(
                         key: const Key('register_login_link'),
@@ -422,6 +425,29 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
             ),
           ),
+        ),
+      ),
+
+      // SIH identity footer
+      bottomNavigationBar: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+        decoration: const BoxDecoration(
+          color: PraharTheme.primaryGreenLight,
+          border: Border(top: BorderSide(color: PraharTheme.borderGreen)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: const [
+            Icon(Icons.agriculture, color: PraharTheme.primaryGreen, size: 14),
+            SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                'PRAHAR  |  SIH 2026 • Team KYROS  |  Vivekananda Institute of Professional Studies',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 10, color: PraharTheme.darkGreen, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
         ),
       ),
     );

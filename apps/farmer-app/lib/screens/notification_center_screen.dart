@@ -105,7 +105,7 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         key: const Key('notification_details_dialog'),
-        backgroundColor: const Color(0xFF131F19),
+        backgroundColor: PraharTheme.cardBg,
         title: Row(
           children: [
             Icon(
@@ -117,7 +117,7 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
             Expanded(
               child: Text(
                 widget.isHindi ? (notif.titleHi ?? notif.title) : notif.title,
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: PraharTheme.textHeading),
               ),
             ),
           ],
@@ -128,10 +128,10 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
           children: [
             Text(
               widget.isHindi ? (notif.messageHi ?? notif.message) : notif.message,
-              style: const TextStyle(fontSize: 13, color: Colors.white70),
+              style: const TextStyle(fontSize: 13, color: PraharTheme.textBody),
             ),
             const SizedBox(height: 14),
-            const Divider(color: PraharTheme.borderGreen),
+            const Divider(color: PraharTheme.borderLight),
             if (notif.zoneId != null) ...[
               const SizedBox(height: 6),
               Row(
@@ -170,7 +170,7 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
                   Flexible(
                     child: Text(
                       '${widget.isHindi ? "कार्रवाई आईडी" : "Action ID"}: ${notif.actionId}',
-                      style: const TextStyle(fontSize: 12, color: PraharTheme.primaryGreen),
+                      style: const TextStyle(fontSize: 12, color: PraharTheme.darkGreen),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -183,7 +183,7 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
           TextButton(
             key: const Key('close_notification_dialog_button'),
             onPressed: () => Navigator.pop(ctx),
-            child: Text(widget.isHindi ? 'बंद करें' : 'Close'),
+            child: Text(widget.isHindi ? 'बंद करें' : 'Close', style: const TextStyle(color: PraharTheme.primaryGreen, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -231,10 +231,21 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
     final unreadCount = _notifications.where((n) => !n.isRead).length;
 
     return Scaffold(
+      backgroundColor: PraharTheme.lightBg,
       appBar: AppBar(
+        backgroundColor: PraharTheme.cardBg,
+        elevation: 0,
+        surfaceTintColor: Colors.transparent,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(height: 1, color: PraharTheme.borderLight),
+        ),
         title: Row(
           children: [
-            Text(widget.isHindi ? 'सूचना केंद्र' : 'Notification Center'),
+            Text(
+              widget.isHindi ? 'सूचना केंद्र' : 'Notification Center',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: PraharTheme.textHeading),
+            ),
             if (unreadCount > 0) ...[
               const SizedBox(width: 8),
               Container(
@@ -260,7 +271,7 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
               child: Text(
                 widget.isHindi ? 'सभी पढ़ें' : 'Mark All Read',
                 style: TextStyle(
-                  color: unreadCount > 0 ? PraharTheme.primaryGreen : Colors.grey,
+                  color: unreadCount > 0 ? PraharTheme.primaryGreen : PraharTheme.textMuted,
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
                 ),
@@ -306,7 +317,7 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
                 label: Text(widget.isHindi ? 'पुनः प्रयास करें' : 'Retry'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: PraharTheme.primaryGreen,
-                  foregroundColor: Colors.black,
+                  foregroundColor: Colors.white,
                 ),
                 onPressed: _loadNotifications,
               ),
@@ -326,7 +337,7 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             margin: const EdgeInsets.only(bottom: 12),
             decoration: BoxDecoration(
-              color: const Color(0xFF2A1C14),
+              color: PraharTheme.alertAmberLight,
               border: Border.all(color: PraharTheme.alertAmber),
               borderRadius: BorderRadius.circular(8),
             ),
@@ -356,17 +367,17 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
             padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 24),
             decoration: BoxDecoration(
               color: PraharTheme.cardBg,
-              border: Border.all(color: PraharTheme.borderGreen),
+              border: Border.all(color: PraharTheme.borderLight),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.notifications_none, size: 48, color: Colors.grey[600]),
+                Icon(Icons.notifications_none, size: 48, color: PraharTheme.textMuted),
                 const SizedBox(height: 12),
                 Text(
                   widget.isHindi ? 'कोई सूचना नहीं' : 'No Notifications',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: PraharTheme.textHeading),
                 ),
                 const SizedBox(height: 6),
                 Text(
@@ -374,7 +385,7 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
                       ? 'कृषि जोखिम, कार्रवाई और सत्यापन सूचनाएं यहाँ दिखाई देंगी।'
                       : 'Agricultural hazards, recommendations, and action verifications will appear here.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.grey[400], fontSize: 12),
+                  style: const TextStyle(color: PraharTheme.textMuted, fontSize: 12),
                 ),
               ],
             ),
@@ -393,11 +404,11 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
       key: Key('notification_item_${notif.notificationId.isNotEmpty ? notif.notificationId : notif.id}'),
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        color: isUnread ? const Color(0xFF14241E) : PraharTheme.cardBg.withOpacity(0.6),
+        color: isUnread ? PraharTheme.cardBgGreen : PraharTheme.cardBg,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
-          color: isUnread ? PraharTheme.primaryGreen.withOpacity(0.7) : PraharTheme.borderGreen,
-          width: isUnread ? 1.5 : 1.0,
+          color: isUnread ? PraharTheme.borderGreen : PraharTheme.borderLight,
+          width: 1.0,
         ),
       ),
       child: InkWell(
@@ -411,7 +422,7 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: sevColor.withOpacity(0.15),
+                  color: sevColor.withOpacity(0.12),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(_getIconForType(notif.type), color: sevColor, size: 18),
@@ -428,9 +439,9 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
                           child: Text(
                             widget.isHindi ? (notif.titleHi ?? notif.title) : notif.title,
                             style: TextStyle(
-                              fontWeight: isUnread ? FontWeight.bold : FontWeight.w500,
+                              fontWeight: isUnread ? FontWeight.bold : FontWeight.w600,
                               fontSize: 13,
-                              color: isUnread ? Colors.white : Colors.grey[300],
+                              color: PraharTheme.textHeading,
                             ),
                           ),
                         ),
@@ -448,9 +459,9 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
                     const SizedBox(height: 4),
                     Text(
                       widget.isHindi ? (notif.messageHi ?? notif.message) : notif.message,
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: isUnread ? Colors.grey[300] : Colors.grey[500],
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: PraharTheme.textBody,
                       ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -461,9 +472,9 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: sevColor.withOpacity(0.2),
+                            color: sevColor.withOpacity(0.12),
                             borderRadius: BorderRadius.circular(4),
-                            border: Border.all(color: sevColor.withOpacity(0.5)),
+                            border: Border.all(color: sevColor.withOpacity(0.4)),
                           ),
                           child: Text(
                             notif.severity,
@@ -474,7 +485,7 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
                           const SizedBox(width: 8),
                           Text(
                             notif.zoneId!,
-                            style: TextStyle(color: Colors.grey[400], fontSize: 10),
+                            style: const TextStyle(color: PraharTheme.textMuted, fontSize: 10),
                           ),
                         ],
                         const Spacer(),

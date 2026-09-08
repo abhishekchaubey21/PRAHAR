@@ -183,7 +183,7 @@ class _JudgeModeSheetState extends State<JudgeModeSheet> {
         bottom: MediaQuery.of(context).viewInsets.bottom + 18.0,
       ),
       decoration: const BoxDecoration(
-        color: Color(0xFF0C1712),
+        color: PraharTheme.cardBg,
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: SingleChildScrollView(
@@ -196,7 +196,7 @@ class _JudgeModeSheetState extends State<JudgeModeSheet> {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: Colors.grey[700],
+                  color: PraharTheme.borderLight,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -207,11 +207,11 @@ class _JudgeModeSheetState extends State<JudgeModeSheet> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: Colors.amber.withValues(alpha: 0.15),
+                    color: PraharTheme.alertAmberLight,
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.amber),
+                    border: Border.all(color: PraharTheme.alertAmber),
                   ),
-                  child: const Icon(Icons.gavel, color: Colors.amber, size: 20),
+                  child: const Icon(Icons.gavel, color: PraharTheme.alertAmber, size: 20),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -220,7 +220,7 @@ class _JudgeModeSheetState extends State<JudgeModeSheet> {
                     children: [
                       const Text(
                         'PRAHAR Judge Mode — 12-Step Evaluation Flow',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.white),
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: PraharTheme.textHeading),
                       ),
                       Text(
                         'Step $_currentStep of 12: ${_stepTitles[_currentStep - 1]}',
@@ -230,7 +230,7 @@ class _JudgeModeSheetState extends State<JudgeModeSheet> {
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close, color: Colors.grey),
+                  icon: const Icon(Icons.close, color: PraharTheme.textMuted),
                   onPressed: () => Navigator.pop(context),
                 ),
               ],
@@ -239,7 +239,7 @@ class _JudgeModeSheetState extends State<JudgeModeSheet> {
             // Step Progress Indicator
             LinearProgressIndicator(
               value: _currentStep / 12.0,
-              backgroundColor: const Color(0xFF16251E),
+              backgroundColor: PraharTheme.primaryGreenLight,
               color: PraharTheme.primaryGreen,
               minHeight: 6,
               borderRadius: BorderRadius.circular(3),
@@ -251,7 +251,7 @@ class _JudgeModeSheetState extends State<JudgeModeSheet> {
               width: double.infinity,
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: const Color(0xFF060E0A),
+                color: PraharTheme.cardBgGreen,
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: PraharTheme.borderGreen),
               ),
@@ -264,7 +264,7 @@ class _JudgeModeSheetState extends State<JudgeModeSheet> {
                     )
                   : Text(
                       _stepOutput ?? 'Executing Step $_currentStep...',
-                      style: const TextStyle(color: Colors.white, fontSize: 13, height: 1.4),
+                      style: const TextStyle(color: PraharTheme.textBody, fontSize: 13, height: 1.4),
                     ),
             ),
             // Step 10 & 11 Interactive Controls
@@ -276,14 +276,16 @@ class _JudgeModeSheetState extends State<JudgeModeSheet> {
                     child: TextField(
                       key: const Key('judge_mode_interactive_input'),
                       controller: _interactiveController,
-                      style: const TextStyle(color: Colors.white, fontSize: 12),
+                      style: const TextStyle(color: PraharTheme.textBody, fontSize: 12),
                       decoration: InputDecoration(
                         hintText: 'Ask in English, Hindi, Marathi, or Punjabi...',
-                        hintStyle: TextStyle(color: Colors.grey[500], fontSize: 11),
+                        hintStyle: const TextStyle(color: PraharTheme.textMuted, fontSize: 11),
                         filled: true,
-                        fillColor: const Color(0xFF101B15),
+                        fillColor: Colors.white,
                         contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: PraharTheme.borderLight)),
+                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: PraharTheme.borderLight)),
+                        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: PraharTheme.primaryGreen, width: 1.5)),
                       ),
                       onSubmitted: (_) => _submitInteractiveQuery(),
                     ),
@@ -307,8 +309,8 @@ class _JudgeModeSheetState extends State<JudgeModeSheet> {
                     key: const Key('judge_mode_prev_btn'),
                     onPressed: _isStepExecuting ? null : () => _executeStep(_currentStep - 1),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.white70,
-                      side: const BorderSide(color: Colors.grey),
+                      foregroundColor: PraharTheme.darkGreen,
+                      side: const BorderSide(color: PraharTheme.borderGreen),
                     ),
                     child: const Text('Previous'),
                   )
@@ -320,7 +322,7 @@ class _JudgeModeSheetState extends State<JudgeModeSheet> {
                     onPressed: _isStepExecuting ? null : () => _executeStep(_currentStep + 1),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: PraharTheme.primaryGreen,
-                      foregroundColor: Colors.black,
+                      foregroundColor: Colors.white,
                     ),
                     child: const Text('Next Step', style: TextStyle(fontWeight: FontWeight.bold)),
                   )
@@ -332,8 +334,8 @@ class _JudgeModeSheetState extends State<JudgeModeSheet> {
                       Navigator.pop(context);
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.amber,
-                      foregroundColor: Colors.black,
+                      backgroundColor: PraharTheme.alertAmber,
+                      foregroundColor: Colors.white,
                     ),
                     child: const Text('Reset & Finish', style: TextStyle(fontWeight: FontWeight.bold)),
                   ),

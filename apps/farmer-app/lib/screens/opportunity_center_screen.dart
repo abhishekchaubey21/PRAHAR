@@ -113,23 +113,31 @@ class _OpportunityCenterScreenState extends State<OpportunityCenterScreen> {
     final isHi = widget.isHindi;
 
     return Scaffold(
+      backgroundColor: PraharTheme.lightBg,
       appBar: AppBar(
+        backgroundColor: PraharTheme.cardBg,
+        elevation: 0,
+        surfaceTintColor: Colors.transparent,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(height: 1, color: PraharTheme.borderLight),
+        ),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               isHi ? 'अवसर एवं सरकारी योजना केंद्र' : 'Opportunity & Scheme Center',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: PraharTheme.textHeading),
             ),
             Text(
               isHi ? 'सत्यापित कृषि योजनाएं एवं मार्गदर्शन' : 'Verified Agricultural Schemes & Guidance',
-              style: const TextStyle(fontSize: 11, color: Colors.white70),
+              style: const TextStyle(fontSize: 11, color: PraharTheme.textMuted),
             ),
           ],
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh, color: PraharTheme.textHeading),
             tooltip: isHi ? 'रीफ्रेश' : 'Refresh',
             onPressed: _loadData,
           ),
@@ -157,18 +165,18 @@ class _OpportunityCenterScreenState extends State<OpportunityCenterScreen> {
     return Container(
       key: const Key('opportunity_offline_banner'),
       width: double.infinity,
-      color: Colors.amber.shade900.withOpacity(0.3),
+      color: PraharTheme.alertAmberLight,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
         children: [
-          const Icon(Icons.wifi_off, color: Colors.amber, size: 18),
+          const Icon(Icons.wifi_off, color: PraharTheme.alertAmber, size: 18),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               isHi
                   ? 'ऑफ़लाइन मोड: कैश्ड कैटलॉग प्रदर्शित। पात्रता जांच एवं ट्रैकिंग हेतु इंटरनेट आवश्यक है।'
                   : 'Offline Mode: Displaying cached catalogue. Eligibility and tracking require connectivity.',
-              style: const TextStyle(color: Colors.amber, fontSize: 12),
+              style: const TextStyle(color: PraharTheme.alertAmber, fontSize: 12, fontWeight: FontWeight.w600),
             ),
           ),
         ],
@@ -181,7 +189,7 @@ class _OpportunityCenterScreenState extends State<OpportunityCenterScreen> {
     return Container(
       key: const Key('opportunity_error_banner'),
       width: double.infinity,
-      color: PraharTheme.alertRose.withOpacity(0.25),
+      color: PraharTheme.alertRoseLight,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
         children: [
@@ -190,12 +198,12 @@ class _OpportunityCenterScreenState extends State<OpportunityCenterScreen> {
           Expanded(
             child: Text(
               _errorMessage ?? (isHi ? 'त्रुटि उत्पन्न हुई' : 'An error occurred'),
-              style: const TextStyle(color: PraharTheme.alertRose, fontSize: 12),
+              style: const TextStyle(color: PraharTheme.alertRose, fontSize: 12, fontWeight: FontWeight.w600),
             ),
           ),
           TextButton(
             onPressed: _loadData,
-            child: Text(isHi ? 'पुनः प्रयास' : 'Retry', style: const TextStyle(color: Colors.white)),
+            child: Text(isHi ? 'पुनः प्रयास' : 'Retry', style: const TextStyle(color: PraharTheme.alertRose, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -242,16 +250,16 @@ class _OpportunityCenterScreenState extends State<OpportunityCenterScreen> {
               key: Key('category_filter_$typeKey'),
               label: Text(getLabel(type)),
               selected: isSelected,
-              selectedColor: PraharTheme.primaryGreen.withOpacity(0.25),
+              selectedColor: PraharTheme.primaryGreenLight,
               checkmarkColor: PraharTheme.primaryGreen,
               labelStyle: TextStyle(
-                color: isSelected ? PraharTheme.primaryGreen : Colors.white70,
+                color: isSelected ? PraharTheme.darkGreen : PraharTheme.textBody,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                 fontSize: 12,
               ),
               backgroundColor: PraharTheme.cardBg,
               side: BorderSide(
-                color: isSelected ? PraharTheme.primaryGreen : PraharTheme.borderGreen,
+                color: isSelected ? PraharTheme.primaryGreen : PraharTheme.borderLight,
               ),
               onSelected: (_) {
                 setState(() {
@@ -290,10 +298,10 @@ class _OpportunityCenterScreenState extends State<OpportunityCenterScreen> {
         typeColor = PraharTheme.alertAmber;
         break;
       case OpportunityType.insurance:
-        typeColor = Colors.purpleAccent;
+        typeColor = Colors.purple;
         break;
       case OpportunityType.support:
-        typeColor = Colors.tealAccent;
+        typeColor = Colors.teal;
         break;
       case OpportunityType.scheme:
         typeColor = PraharTheme.primaryGreen;
@@ -316,9 +324,9 @@ class _OpportunityCenterScreenState extends State<OpportunityCenterScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
-                      color: typeColor.withOpacity(0.15),
+                      color: typeColor.withOpacity(0.12),
                       borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: typeColor.withOpacity(0.5)),
+                      border: Border.all(color: typeColor.withOpacity(0.4)),
                     ),
                     child: Text(
                       opp.type.toDbString(),
@@ -329,17 +337,18 @@ class _OpportunityCenterScreenState extends State<OpportunityCenterScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                     decoration: BoxDecoration(
-                      color: Colors.green.withOpacity(0.15),
+                      color: PraharTheme.primaryGreenLight,
                       borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: PraharTheme.borderGreen),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: const [
-                        Icon(Icons.verified, color: Colors.greenAccent, size: 12),
+                        Icon(Icons.verified, color: PraharTheme.primaryGreen, size: 12),
                         SizedBox(width: 4),
                         Text(
                           'VERIFIED',
-                          style: TextStyle(color: Colors.greenAccent, fontSize: 10, fontWeight: FontWeight.bold),
+                          style: TextStyle(color: PraharTheme.darkGreen, fontSize: 10, fontWeight: FontWeight.bold),
                         ),
                       ],
                     ),
@@ -349,7 +358,7 @@ class _OpportunityCenterScreenState extends State<OpportunityCenterScreen> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
-                        color: PraharTheme.alertAmber.withOpacity(0.2),
+                        color: PraharTheme.alertAmberLight,
                         borderRadius: BorderRadius.circular(6),
                         border: Border.all(color: PraharTheme.alertAmber.withOpacity(0.5)),
                       ),
@@ -363,17 +372,17 @@ class _OpportunityCenterScreenState extends State<OpportunityCenterScreen> {
               const SizedBox(height: 10),
               Text(
                 isHi ? opp.titleHi : opp.titleEn,
-                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
+                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: PraharTheme.textHeading),
               ),
               const SizedBox(height: 4),
               Text(
                 opp.departmentAuthority,
-                style: const TextStyle(fontSize: 11, color: Colors.white60),
+                style: const TextStyle(fontSize: 11, color: PraharTheme.textMuted),
               ),
               const SizedBox(height: 8),
               Text(
                 isHi ? opp.benefitsSummaryHi : opp.benefitsSummaryEn,
-                style: const TextStyle(fontSize: 13, color: Colors.white),
+                style: const TextStyle(fontSize: 13, color: PraharTheme.textBody),
               ),
               const SizedBox(height: 12),
               Row(
@@ -400,16 +409,16 @@ class _OpportunityCenterScreenState extends State<OpportunityCenterScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.search_off, size: 48, color: Colors.white30),
+          const Icon(Icons.search_off, size: 48, color: PraharTheme.textMuted),
           const SizedBox(height: 12),
           Text(
             isHi ? 'कोई योजना उपलब्ध नहीं है।' : 'No opportunities found for this category.',
-            style: const TextStyle(color: Colors.white70),
+            style: const TextStyle(color: PraharTheme.textMuted),
           ),
           const SizedBox(height: 8),
           ElevatedButton(
             onPressed: _loadData,
-            style: ElevatedButton.styleFrom(backgroundColor: PraharTheme.primaryGreen),
+            style: ElevatedButton.styleFrom(backgroundColor: PraharTheme.primaryGreen, foregroundColor: Colors.white),
             child: Text(isHi ? 'पुनः लोड करें' : 'Reload'),
           ),
         ],
@@ -421,7 +430,7 @@ class _OpportunityCenterScreenState extends State<OpportunityCenterScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: PraharTheme.darkBg,
+      backgroundColor: PraharTheme.cardBg,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -619,11 +628,13 @@ class _OpportunityDetailSheetState extends State<_OpportunityDetailSheet> {
       maxChildSize: 0.95,
       expand: false,
       builder: (context, scrollController) {
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: ListView(
-            controller: scrollController,
-            children: [
+        return Material(
+          color: PraharTheme.cardBg,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: ListView(
+              controller: scrollController,
+              children: [
               // Header Drag Handle
               Center(
                 child: Container(
@@ -631,7 +642,7 @@ class _OpportunityDetailSheetState extends State<_OpportunityDetailSheet> {
                   height: 4,
                   margin: const EdgeInsets.only(bottom: 12),
                   decoration: BoxDecoration(
-                    color: Colors.white30,
+                    color: PraharTheme.borderLight,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -647,35 +658,35 @@ class _OpportunityDetailSheetState extends State<_OpportunityDetailSheet> {
                       children: [
                         Text(
                           isHi ? opp.titleHi : opp.titleEn,
-                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: PraharTheme.textHeading),
                         ),
                         const SizedBox(height: 4),
                         Text(
                           opp.departmentAuthority,
-                          style: const TextStyle(fontSize: 12, color: Colors.white70),
+                          style: const TextStyle(fontSize: 12, color: PraharTheme.textMuted),
                         ),
                       ],
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close, color: Colors.white70),
+                    icon: const Icon(Icons.close, color: PraharTheme.textMuted),
                     onPressed: () => Navigator.pop(context),
                   ),
                 ],
               ),
-              const Divider(color: PraharTheme.borderGreen, height: 24),
+              const Divider(color: PraharTheme.borderLight, height: 24),
 
               // Overview Section
               _buildSectionTitle(isHi ? 'विवरण एवं लाभ' : 'Overview & Benefits'),
               Text(
                 isHi ? opp.descriptionHi : opp.descriptionEn,
-                style: const TextStyle(fontSize: 13, color: Colors.white, height: 1.4),
+                style: const TextStyle(fontSize: 13, color: PraharTheme.textBody, height: 1.4),
               ),
               const SizedBox(height: 10),
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: PraharTheme.cardBg,
+                  color: PraharTheme.cardBgGreen,
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: PraharTheme.borderGreen),
                 ),
@@ -684,22 +695,22 @@ class _OpportunityDetailSheetState extends State<_OpportunityDetailSheet> {
                   children: [
                     Text(
                       isHi ? 'मुख्य लाभ:' : 'Key Benefit:',
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: PraharTheme.primaryGreen),
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: PraharTheme.darkGreen),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       isHi ? opp.benefitsSummaryHi : opp.benefitsSummaryEn,
-                      style: const TextStyle(fontSize: 13, color: Colors.white),
+                      style: const TextStyle(fontSize: 13, color: PraharTheme.textBody),
                     ),
                     const SizedBox(height: 8),
                     Text(
                       isHi ? 'लक्षित किसान वर्ग:' : 'Target Profile:',
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.amberAccent),
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: PraharTheme.alertAmber),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       isHi ? opp.targetProfileHi : opp.targetProfileEn,
-                      style: const TextStyle(fontSize: 12, color: Colors.white70),
+                      style: const TextStyle(fontSize: 12, color: PraharTheme.textMuted),
                     ),
                   ],
                 ),
@@ -719,7 +730,7 @@ class _OpportunityDetailSheetState extends State<_OpportunityDetailSheet> {
                   dense: true,
                   value: isChecked,
                   activeColor: PraharTheme.primaryGreen,
-                  title: Text(doc, style: const TextStyle(fontSize: 13, color: Colors.white)),
+                  title: Text(doc, style: const TextStyle(fontSize: 13, color: PraharTheme.textBody)),
                   onChanged: (val) {
                     setState(() {
                       if (val == true) {
@@ -740,34 +751,34 @@ class _OpportunityDetailSheetState extends State<_OpportunityDetailSheet> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.blue.withOpacity(0.12),
+                  color: PraharTheme.alertSkyLight,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.blue.withOpacity(0.3)),
+                  border: Border.all(color: PraharTheme.alertSky.withOpacity(0.4)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: const [
-                        Icon(Icons.open_in_new, color: Colors.lightBlueAccent, size: 16),
+                        Icon(Icons.open_in_new, color: PraharTheme.alertSky, size: 16),
                         SizedBox(width: 8),
                         Text(
                           'Official Government Portal',
-                          style: TextStyle(color: Colors.lightBlueAccent, fontWeight: FontWeight.bold, fontSize: 13),
+                          style: TextStyle(color: PraharTheme.alertSky, fontWeight: FontWeight.bold, fontSize: 13),
                         ),
                       ],
                     ),
                     const SizedBox(height: 4),
                     Text(
                       opp.officialPortalUrl,
-                      style: const TextStyle(color: Colors.white, fontSize: 12, decoration: TextDecoration.underline),
+                      style: const TextStyle(color: PraharTheme.darkGreen, fontSize: 12, decoration: TextDecoration.underline),
                     ),
                     const SizedBox(height: 6),
                     Text(
                       isHi
                           ? 'नोट: यह बाहरी सरकारी पोर्टल सूचनात्मक नेविगेशन हेतु है। प्रहार मंच किसानों की ओर से स्वतः आवेदन जमा नहीं करता।'
                           : 'Notice: External government URLs are provided for informational navigation only. PRAHAR does not automatically submit applications.',
-                      style: const TextStyle(color: Colors.white60, fontSize: 11, fontStyle: FontStyle.italic),
+                      style: const TextStyle(color: PraharTheme.textMuted, fontSize: 11, fontStyle: FontStyle.italic),
                     ),
                   ],
                 ),
@@ -784,17 +795,18 @@ class _OpportunityDetailSheetState extends State<_OpportunityDetailSheet> {
               const SizedBox(height: 30),
             ],
           ),
-        );
-      },
-    );
-  }
+        ),
+      );
+    },
+  );
+}
 
   Widget _buildSectionTitle(String title) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Text(
         title,
-        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: PraharTheme.primaryGreen),
+        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: PraharTheme.darkGreen),
       ),
     );
   }
@@ -805,7 +817,7 @@ class _OpportunityDetailSheetState extends State<_OpportunityDetailSheet> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: PraharTheme.cardBg,
+        color: PraharTheme.cardBgGreen,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: PraharTheme.borderGreen),
       ),
@@ -816,7 +828,7 @@ class _OpportunityDetailSheetState extends State<_OpportunityDetailSheet> {
             isHi
                 ? 'अपने खेत व प्रोफाइल विवरण के आधार पर पात्रता की जांच करें:'
                 : 'Evaluate guidance based on your farm profile and land records:',
-            style: const TextStyle(fontSize: 12, color: Colors.white70),
+            style: const TextStyle(fontSize: 12, color: PraharTheme.textMuted),
           ),
           const SizedBox(height: 10),
           if (_isEvaluating)
@@ -847,7 +859,7 @@ class _OpportunityDetailSheetState extends State<_OpportunityDetailSheet> {
             if (_evaluation!.matchedCriteriaEn.isNotEmpty) ...[
               Text(
                 isHi ? 'सत्यापित मानदंड:' : 'Matched Criteria:',
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.greenAccent),
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: PraharTheme.darkGreen),
               ),
               ...(_evaluation!.matchedCriteriaEn).map(
                 (c) => Padding(
@@ -855,9 +867,9 @@ class _OpportunityDetailSheetState extends State<_OpportunityDetailSheet> {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(Icons.check, size: 14, color: Colors.greenAccent),
+                      const Icon(Icons.check, size: 14, color: PraharTheme.primaryGreen),
                       const SizedBox(width: 4),
-                      Expanded(child: Text(c, style: const TextStyle(fontSize: 12, color: Colors.white))),
+                      Expanded(child: Text(c, style: const TextStyle(fontSize: 12, color: PraharTheme.textBody))),
                     ],
                   ),
                 ),
@@ -867,7 +879,7 @@ class _OpportunityDetailSheetState extends State<_OpportunityDetailSheet> {
               const SizedBox(height: 8),
               Text(
                 isHi ? 'अधूरी जानकारी:' : 'Missing Information:',
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.amberAccent),
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: PraharTheme.alertAmber),
               ),
               ...(_evaluation!.missingInformationEn).map(
                 (m) => Padding(
@@ -875,9 +887,9 @@ class _OpportunityDetailSheetState extends State<_OpportunityDetailSheet> {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(Icons.info_outline, size: 14, color: Colors.amberAccent),
+                      const Icon(Icons.info_outline, size: 14, color: PraharTheme.alertAmber),
                       const SizedBox(width: 4),
-                      Expanded(child: Text(m, style: const TextStyle(fontSize: 12, color: Colors.white))),
+                      Expanded(child: Text(m, style: const TextStyle(fontSize: 12, color: PraharTheme.textBody))),
                     ],
                   ),
                 ),
@@ -897,7 +909,7 @@ class _OpportunityDetailSheetState extends State<_OpportunityDetailSheet> {
                     children: [
                       const Icon(Icons.close, size: 14, color: PraharTheme.alertRose),
                       const SizedBox(width: 4),
-                      Expanded(child: Text(u, style: const TextStyle(fontSize: 12, color: Colors.white))),
+                      Expanded(child: Text(u, style: const TextStyle(fontSize: 12, color: PraharTheme.textBody))),
                     ],
                   ),
                 ),
@@ -911,18 +923,23 @@ class _OpportunityDetailSheetState extends State<_OpportunityDetailSheet> {
 
   Widget _buildEvaluationResultBadge(EligibilityEvaluationModel eval) {
     Color badgeColor = PraharTheme.primaryGreen;
+    Color badgeBg = PraharTheme.primaryGreenLight;
     switch (eval.status) {
       case EligibilityResultStatus.likelyEligible:
-        badgeColor = Colors.greenAccent;
+        badgeColor = PraharTheme.darkGreen;
+        badgeBg = PraharTheme.primaryGreenLight;
         break;
       case EligibilityResultStatus.mayBeEligible:
-        badgeColor = Colors.amberAccent;
+        badgeColor = PraharTheme.alertAmber;
+        badgeBg = PraharTheme.alertAmberLight;
         break;
       case EligibilityResultStatus.insufficientInformation:
-        badgeColor = Colors.lightBlueAccent;
+        badgeColor = PraharTheme.alertSky;
+        badgeBg = PraharTheme.alertSkyLight;
         break;
       case EligibilityResultStatus.likelyNotEligible:
         badgeColor = PraharTheme.alertRose;
+        badgeBg = PraharTheme.alertRoseLight;
         break;
     }
 
@@ -931,7 +948,7 @@ class _OpportunityDetailSheetState extends State<_OpportunityDetailSheet> {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
       decoration: BoxDecoration(
-        color: badgeColor.withOpacity(0.15),
+        color: badgeBg,
         borderRadius: BorderRadius.circular(6),
         border: Border.all(color: badgeColor),
       ),
@@ -952,17 +969,17 @@ class _OpportunityDetailSheetState extends State<_OpportunityDetailSheet> {
       decoration: BoxDecoration(
         color: PraharTheme.cardBg,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: PraharTheme.borderGreen),
+        border: Border.all(color: PraharTheme.borderLight),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           CircleAvatar(
             radius: 12,
-            backgroundColor: PraharTheme.primaryGreen.withOpacity(0.25),
+            backgroundColor: PraharTheme.primaryGreenLight,
             child: Text(
               '${step.stepNumber}',
-              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: PraharTheme.primaryGreen),
+              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: PraharTheme.darkGreen),
             ),
           ),
           const SizedBox(width: 10),
@@ -972,12 +989,12 @@ class _OpportunityDetailSheetState extends State<_OpportunityDetailSheet> {
               children: [
                 Text(
                   isHi ? step.titleHi : step.titleEn,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: PraharTheme.textHeading),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   isHi ? step.descriptionHi : step.descriptionEn,
-                  style: const TextStyle(fontSize: 12, color: Colors.white70),
+                  style: const TextStyle(fontSize: 12, color: PraharTheme.textMuted),
                 ),
               ],
             ),
@@ -996,7 +1013,7 @@ class _OpportunityDetailSheetState extends State<_OpportunityDetailSheet> {
       decoration: BoxDecoration(
         color: PraharTheme.cardBg,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: PraharTheme.borderGreen),
+        border: Border.all(color: PraharTheme.borderLight),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1007,7 +1024,7 @@ class _OpportunityDetailSheetState extends State<_OpportunityDetailSheet> {
             dropdownColor: PraharTheme.cardBg,
             decoration: InputDecoration(
               labelText: isHi ? 'मेरी वर्तमान आवेदन स्थिति' : 'Current Application Status',
-              labelStyle: const TextStyle(color: Colors.white70, fontSize: 12),
+              labelStyle: const TextStyle(color: PraharTheme.textMuted, fontSize: 12),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
             ),
             items: statuses.map((st) {
@@ -1015,7 +1032,7 @@ class _OpportunityDetailSheetState extends State<_OpportunityDetailSheet> {
                 value: st,
                 child: Text(
                   isHi ? st.labelHi() : st.labelEn(),
-                  style: const TextStyle(color: Colors.white, fontSize: 13),
+                  style: const TextStyle(color: PraharTheme.textBody, fontSize: 13),
                 ),
               );
             }).toList(),
@@ -1031,10 +1048,10 @@ class _OpportunityDetailSheetState extends State<_OpportunityDetailSheet> {
           TextField(
             key: const Key('tracking_notes_field'),
             controller: _notesController,
-            style: const TextStyle(color: Colors.white, fontSize: 13),
+            style: const TextStyle(color: PraharTheme.textBody, fontSize: 13),
             decoration: InputDecoration(
               labelText: isHi ? 'टिप्पणी / संदर्भ संख्या (वैकल्पिक)' : 'Notes / Ref Number (Optional)',
-              labelStyle: const TextStyle(color: Colors.white70, fontSize: 12),
+              labelStyle: const TextStyle(color: PraharTheme.textMuted, fontSize: 12),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
             ),
           ),
@@ -1043,7 +1060,7 @@ class _OpportunityDetailSheetState extends State<_OpportunityDetailSheet> {
             isHi
                 ? 'नोट: USER_SUBMITTED यह दर्शाता है कि आपने आधिकारिक पोर्टल पर स्वयं आवेदन जमा किया है। प्रहार आपकी ओर से आवेदन नहीं भेजता।'
                 : 'Note: USER_SUBMITTED indicates you have manually submitted an application at the official portal. PRAHAR does not submit on your behalf.',
-            style: const TextStyle(fontSize: 11, color: Colors.white60, fontStyle: FontStyle.italic),
+            style: const TextStyle(fontSize: 11, color: PraharTheme.textMuted, fontStyle: FontStyle.italic),
           ),
           const SizedBox(height: 12),
           SizedBox(
@@ -1071,19 +1088,19 @@ class _OpportunityDetailSheetState extends State<_OpportunityDetailSheet> {
       key: const Key('mandatory_disclaimer_banner'),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.amber.shade900.withOpacity(0.18),
+        color: PraharTheme.alertAmberLight,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.amber.shade700),
+        border: Border.all(color: PraharTheme.alertAmber),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 18),
+          const Icon(Icons.warning_amber_rounded, color: PraharTheme.alertAmber, size: 18),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               disclaimer,
-              style: const TextStyle(color: Colors.amber, fontSize: 11, fontStyle: FontStyle.italic, height: 1.35),
+              style: const TextStyle(color: PraharTheme.alertAmber, fontSize: 11, fontStyle: FontStyle.italic, height: 1.35, fontWeight: FontWeight.w600),
             ),
           ),
         ],

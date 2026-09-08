@@ -192,18 +192,45 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  bool get _isCanonicalDemo {
+    final name = _onboardingState?.profile.name.trim();
+    return name == null || name.isEmpty || name == 'Ramesh Patil';
+  }
+
   String get _farmerIdentityTitle {
-    final name = _onboardingState?.profile.name ?? 'Ramesh Patil';
-    final dist = _onboardingState?.profile.district ?? 'Amravati';
-    final st = _onboardingState?.profile.state ?? 'Maharashtra';
-    return '$name • $dist, $st';
+    if (_authService.currentUser?.fullName.isNotEmpty == true &&
+        _authService.currentUser!.fullName != 'Ramesh Patil') {
+      final name = _authService.currentUser!.fullName;
+      final dist = _onboardingState?.profile.district.isNotEmpty == true
+          ? _onboardingState!.profile.district
+          : 'Local District';
+      final st = _onboardingState?.profile.state.isNotEmpty == true
+          ? _onboardingState!.profile.state
+          : 'India';
+      return '$name • $dist, $st';
+    }
+    final name = _onboardingState?.profile.name.isNotEmpty == true
+        ? _onboardingState!.profile.name
+        : 'Ramesh Patil';
+    final dist = _onboardingState?.profile.district.isNotEmpty == true
+        ? _onboardingState!.profile.district
+        : 'Amravati';
+    final st = _onboardingState?.profile.state.isNotEmpty == true
+        ? _onboardingState!.profile.state
+        : 'Maharashtra';
+    return _isCanonicalDemo ? 'DEMO • $name • $dist, $st' : '$name • $dist, $st';
   }
 
   String get _farmerIdentitySubtitle {
     final acres = _onboardingState?.farm.landAcres ?? 4.2;
-    final crops = _onboardingState?.crops.mainCrops.join(' & ') ?? 'Soybean & Wheat';
-    final ownership = _onboardingState?.farm.ownershipType ?? 'Owned';
-    return '$acres Acres • $crops • $ownership';
+    final crops = _onboardingState?.crops.mainCrops.isNotEmpty == true
+        ? _onboardingState!.crops.mainCrops.join(' & ')
+        : 'Soybean & Wheat';
+    final ownership = _onboardingState?.farm.ownershipType.isNotEmpty == true
+        ? _onboardingState!.farm.ownershipType
+        : 'Owned';
+    final farmLabel = _isCanonicalDemo ? 'Demo Farm' : 'My Farm';
+    return '$farmLabel • $acres Acres • $crops • $ownership';
   }
 
 
@@ -1811,6 +1838,56 @@ class _HomeScreenState extends State<HomeScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16.0),
         children: [
+          // ── SIH 2026 Team & Institute High-Visibility Identity Banner ───────────────
+          Container(
+            key: const Key('team_identity_banner'),
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
+            margin: const EdgeInsets.only(bottom: 12),
+            decoration: BoxDecoration(
+              color: PraharTheme.cardBgGreen,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: PraharTheme.borderGreen),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: const BoxDecoration(
+                    color: PraharTheme.primaryGreenLight,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.school, color: PraharTheme.primaryGreen, size: 20),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: const [
+                      Text(
+                        'SIH 2026 • Team KYROS',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: PraharTheme.darkGreen,
+                        ),
+                      ),
+                      SizedBox(height: 2),
+                      Text(
+                        'Vivekananda Institute of Professional Studies',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: PraharTheme.textHeading,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
           // Farmer-first status banner (light)
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -2061,13 +2138,17 @@ class _HomeScreenState extends State<HomeScreen> {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
-                                color: PraharTheme.alertAmberLight,
+                                color: _isCanonicalDemo ? PraharTheme.alertAmberLight : PraharTheme.primaryGreenLight,
                                 borderRadius: BorderRadius.circular(6),
-                                border: Border.all(color: PraharTheme.alertAmber.withValues(alpha: 0.5)),
+                                border: Border.all(color: _isCanonicalDemo ? PraharTheme.alertAmber.withValues(alpha: 0.5) : PraharTheme.borderGreen),
                               ),
-                              child: const Text(
-                                'DEMO',
-                                style: TextStyle(fontSize: 9, color: PraharTheme.alertAmber, fontWeight: FontWeight.bold),
+                              child: Text(
+                                _isCanonicalDemo ? 'DEMO MODE' : 'VERIFIED FARMER',
+                                style: TextStyle(
+                                  fontSize: 9,
+                                  color: _isCanonicalDemo ? PraharTheme.alertAmber : PraharTheme.darkGreen,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ),
                           ],
