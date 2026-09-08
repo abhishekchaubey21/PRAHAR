@@ -1838,56 +1838,6 @@ class _HomeScreenState extends State<HomeScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16.0),
         children: [
-          // ── SIH 2026 Team & Institute High-Visibility Identity Banner ───────────────
-          Container(
-            key: const Key('team_identity_banner'),
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
-            margin: const EdgeInsets.only(bottom: 12),
-            decoration: BoxDecoration(
-              color: PraharTheme.cardBgGreen,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: PraharTheme.borderGreen),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: const BoxDecoration(
-                    color: PraharTheme.primaryGreenLight,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.school, color: PraharTheme.primaryGreen, size: 20),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: const [
-                      Text(
-                        'SIH 2026 • Team KYROS',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
-                          color: PraharTheme.darkGreen,
-                        ),
-                      ),
-                      SizedBox(height: 2),
-                      Text(
-                        'Vivekananda Institute of Professional Studies',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: PraharTheme.textHeading,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-
           // Farmer-first status banner (light)
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -2368,21 +2318,27 @@ class _HomeScreenState extends State<HomeScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Row(
-                            children: [
-                              const Icon(Icons.science_outlined, size: 16, color: PraharTheme.primaryGreen),
-                              const SizedBox(width: 6),
-                              Text(
-                                AppLocalizations.getText('demo_scenarios_title', _currentLanguage),
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: PraharTheme.textHeading),
-                              ),
-                            ],
+                          Expanded(
+                            child: Row(
+                              children: [
+                                const Icon(Icons.science_outlined, size: 16, color: PraharTheme.primaryGreen),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    AppLocalizations.getText('demo_scenarios_title', _currentLanguage),
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: PraharTheme.textHeading),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
+                          const SizedBox(width: 4),
                           TextButton.icon(
                             key: const Key('reset_scenario_button'),
                             style: TextButton.styleFrom(
                               visualDensity: VisualDensity.compact,
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                             ),
                             icon: const Icon(Icons.refresh, size: 14, color: PraharTheme.alertAmber),
                             label: Text(
