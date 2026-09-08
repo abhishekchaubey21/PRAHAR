@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:farmer_app/core/voice_service.dart';
 import 'package:farmer_app/data/assistant/assistant_context_builder.dart';
 import 'package:farmer_app/data/assistant/field_assistant_engine.dart';
 import 'package:farmer_app/data/providers/demo_farm_dataset.dart';
@@ -221,6 +222,60 @@ void main() {
       // User question should be cleared, greeting re-added
       expect(find.text('How is my farm today?'), findsNothing);
       expect(find.textContaining('I am your PRAHAR Field Assistant'), findsOneWidget);
+    });
+
+    test('VoiceService: STT Error Mapping & Multilingual Localization', () {
+      // Permission denied
+      expect(
+        VoiceService.getLocalizedErrorMessage('PERMISSION_DENIED', 'en'),
+        contains('Microphone permission is required'),
+      );
+      expect(
+        VoiceService.getLocalizedErrorMessage('PERMISSION_DENIED', 'hi'),
+        contains('माइक्रोफ़ोन की अनुमति आवश्यक है'),
+      );
+      expect(
+        VoiceService.getLocalizedErrorMessage('PERMISSION_DENIED', 'mr'),
+        contains('मायक्रोफोन परवानगी आवश्यक आहे'),
+      );
+      expect(
+        VoiceService.getLocalizedErrorMessage('PERMISSION_DENIED', 'pa'),
+        contains('ਮਾਈਕ੍ਰੋਫੋਨ ਦੀ ਇਜਾਜ਼ਤ ਲੋੜੀਂਦੀ ਹੈ'),
+      );
+
+      // No match
+      expect(
+        VoiceService.getLocalizedErrorMessage('NO_MATCH', 'en'),
+        contains("couldn't hear that clearly"),
+      );
+      expect(
+        VoiceService.getLocalizedErrorMessage('NO_MATCH', 'hi'),
+        contains('आवाज़ स्पष्ट सुनाई नहीं दी'),
+      );
+
+      // Timeout
+      expect(
+        VoiceService.getLocalizedErrorMessage('TIMEOUT', 'en'),
+        contains('Listening timed out'),
+      );
+      expect(
+        VoiceService.getLocalizedErrorMessage('TIMEOUT', 'hi'),
+        contains('समय समाप्त हो गया'),
+      );
+
+      // Language not supported
+      expect(
+        VoiceService.getLocalizedErrorMessage('LANGUAGE_NOT_SUPPORTED', 'hi'),
+        contains('हिंदी वॉइस इनपुट उपलब्ध नहीं है'),
+      );
+      expect(
+        VoiceService.getLocalizedErrorMessage('LANGUAGE_NOT_SUPPORTED', 'mr'),
+        contains('मराठी व्हॉईस इनपुट उपलब्ध नाही'),
+      );
+      expect(
+        VoiceService.getLocalizedErrorMessage('LANGUAGE_NOT_SUPPORTED', 'pa'),
+        contains('ਪੰਜਾਬੀ ਵੌਇਸ ਇਨਪੁਟ ਉਪਲਬਧ ਨਹੀਂ ਹੈ'),
+      );
     });
   });
 }

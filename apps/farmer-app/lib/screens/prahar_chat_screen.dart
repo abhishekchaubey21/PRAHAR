@@ -118,7 +118,7 @@ class _PraharChatScreenState extends State<PraharChatScreen> with SingleTickerPr
   void dispose() {
     voiceService.playbackStateNotifier.removeListener(_onVoicePlaybackStateChanged);
     voiceService.stopSpeaking();
-    voiceService.stopListening();
+    voiceService.cancelListening();
     _pulseController.dispose();
     _inputController.dispose();
     _scrollController.dispose();
@@ -307,16 +307,14 @@ class _PraharChatScreenState extends State<PraharChatScreen> with SingleTickerPr
         await _sendMessage(transcript.trim(), isVoice: true);
       } else {
         final err = voiceService.lastSttError;
-        if (mounted && err != null && err != 'NO_MATCH' && err != 'TIMEOUT') {
+        if (mounted && err != null) {
+          final errorMsg = VoiceService.getLocalizedErrorMessage(err, _currentLanguage);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(
-                AppLocalizations.getText('voice_stt_unavailable', _currentLanguage).isNotEmpty
-                    ? AppLocalizations.getText('voice_stt_unavailable', _currentLanguage)
-                    : "Voice input isn't available right now. You can type your question instead.",
-              ),
-              backgroundColor: PraharTheme.alertAmber,
+              content: Text(errorMsg),
+              backgroundColor: err == 'PERMISSION_DENIED' ? PraharTheme.alertRose : PraharTheme.alertAmber,
               behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 4),
             ),
           );
         }
