@@ -234,7 +234,7 @@ export interface AnalyticsInterventionsResponse {
 }
 
 // ============================================================================
-// Phase 7B: PRAHAR Contextual Field Assistant Contracts
+// Phase 7B & Phase 8: PRAHAR Contextual Field Assistant Contracts
 // ============================================================================
 
 export type AssistantIntent =
@@ -247,6 +247,9 @@ export type AssistantIntent =
   | 'SCHEME_QUERY'
   | 'PROFILE_QUERY'
   | 'GENERAL_FARM_GUIDANCE'
+  | 'SCENARIO_PREDICTION'
+  | 'FIELD_ANALYSIS'
+  | 'ZONE_COMPARISON'
   | 'UNKNOWN';
 
 export type AssistantSafetyLevel =
@@ -276,9 +279,17 @@ export interface AssistantContextAlert {
   why_reasoning?: string;
 }
 
+export interface AssistantEvidenceItem {
+  metric: string;
+  observed: string;
+  threshold: string;
+  status: string;
+}
+
 export interface FarmerAssistantContext {
   data_source: 'DEMO';
   rover_status: 'DISCONNECTED';
+  active_scenario?: DemoScenarioId;
   farmer?: {
     id?: string;
     name?: string;
@@ -338,6 +349,10 @@ export interface AssistantStructuredResponse {
   simulation_status: string;
   indicative_disclaimer?: string | null;
   pending_action?: AssistantPendingAction | null;
+  ai_provider?: 'OLLAMA_QWEN3_8B' | 'DETERMINISTIC_FALLBACK' | 'SIMULATED_VOICE';
+  is_prediction?: boolean;
+  prediction_label?: string | null;
+  evidence_breakdown?: AssistantEvidenceItem[];
 }
 
 export interface AssistantQueryRequest {
@@ -347,4 +362,31 @@ export interface AssistantQueryRequest {
   context?: Partial<FarmerAssistantContext>;
   user_id?: string;
 }
+
+// ============================================================================
+// Phase 8: Deterministic Demo Scenarios & Judge Mode Contracts
+// ============================================================================
+
+export type DemoScenarioId =
+  | 'FULL_FIELD_SCAN'
+  | 'WATER_STRESS'
+  | 'PEST_ALERT'
+  | 'NUTRIENT_DEFICIENCY'
+  | 'HEALTHY_ZONE';
+
+export interface DemoScenarioDefinition {
+  id: DemoScenarioId;
+  name: string;
+  name_hi: string;
+  name_mr: string;
+  name_pa: string;
+  description: string;
+  target_zone_id: string;
+  starting_status: string;
+  hazard_detected?: string;
+  recommendation: string;
+  simulation_action: AssistantActionType;
+  expected_improvement: string;
+}
+
 

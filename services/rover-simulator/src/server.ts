@@ -16,6 +16,8 @@ import { WeatherRiskEngine } from './weather-provider.js';
 import { ExplainabilityEngine } from './explainability-engine.js';
 import { VoiceAssistant } from './voice-assistant.js';
 import { FieldAssistantService } from './field-assistant.js';
+import { OllamaProvider } from './ollama-provider.js';
+import { DemoScenarioEngine } from './demo-scenarios.js';
 import { MultimodalAssistant } from './multimodal-assistant.js';
 import { HistoricalAnalytics } from './historical-analytics.js';
 import { FieldEvidenceReportGenerator, OpportunityCenter } from './reports-and-opportunities.js';
@@ -60,7 +62,16 @@ const closedLoop = new ClosedLoopCoordinator(engine, decisionEngine, resilientSt
 const weatherRiskEngine = new WeatherRiskEngine();
 const explainabilityEngine = new ExplainabilityEngine();
 const voiceAssistant = new VoiceAssistant(resilientStore, closedLoop);
-const fieldAssistant = new FieldAssistantService(resilientStore, closedLoop, resilientStore, engine);
+const ollamaProvider = new OllamaProvider();
+const demoScenarioEngine = new DemoScenarioEngine();
+const fieldAssistant = new FieldAssistantService(
+  resilientStore,
+  closedLoop,
+  resilientStore,
+  engine,
+  ollamaProvider,
+  demoScenarioEngine
+);
 const multimodalAssistant = new MultimodalAssistant();
 const historicalAnalytics = new HistoricalAnalytics(resilientStore);
 const notificationService = new NotificationService();
@@ -1162,6 +1173,53 @@ const server = http.createServer(async (rawReq, res) => {
       return sendJson(res, 200, {
         success: true,
         response,
+      }, originHeader);
+    }
+
+    // Phase 8: Deterministic Demo Scenarios & Judge Mode Endpoints
+    if (pathname === '/api/scenarios' && method === 'GET') {
+      const scenarios = demoScenarioEngine.getAllScenarios();
+      const activeId = demoScenarioEngine.getActiveScenarioId();
+      return sendJson(res, 200, {
+        success: true,
+        data: {
+          active_scenario_id: activeId,
+          scenarios,
+        },
+      }, originHeader);
+    }
+
+    if (pathname === '/api/scenarios/select' && method === 'POST') {
+      const body = await parseJsonBody(req);
+      const scenarioId = body.scenario_id;
+      if (!scenarioId) {
+        return sendJson(res, 400, { success: false, error: 'scenario_id is required' }, originHeader);
+      }
+      try {
+        const scenario = demoScenarioEngine.setScenario(scenarioId);
+        const scenarioContext = demoScenarioEngine.getScenarioContext(scenarioId);
+        return sendJson(res, 200, {
+          success: true,
+          data: {
+            active_scenario: scenario,
+            context: scenarioContext,
+          },
+        }, originHeader);
+      } catch (err: any) {
+        return sendJson(res, 400, { success: false, error: err.message }, originHeader);
+      }
+    }
+
+    if (pathname === '/api/scenarios/reset' && method === 'POST') {
+      const defaultScenario = demoScenarioEngine.resetField();
+      const defaultContext = demoScenarioEngine.getScenarioContext('WATER_STRESS');
+      return sendJson(res, 200, {
+        success: true,
+        message: 'Field state and active scenario reset to canonical baseline.',
+        data: {
+          active_scenario: defaultScenario,
+          context: defaultContext,
+        },
       }, originHeader);
     }
 

@@ -48,6 +48,8 @@ class ApiClient {
   final ISessionStore sessionStore;
   final http.Client _httpClient;
 
+  http.Client get httpClient => _httpClient;
+
   ApiClient({
     String? baseUrl,
     required this.sessionStore,

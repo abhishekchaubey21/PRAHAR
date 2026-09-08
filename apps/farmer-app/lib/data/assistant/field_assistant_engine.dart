@@ -319,6 +319,74 @@ class FieldAssistantEngine {
           simulationStatus: 'SIMULATION ONLY • Physical Rover Disconnected',
         );
 
+      case AssistantIntent.scenarioPrediction:
+        return AssistantStructuredResponse(
+          answer: _translate(
+            'PRAHAR Predictive Scenario Estimate: If Zone 2 remains untreated for 24-48 hours, soil moisture will drop further to ~11-13%, leading to irreversible leaf wilting, stomatal closure, and estimated 22-28% crop yield loss. Micro-irrigation prevents this progression.',
+            'प्रहार पूर्वानुमान परिदृश्य अनुमान: यदि ज़ोन 2 को 24-48 घंटे तक अनुपचारित छोड़ दिया जाता है, तो मिट्टी की नमी ~11-13% तक गिर जाएगी, जिससे पत्तियों का सूखना और 22-28% उपज हानि हो सकती है।',
+            'प्रहार अंदाज: जर झोन 2 मध्ये 24-48 तास पाणी दिले नाही, तर ओलावा 11-13% पर्यंत घसरेल आणि 22-28% नुकसान संभवते.',
+            'ਪ੍ਰਹਾਰ ਅਨੁਮਾਨ: ਜੇਕਰ ਜ਼ੋਨ 2 ਦਾ 24-48 ਘੰਟਿਆਂ ਵਿੱਚ ਇਲਾਜ ਨਾ ਕੀਤਾ ਗਿਆ, ਤਾਂ ਨਮੀ 11-13% ਤੱਕ ਘਟ ਜਾਵੇਗੀ ਅਤੇ 22-28% ਨੁਕਸਾਨ ਹੋ ਸਕਦਾ ਹੈ।',
+            language,
+          ),
+          intent: AssistantIntent.scenarioPrediction,
+          referencedZone: targetZoneId ?? 'DEMO-ZONE-02',
+          severity: 'HIGH',
+          evidence: 'Historical evapotranspiration models + current sandy loam moisture deficit rate (-0.28%/hr).',
+          recommendation: 'Execute 30-second micro-irrigation simulation immediately to avert wilting.',
+          actionRequired: true,
+          actionType: AssistantActionType.irrigate,
+          requiresConfirmation: true,
+          safetyLevel: AssistantSafetyLevel.requiresConfirmation,
+          simulationStatus: 'SIMULATION ONLY • Physical Rover Disconnected',
+          isPrediction: true,
+          predictionLabel: 'PRAHAR Scenario Estimate • Indicative Simulation',
+          aiProvider: 'DETERMINISTIC_FALLBACK',
+        );
+
+      case AssistantIntent.fieldAnalysis:
+        return AssistantStructuredResponse(
+          answer: _translate(
+            'Comprehensive Field Analysis: 4 Zones evaluated. Zone 1 is Healthy (32.4% moisture). Zone 2 exhibits acute Water Stress (16.8% moisture). Zone 3 has Spodoptera litura pest hazard. Zone 4 shows Nitrogen chlorosis deficiency (pH 7.8).',
+            'व्यापक खेत विश्लेषण: 4 ज़ोन का मूल्यांकन किया गया। ज़ोन 1 स्वस्थ है (32.4% नमी)। ज़ोन 2 में गंभीर जल तनाव (16.8% नमी) है। ज़ोन 3 में कीट का खतरा है। ज़ोन 4 में नाइट्रोजन की कमी है।',
+            'सर्वसमावेशक शेत विश्लेषण: 4 झोन तपासले. झोन 1 निरोगी आहे. झोन 2 मध्ये पाण्याचा ताण आहे. झोन 3 मध्ये कीड आणि झोन 4 मध्ये खताची कमतरता आहे.',
+            'ਵਿਆਪਕ ਖੇਤ ਵਿਸ਼ਲੇਸ਼ਣ: 4 ਜ਼ੋਨਾਂ ਦੀ ਜਾਂਚ ਕੀਤੀ ਗਈ। ਜ਼ੋਨ 1 ਤੰਦਰੁਸਤ ਹੈ। ਜ਼ੋਨ 2 ਵਿੱਚ ਪਾਣੀ ਦੀ ਕਮੀ, ਜ਼ੋਨ 3 ਵਿੱਚ ਕੀੜੇ ਅਤੇ ਜ਼ੋਨ 4 ਵਿੱਚ ਖੁਰਾਕੀ ਤੱਤਾਂ ਦੀ ਘਾਟ ਹੈ।',
+            language,
+          ),
+          intent: AssistantIntent.fieldAnalysis,
+          referencedZone: 'DEMO-ZONE-02',
+          severity: 'HIGH',
+          evidence: 'Z1: 32.4% opt • Z2: 16.8% crit • Z3: Pest detected • Z4: pH 7.8 chlorosis.',
+          recommendation: '1. Irrigate Zone 2. 2. Apply Bio-Neem in Zone 3. 3. Foliar urea in Zone 4.',
+          actionRequired: false,
+          actionType: AssistantActionType.none,
+          requiresConfirmation: false,
+          safetyLevel: AssistantSafetyLevel.safeInformational,
+          simulationStatus: 'SIMULATION ONLY • Physical Rover Disconnected',
+          aiProvider: 'DETERMINISTIC_FALLBACK',
+        );
+
+      case AssistantIntent.zoneComparison:
+        return AssistantStructuredResponse(
+          answer: _translate(
+            'Zone Comparison (Zone 1 vs Zone 2): Zone 1 (North Plot) is at optimal 32.4% moisture with healthy canopy. In contrast, Zone 2 (East Sector) is severely moisture depleted at 16.8% (-15.6% relative difference) requiring immediate micro-irrigation.',
+            'ज़ोन तुलना (ज़ोन 1 बनाम ज़ोन 2): ज़ोन 1 (उत्तर प्लॉट) 32.4% नमी पर इष्टतम है। इसके विपरीत, ज़ोन 2 (पूर्वी सेक्टर) 16.8% पर गंभीर नमी की कमी में है और तत्काल सिंचाई की आवश्यकता है।',
+            'झोन तुलना (झोन 1 विरुद्ध झोन 2): झोन 1 मध्ये 32.4% ओलावा उत्तम आहे. याउलट झोन 2 मध्ये 16.8% ओलावा असून तातडीने सिंचनाची गरज आहे.',
+            'ਜ਼ੋਨ ਤੁਲਨਾ (ਜ਼ੋਨ 1 ਬਨਾਮ ਜ਼ੋਨ 2): ਜ਼ੋਨ 1 ਵਿੱਚ 32.4% ਨਮੀ ਵਧੀਆ ਹੈ। ਜ਼ੋਨ 2 ਵਿੱਚ 16.8% ਨਮੀ ਕਾਰਨ ਤੁਰੰਤ ਸਿੰਚਾਈ ਦੀ ਲੋੜ ਹੈ।',
+            language,
+          ),
+          intent: AssistantIntent.zoneComparison,
+          referencedZone: 'DEMO-ZONE-02',
+          severity: 'MEDIUM',
+          evidence: 'Z1 Moisture: 32.4% vs Z2 Moisture: 16.8% (Delta: -15.6%).',
+          recommendation: 'Bring Zone 2 moisture closer to Zone 1 baseline via targeted irrigation.',
+          actionRequired: false,
+          actionType: AssistantActionType.none,
+          requiresConfirmation: false,
+          safetyLevel: AssistantSafetyLevel.safeInformational,
+          simulationStatus: 'SIMULATION ONLY • Physical Rover Disconnected',
+          aiProvider: 'DETERMINISTIC_FALLBACK',
+        );
+
       case AssistantIntent.unknown:
         return AssistantStructuredResponse(
           answer: _translate(
@@ -600,6 +668,28 @@ class FieldAssistantEngine {
   }
 
   AssistantIntent _classifyIntent(String text) {
+    if (text.contains('predict') ||
+        text.contains('forecast') ||
+        text.contains('outcome') ||
+        text.contains('भविष्यवाणी') ||
+        text.contains('अंदाज') ||
+        text.contains('ਨਤੀਜਾ')) {
+      return AssistantIntent.scenarioPrediction;
+    }
+    if (text.contains('field analysis') ||
+        text.contains('comprehensive analysis') ||
+        text.contains('field report') ||
+        text.contains('खेत विश्लेषण') ||
+        text.contains('शेताचे विश्लेषण')) {
+      return AssistantIntent.fieldAnalysis;
+    }
+    if (text.contains('compare') ||
+        text.contains('comparison') ||
+        text.contains('तुलना') ||
+        text.contains('तुलना करा') ||
+        text.contains('ਟਾਕਰਾ')) {
+      return AssistantIntent.zoneComparison;
+    }
     if (text.contains('scheme') ||
         text.contains('योजना') ||
         text.contains('सब्सिडी') ||

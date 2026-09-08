@@ -1,4 +1,4 @@
-/// PRAHAR Phase 7B — Domain Models for Contextual Field Assistant
+/// PRAHAR Phase 7B & Phase 8 — Domain Models for Contextual Field Assistant
 /// Structured domain contracts mirroring packages/shared/src/domain.ts
 
 enum AssistantIntent {
@@ -11,6 +11,9 @@ enum AssistantIntent {
   schemeQuery,
   profileQuery,
   generalFarmGuidance,
+  scenarioPrediction,
+  fieldAnalysis,
+  zoneComparison,
   unknown,
 }
 
@@ -35,6 +38,12 @@ extension AssistantIntentExtension on AssistantIntent {
         return 'PROFILE_QUERY';
       case AssistantIntent.generalFarmGuidance:
         return 'GENERAL_FARM_GUIDANCE';
+      case AssistantIntent.scenarioPrediction:
+        return 'SCENARIO_PREDICTION';
+      case AssistantIntent.fieldAnalysis:
+        return 'FIELD_ANALYSIS';
+      case AssistantIntent.zoneComparison:
+        return 'ZONE_COMPARISON';
       case AssistantIntent.unknown:
         return 'UNKNOWN';
     }
@@ -60,6 +69,12 @@ extension AssistantIntentExtension on AssistantIntent {
         return AssistantIntent.profileQuery;
       case 'GENERAL_FARM_GUIDANCE':
         return AssistantIntent.generalFarmGuidance;
+      case 'SCENARIO_PREDICTION':
+        return AssistantIntent.scenarioPrediction;
+      case 'FIELD_ANALYSIS':
+        return AssistantIntent.fieldAnalysis;
+      case 'ZONE_COMPARISON':
+        return AssistantIntent.zoneComparison;
       default:
         return AssistantIntent.unknown;
     }
@@ -127,6 +142,36 @@ extension AssistantActionTypeExtension on AssistantActionType {
   }
 }
 
+class AssistantEvidenceItem {
+  final String metric;
+  final String observed;
+  final String threshold;
+  final String status;
+
+  const AssistantEvidenceItem({
+    required this.metric,
+    required this.observed,
+    required this.threshold,
+    required this.status,
+  });
+
+  factory AssistantEvidenceItem.fromJson(Map<String, dynamic> json) {
+    return AssistantEvidenceItem(
+      metric: json['metric'] as String? ?? '',
+      observed: json['observed'] as String? ?? '',
+      threshold: json['threshold'] as String? ?? '',
+      status: json['status'] as String? ?? 'NORMAL',
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'metric': metric,
+        'observed': observed,
+        'threshold': threshold,
+        'status': status,
+      };
+}
+
 class AssistantPendingAction {
   final String actionType;
   final String zoneId;
@@ -174,6 +219,10 @@ class AssistantStructuredResponse {
   final String simulationStatus;
   final String? indicativeDisclaimer;
   final AssistantPendingAction? pendingAction;
+  final String aiProvider; // OLLAMA_QWEN3_8B | DETERMINISTIC_FALLBACK
+  final bool isPrediction;
+  final String? predictionLabel;
+  final List<AssistantEvidenceItem> evidenceBreakdown;
 
   String? get relevantZoneId => referencedZone;
   bool get isSimulationOnly =>
@@ -194,6 +243,10 @@ class AssistantStructuredResponse {
     this.simulationStatus = 'SIMULATION ONLY • Physical Rover Disconnected',
     this.indicativeDisclaimer,
     this.pendingAction,
+    this.aiProvider = 'DETERMINISTIC_FALLBACK',
+    this.isPrediction = false,
+    this.predictionLabel,
+    this.evidenceBreakdown = const [],
   });
 
   factory AssistantStructuredResponse.fromJson(Map<String, dynamic> json) {
@@ -213,6 +266,13 @@ class AssistantStructuredResponse {
       pendingAction: json['pending_action'] != null
           ? AssistantPendingAction.fromJson(json['pending_action'] as Map<String, dynamic>)
           : null,
+      aiProvider: json['ai_provider'] as String? ?? 'DETERMINISTIC_FALLBACK',
+      isPrediction: json['is_prediction'] as bool? ?? false,
+      predictionLabel: json['prediction_label'] as String?,
+      evidenceBreakdown: (json['evidence_breakdown'] as List<dynamic>?)
+              ?.map((e) => AssistantEvidenceItem.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          const [],
     );
   }
 
@@ -230,12 +290,120 @@ class AssistantStructuredResponse {
         'simulation_status': simulationStatus,
         'indicative_disclaimer': indicativeDisclaimer,
         'pending_action': pendingAction?.toJson(),
+        'ai_provider': aiProvider,
+        'is_prediction': isPrediction,
+        'prediction_label': predictionLabel,
+        'evidence_breakdown': evidenceBreakdown.map((e) => e.toJson()).toList(),
       };
+}
+
+// ============================================================================
+// Phase 8: Demo Scenarios & Judge Mode Contracts
+// ============================================================================
+
+enum DemoScenarioId {
+  fullFieldScan,
+  waterStress,
+  pestAlert,
+  nutrientDeficiency,
+  healthyZone,
+}
+
+extension DemoScenarioIdExtension on DemoScenarioId {
+  String toWireString() {
+    switch (this) {
+      case DemoScenarioId.fullFieldScan:
+        return 'FULL_FIELD_SCAN';
+      case DemoScenarioId.waterStress:
+        return 'WATER_STRESS';
+      case DemoScenarioId.pestAlert:
+        return 'PEST_ALERT';
+      case DemoScenarioId.nutrientDeficiency:
+        return 'NUTRIENT_DEFICIENCY';
+      case DemoScenarioId.healthyZone:
+        return 'HEALTHY_ZONE';
+    }
+  }
+
+  static DemoScenarioId fromWireString(String? wire) {
+    switch (wire) {
+      case 'FULL_FIELD_SCAN':
+        return DemoScenarioId.fullFieldScan;
+      case 'PEST_ALERT':
+        return DemoScenarioId.pestAlert;
+      case 'NUTRIENT_DEFICIENCY':
+        return DemoScenarioId.nutrientDeficiency;
+      case 'HEALTHY_ZONE':
+        return DemoScenarioId.healthyZone;
+      case 'WATER_STRESS':
+      default:
+        return DemoScenarioId.waterStress;
+    }
+  }
+}
+
+class DemoScenarioDefinition {
+  final DemoScenarioId id;
+  final String name;
+  final String nameHi;
+  final String nameMr;
+  final String namePa;
+  final String description;
+  final String targetZoneId;
+  final String startingStatus;
+  final String? hazardDetected;
+  final String recommendation;
+  final String expectedImprovement;
+
+  const DemoScenarioDefinition({
+    required this.id,
+    required this.name,
+    required this.nameHi,
+    required this.nameMr,
+    required this.namePa,
+    required this.description,
+    required this.targetZoneId,
+    required this.startingStatus,
+    this.hazardDetected,
+    required this.recommendation,
+    required this.expectedImprovement,
+  });
+
+  String getLocalizedName(String lang) {
+    switch (lang) {
+      case 'hi':
+        return nameHi;
+      case 'mr':
+        return nameMr;
+      case 'pa':
+        return namePa;
+      case 'en':
+      default:
+        return name;
+    }
+  }
+
+  factory DemoScenarioDefinition.fromJson(Map<String, dynamic> json) {
+    return DemoScenarioDefinition(
+      id: DemoScenarioIdExtension.fromWireString(json['id'] as String?),
+      name: json['name'] as String? ?? '',
+      nameHi: json['name_hi'] as String? ?? json['name'] as String? ?? '',
+      nameMr: json['name_mr'] as String? ?? json['name'] as String? ?? '',
+      namePa: json['name_pa'] as String? ?? json['name'] as String? ?? '',
+      description: json['description'] as String? ?? '',
+      targetZoneId: json['target_zone_id'] as String? ?? 'DEMO-ZONE-02',
+      startingStatus: json['starting_status'] as String? ?? 'CRITICAL',
+      hazardDetected: json['hazard_detected'] as String?,
+      recommendation: json['recommendation'] as String? ?? '',
+      expectedImprovement: json['expected_improvement'] as String? ?? '',
+    );
+  }
 }
 
 class FarmerAssistantContext {
   final String dataSource; // strictly "DEMO"
   final String roverStatus; // strictly "DISCONNECTED"
+  final DemoScenarioId activeScenario;
   final Map<String, dynamic>? farmer;
   final Map<String, dynamic>? farm;
   final List<Map<String, dynamic>> zones;
@@ -246,6 +414,7 @@ class FarmerAssistantContext {
   const FarmerAssistantContext({
     this.dataSource = 'DEMO',
     this.roverStatus = 'DISCONNECTED',
+    this.activeScenario = DemoScenarioId.waterStress,
     this.farmer,
     this.farm,
     this.zones = const [],
@@ -258,6 +427,7 @@ class FarmerAssistantContext {
     return FarmerAssistantContext(
       dataSource: json['data_source'] as String? ?? 'DEMO',
       roverStatus: json['rover_status'] as String? ?? 'DISCONNECTED',
+      activeScenario: DemoScenarioIdExtension.fromWireString(json['active_scenario'] as String?),
       farmer: json['farmer'] as Map<String, dynamic>?,
       farm: json['farm'] as Map<String, dynamic>?,
       zones: (json['zones'] as List<dynamic>?)
@@ -290,6 +460,7 @@ class FarmerAssistantContext {
   Map<String, dynamic> toJson() => {
         'data_source': dataSource,
         'rover_status': roverStatus,
+        'active_scenario': activeScenario.toWireString(),
         if (farmer != null) 'farmer': farmer,
         if (farm != null) 'farm': farm,
         'zones': zones,

@@ -17,18 +17,23 @@ import {
   AssistantStructuredResponse,
   AssistantQueryRequest,
   FarmerAssistantContext,
+  AssistantEvidenceItem,
+  DemoScenarioId,
 } from '@prahar/shared';
 import { IAlertStore } from './alert-store.js';
 import { ClosedLoopCoordinator } from './closed-loop.js';
 import { ResilientDataStore } from './resilient-store.js';
-
 import { RoverEngine } from './engine.js';
+import { OllamaProvider } from './ollama-provider.js';
+import { DemoScenarioEngine } from './demo-scenarios.js';
 
 export class FieldAssistantService {
   private alertStore: IAlertStore;
   private closedLoop: ClosedLoopCoordinator;
   private resilientStore: ResilientDataStore;
   private engine?: RoverEngine;
+  private ollamaProvider?: OllamaProvider;
+  private scenarioEngine: DemoScenarioEngine;
 
   // Session cache for two-stage safety confirmations
   private pendingConfirmations: Map<
@@ -47,12 +52,16 @@ export class FieldAssistantService {
     alertStore: IAlertStore,
     closedLoop: ClosedLoopCoordinator,
     resilientStore: ResilientDataStore,
-    engine?: RoverEngine
+    engine?: RoverEngine,
+    ollamaProvider?: OllamaProvider,
+    scenarioEngine?: DemoScenarioEngine
   ) {
     this.alertStore = alertStore;
     this.closedLoop = closedLoop;
     this.resilientStore = resilientStore;
     this.engine = engine;
+    this.ollamaProvider = ollamaProvider;
+    this.scenarioEngine = scenarioEngine || new DemoScenarioEngine();
   }
 
   /**
@@ -170,37 +179,121 @@ export class FieldAssistantService {
     const targetZoneId = this.resolveZoneId(text, context);
 
     // 4. Dispatch based on Intent
+    let response: AssistantStructuredResponse;
     switch (intent) {
       case 'FIELD_STATUS':
-        return this.handleFieldStatus(context, lang);
+        response = this.handleFieldStatus(context, lang);
+        break;
 
       case 'ZONE_STATUS':
-        return this.handleZoneStatus(targetZoneId || 'DEMO-ZONE-02', context, lang);
+        response = this.handleZoneStatus(targetZoneId || 'DEMO-ZONE-02', context, lang);
+        break;
 
       case 'HAZARD_EXPLANATION':
-        return this.handleHazardExplanation(targetZoneId || 'DEMO-ZONE-02', context, lang);
+        response = this.handleHazardExplanation(targetZoneId || 'DEMO-ZONE-02', context, lang);
+        break;
 
       case 'RECOMMENDATION_EXPLANATION':
-        return this.handleRecommendationExplanation(targetZoneId || 'DEMO-ZONE-02', text, sessionId, req.user_id, context, lang);
+        response = this.handleRecommendationExplanation(targetZoneId || 'DEMO-ZONE-02', text, sessionId, req.user_id, context, lang);
+        break;
 
       case 'ACTION_STATUS':
-        return this.handleActionStatus(targetZoneId, context, lang);
+        response = this.handleActionStatus(targetZoneId, context, lang);
+        break;
 
       case 'VERIFICATION_STATUS':
-        return this.handleVerificationStatus(targetZoneId || 'DEMO-ZONE-02', context, lang);
+        response = this.handleVerificationStatus(targetZoneId || 'DEMO-ZONE-02', context, lang);
+        break;
 
       case 'SCHEME_QUERY':
-        return this.handleSchemeQuery(context, lang);
+        response = this.handleSchemeQuery(context, lang);
+        break;
 
       case 'PROFILE_QUERY':
-        return this.handleProfileQuery(context, lang);
+        response = this.handleProfileQuery(context, lang);
+        break;
 
       case 'GENERAL_FARM_GUIDANCE':
-        return this.handleGeneralGuidance(context, lang);
+        response = this.handleGeneralGuidance(context, lang);
+        break;
+
+      case 'SCENARIO_PREDICTION':
+        response = this.handleScenarioPrediction(context.active_scenario || this.scenarioEngine.getActiveScenarioId(), context, lang);
+        break;
+
+      case 'FIELD_ANALYSIS':
+        response = this.handleFieldAnalysis(context, lang);
+        break;
+
+      case 'ZONE_COMPARISON':
+        response = this.handleZoneComparison(context, lang);
+        break;
 
       default:
-        return this.handleUnknown(lang);
+        response = this.handleUnknown(lang);
+        break;
     }
+
+    // Ensure evidence_breakdown is populated
+    if (!response.evidence_breakdown) {
+      const scenarioCtx = this.scenarioEngine.getScenarioContext(context.active_scenario || this.scenarioEngine.getActiveScenarioId());
+      response.evidence_breakdown = scenarioCtx.evidence_breakdown;
+    }
+
+    // Default ai_provider to DETERMINISTIC_FALLBACK
+    if (!response.ai_provider) {
+      response.ai_provider = 'DETERMINISTIC_FALLBACK';
+    }
+
+    // 5. Conversational Reasoning via Ollama Qwen3 8B if available
+    const conversationalIntents: AssistantIntent[] = [
+      'HAZARD_EXPLANATION',
+      'RECOMMENDATION_EXPLANATION',
+      'SCENARIO_PREDICTION',
+      'FIELD_ANALYSIS',
+      'ZONE_COMPARISON',
+      'GENERAL_FARM_GUIDANCE',
+      'UNKNOWN',
+    ];
+
+    if (
+      this.ollamaProvider &&
+      conversationalIntents.includes(response.intent) &&
+      response.safety_level !== 'PROHIBITED_AUTONOMOUS'
+    ) {
+      try {
+        const scenarioDef = this.scenarioEngine.getActiveScenario();
+        const prompt = `FARM CONTEXT:
+Farmer: ${context.farmer?.name || 'Ramesh Patil'} (${context.farm?.area_acres || 4.2} Acres, ${context.farmer?.district || 'Amravati'}, ${context.farmer?.state || 'Maharashtra'})
+Crops: ${context.farm?.crop_type || 'Soybean + Wheat'}
+Soil: ${context.farm?.soil_type || 'Black Cotton Loam'}
+Active Demo Scenario: ${scenarioDef.name}
+Deterministic Evidence: ${response.evidence || 'Field sensors active'}
+Deterministic Recommendation: ${response.recommendation || 'Regular monitoring'}
+
+FARMER QUERY: "${rawText}"
+REQUESTED LANGUAGE: ${lang}
+
+Explain clearly to the farmer in their exact language (${lang}). Ground your answer strictly in the facts above. Keep it concise (maximum 3 sentences). Do NOT activate physical actuators.`;
+
+        const ollamaRes = await this.ollamaProvider.generateExplanation({
+          prompt,
+          language: lang,
+          timeoutMs: parseInt(process.env.OLLAMA_TIMEOUT_MS || '2500', 10),
+        });
+
+        if (ollamaRes.success && ollamaRes.text) {
+          response.answer = ollamaRes.text;
+          response.ai_provider = 'OLLAMA_QWEN3_8B';
+        } else {
+          response.ai_provider = 'DETERMINISTIC_FALLBACK';
+        }
+      } catch {
+        response.ai_provider = 'DETERMINISTIC_FALLBACK';
+      }
+    }
+
+    return response;
   }
 
   // ==========================================================================
@@ -267,8 +360,8 @@ export class FieldAssistantService {
     if (zoneId === 'DEMO-ZONE-03') {
       return {
         answer: this.translate(
-          'Zone 3 (South Sector) has an active Pest Alert. Guy 3 Edge YOLOv8 detected Spodoptera litura (Tobacco Caterpillar) with 89% confidence. High humidity (74%) favors larvae growth.',
-          'ज़ोन 3 (दक्षिण सेक्टर) में कीट चेतावनी सक्रिय है। Guy 3 Edge YOLOv8 ने 89% विश्वास के साथ स्पोडोप्टेरा लिटुरा (तंबाकू इल्ली) की पहचान की है। 74% आर्द्रता कीट के अनुकूल है।',
+          'Zone 3 (South Sector) has an active Pest Alert. PRAHAR Edge Vision YOLOv8 detected Spodoptera litura (Tobacco Caterpillar) with 89% confidence. High humidity (74%) favors larvae growth.',
+          'ज़ोन 3 (दक्षिण सेक्टर) में कीट चेतावनी सक्रिय है। प्रहार एज विज़न YOLOv8 ने 89% विश्वास के साथ स्पोडोप्टेरा लिटुरा (तंबाकू इल्ली) की पहचान की है। 74% आर्द्रता कीट के अनुकूल है।',
           'झोन 3 (दक्षिण सेक्टर) मध्ये कीड इशारा सक्रिय आहे. 89% आत्मविश्वासाने स्पोडोप्टेरा लिटुरा कीड आढळली आहे.',
           'ਜ਼ੋਨ 3 (ਦੱਖਣ ਸੈਕਟਰ) ਵਿੱਚ ਕੀੜੇ ਦੀ ਚੇਤਾਵਨੀ ਹੈ। ਸਪੋਡੋਪਟੇਰਾ ਲਿਟੁਰਾ 89% ਭਰੋਸੇ ਨਾਲ ਪਾਇਆ ਗਿਆ।',
           lang
@@ -632,6 +725,91 @@ export class FieldAssistantService {
     };
   }
 
+  private handleScenarioPrediction(
+    scenarioId: DemoScenarioId,
+    ctx: FarmerAssistantContext,
+    lang: 'en' | 'hi' | 'mr' | 'pa'
+  ): AssistantStructuredResponse {
+    const pred = this.scenarioEngine.getScenarioPrediction(scenarioId, lang);
+    const scenarioCtx = this.scenarioEngine.getScenarioContext(scenarioId);
+
+    return {
+      answer: pred.text,
+      intent: 'SCENARIO_PREDICTION',
+      referenced_zone: 'DEMO-ZONE-02',
+      severity: 'HIGH',
+      evidence: 'Root moisture 16.8% dropping under 31.4°C ambient canopy heat. Projected 6h wilting curve.',
+      evidence_breakdown: scenarioCtx.evidence_breakdown,
+      recommendation: 'Initiate 30s simulated irrigation to restore root zone moisture above 20%.',
+      action_required: true,
+      action_type: 'IRRIGATE',
+      requires_confirmation: true,
+      safety_level: 'REQUIRES_CONFIRMATION',
+      simulation_status: 'SIMULATION ONLY • Physical Rover Disconnected',
+      is_prediction: true,
+      prediction_label: pred.label,
+      ai_provider: 'DETERMINISTIC_FALLBACK',
+    };
+  }
+
+  private handleFieldAnalysis(
+    ctx: FarmerAssistantContext,
+    lang: 'en' | 'hi' | 'mr' | 'pa'
+  ): AssistantStructuredResponse {
+    const answer = this.translate(
+      'Field Analysis: 4 monitored zones. Zone 1 (North) is optimal (68.0% moisture). Zone 2 (East) has acute water stress (16.8% moisture). Zone 3 (South) has active pest risk (Spodoptera litura, 89%). Zone 4 (West) has mild nitrogen deficit. Priority action is Zone 2 micro-irrigation.',
+      'खेत विश्लेषण: 4 निगरानी ज़ोन। ज़ोन 1 उत्तम (68.0% नमी) है। ज़ोन 2 में जल तनाव (16.8% नमी) है। ज़ोन 3 में कीट जोखिम (89%) है। ज़ोन 4 में नाइट्रोजन की कमी है। प्राथमिकता ज़ोन 2 की सूक्ष्म सिंचाई है।',
+      'शेत विश्लेषण: 4 झोनचे निरीक्षण. झोन 1 उत्तम (68% ओलावा), झोन 2 मध्ये पाण्याचा ताण (16.8%), झोन 3 मध्ये कीड धोका (89%) आणि झोन 4 मध्ये पोषण कमतरता. झोन 2 सिंचनाला प्राधान्य द्या.',
+      'ਖੇਤ ਵਿਸ਼ਲੇਸ਼ਣ: 4 ਜ਼ੋਨ। ਜ਼ੋਨ 1 ਠੀਕ ਹੈ, ਜ਼ੋਨ 2 ਵਿੱਚ ਪਾਣੀ ਦੀ ਕਮੀ (16.8%) ਹੈ, ਜ਼ੋਨ 3 ਵਿੱਚ ਕੀੜੇ ਦਾ ਖਤਰਾ (89%) ਹੈ। ਪਹਿਲ ਜ਼ੋਨ 2 ਸਿੰਚਾਈ ਨੂੰ ਦਿਓ।',
+      lang
+    );
+
+    return {
+      answer,
+      intent: 'FIELD_ANALYSIS',
+      referenced_zone: 'DEMO-ZONE-02',
+      severity: 'HIGH',
+      evidence: 'Z1: 68.0% (Optimal) | Z2: 16.8% (Critical) | Z3: Spodoptera 89% | Z4: NPK 18-12-14 (Low N)',
+      evidence_breakdown: this.scenarioEngine.getScenarioContext('FULL_FIELD_SCAN').evidence_breakdown,
+      recommendation: 'Prioritize Zone 2 irrigation and Zone 3 biological pest control.',
+      action_required: true,
+      action_type: 'IRRIGATE',
+      requires_confirmation: true,
+      safety_level: 'REQUIRES_CONFIRMATION',
+      simulation_status: 'SIMULATION ONLY • Physical Rover Disconnected',
+      ai_provider: 'DETERMINISTIC_FALLBACK',
+    };
+  }
+
+  private handleZoneComparison(
+    ctx: FarmerAssistantContext,
+    lang: 'en' | 'hi' | 'mr' | 'pa'
+  ): AssistantStructuredResponse {
+    const answer = this.translate(
+      'Zone Comparison: Zone 1 (North) is healthy with 68% moisture and 0.82 NDVI. Zone 2 (East) is critically dry at 16.8% moisture with 0.62 NDVI. Zone 3 (South) has adequate moisture (62%) but 89% pest presence. Zone 4 (West) has normal moisture (58%) but low Nitrogen.',
+      'ज़ोन तुलना: ज़ोन 1 स्वस्थ है (68% नमी, 0.82 NDVI)। ज़ोन 2 में गंभीर सूखा है (16.8% नमी, 0.62 NDVI)। ज़ोन 3 में नमी पर्याप्त है (62%) लेकिन कीट हैं। ज़ोन 4 में नमी ठीक है लेकिन नाइट्रोजन कम है।',
+      'झोन तुलना: झोन 1 निरोगी आहे (68% ओलावा, 0.82 NDVI). झोन 2 मध्ये पाण्याचा ताण आहे (16.8% ओलावा). झोन 3 मध्ये कीड प्रादुर्भाव आहे. झोन 4 मध्ये नायट्रोजनची कमतरता आहे.',
+      'ਜ਼ੋਨ ਤੁਲਨਾ: ਜ਼ੋਨ 1 ਤੰਦਰੁਸਤ ਹੈ (68% ਨਮੀ)। ਜ਼ੋਨ 2 ਵਿੱਚ ਪਾਣੀ ਦੀ ਕਮੀ ਹੈ (16.8% ਨਮੀ)। ਜ਼ੋਨ 3 ਵਿੱਚ ਕੀੜੇ ਹਨ ਅਤੇ ਜ਼ੋਨ 4 ਵਿੱਚ ਨਾਈਟ੍ਰੋਜਨ ਘੱਟ ਹੈ।',
+      lang
+    );
+
+    return {
+      answer,
+      intent: 'ZONE_COMPARISON',
+      referenced_zone: 'DEMO-ZONE-02',
+      severity: 'MEDIUM',
+      evidence: 'Z1: Optimal vs Z2: -51.2% Moisture Delta vs Z3: +Pest vs Z4: -Nitrogen',
+      evidence_breakdown: this.scenarioEngine.getScenarioContext('WATER_STRESS').evidence_breakdown,
+      recommendation: 'Rebalance field by addressing Zone 2 water stress before nutrient amendments.',
+      action_required: false,
+      action_type: 'NONE',
+      requires_confirmation: false,
+      safety_level: 'SAFE_INFORMATIONAL',
+      simulation_status: 'SIMULATION ONLY • Physical Rover Disconnected',
+      ai_provider: 'DETERMINISTIC_FALLBACK',
+    };
+  }
+
   private handleUnknown(lang: 'en' | 'hi' | 'mr' | 'pa'): AssistantStructuredResponse {
     const answer = this.translate(
       'I am the PRAHAR Field Assistant. I can help with: 1) "Which zone needs attention first?", 2) "Why is Zone 2 under water stress?", 3) "What to do about pest in Zone 3?", 4) "Show irrigation verification", 5) "Relevant government schemes", or 6) "My farm profile".',
@@ -689,6 +867,45 @@ export class FieldAssistantService {
   // ==========================================================================
 
   private classifyIntent(text: string): AssistantIntent {
+    // Scenario Predictions / Forecasts
+    if (
+      text.includes('predict') ||
+      text.includes('forecast') ||
+      text.includes('estimate') ||
+      text.includes('future') ||
+      text.includes('भविष्य') ||
+      text.includes('अनुमान') ||
+      text.includes('अंदाज') ||
+      text.includes('ਅੰਦਾਜ਼ਾ') ||
+      text.includes('what if') ||
+      text.includes('परिदृश्य')
+    ) {
+      return 'SCENARIO_PREDICTION';
+    }
+
+    // Zone Comparison
+    if (
+      text.includes('compare') ||
+      text.includes('comparison') ||
+      text.includes('difference') ||
+      text.includes('तुलना') ||
+      text.includes('फरक') ||
+      text.includes('ਮੁਕਾਬਲਾ')
+    ) {
+      return 'ZONE_COMPARISON';
+    }
+
+    // Field Analysis
+    if (
+      text.includes('analyze') ||
+      text.includes('analysis') ||
+      text.includes('विश्लेषण') ||
+      text.includes('पडताळणी') ||
+      text.includes('ਵਿਸ਼ਲੇਸ਼ਣ')
+    ) {
+      return 'FIELD_ANALYSIS';
+    }
+
     // Scheme Queries
     if (
       text.includes('scheme') ||

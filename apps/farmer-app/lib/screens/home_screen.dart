@@ -28,6 +28,8 @@ import '../data/repositories/field_assistant_repository.dart';
 import '../data/assistant/assistant_context_builder.dart';
 import '../data/assistant/field_assistant_engine.dart';
 import '../core/localization/app_localizations.dart';
+import '../data/providers/demo_scenarios_provider.dart';
+import 'judge_mode_sheet.dart';
 
 class HomeScreen extends StatefulWidget {
   final ApiClient? apiClient;
@@ -42,6 +44,7 @@ class HomeScreen extends StatefulWidget {
   final OpportunityRepository? opportunityRepository;
   final FarmerProfileRepository? farmerProfileRepository;
   final FieldAssistantRepository? fieldAssistantRepository;
+  final DemoScenariosProvider? demoScenariosProvider;
   final ITelemetryProvider? telemetryProvider;
   final ISessionStore? sessionStore;
   final IOfflineStore? offlineStore;
@@ -61,6 +64,7 @@ class HomeScreen extends StatefulWidget {
     this.opportunityRepository,
     this.farmerProfileRepository,
     this.fieldAssistantRepository,
+    this.demoScenariosProvider,
     this.telemetryProvider,
     this.sessionStore,
     this.offlineStore,
@@ -91,6 +95,7 @@ class _HomeScreenState extends State<HomeScreen> {
   late final FarmerProfileRepository _farmerProfileRepo;
   late final ITelemetryProvider _telemetryProvider;
   late final FieldAssistantEngine _assistantEngine;
+  late final DemoScenariosProvider _scenariosProvider;
   int _unreadNotificationCount = 0;
 
   FarmerOnboardingState? _onboardingState;
@@ -141,6 +146,9 @@ class _HomeScreenState extends State<HomeScreen> {
     final assistantRepo = widget.fieldAssistantRepository ?? FieldAssistantRepository(apiClient: _apiClient);
     _assistantEngine = FieldAssistantEngine(repository: assistantRepo);
     _telemetryProvider = widget.telemetryProvider ?? DemoFieldDataProvider();
+    _scenariosProvider = widget.demoScenariosProvider ??
+        DemoScenariosProvider(client: _apiClient.httpClient);
+    _scenariosProvider.fetchScenarios();
 
     _loadProfile();
     _loadRemoteData();
@@ -322,6 +330,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final nextLang = _isHindi ? 'en' : 'hi';
     setState(() {
       _isHindi = !_isHindi;
+      _currentLanguage = nextLang;
     });
     await _offlineStorage.setLanguagePreference(nextLang);
   }
@@ -726,9 +735,33 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // Phase 7B: PRAHAR Contextual Field Assistant Dialog
+  // Phase 8: 12-Step Judge Mode Flow Sheet
+  void _openJudgeModeSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => JudgeModeSheet(
+        scenariosProvider: _scenariosProvider,
+        assistantEngine: _assistantEngine,
+        farmerContext: AssistantContextBuilder.buildContext(
+          profile: _onboardingState?.profile,
+          farm: _selectedFarm,
+          zones: _zones,
+          alerts: _alerts,
+        ),
+        currentLanguage: _currentLanguage,
+        onFieldReset: () async {
+          await _loadRemoteData();
+        },
+      ),
+    );
+  }
+
+  // Phase 7B/8: PRAHAR Contextual Field Assistant Dialog
   void _openFieldAssistantDialog() {
     bool isProcessing = false;
+    bool isListening = false;
     bool actionConfirmed = false;
     AssistantStructuredResponse? latestResponse;
     String? assistantError;
@@ -818,6 +851,34 @@ class _HomeScreenState extends State<HomeScreen> {
             } finally {
               setModalState(() {
                 isProcessing = false;
+              });
+            }
+          }
+
+          void toggleVoiceInput() {
+            if (isProcessing) return;
+            if (isListening) {
+              setModalState(() {
+                isListening = false;
+              });
+            } else {
+              setModalState(() {
+                isListening = true;
+              });
+              Future.delayed(const Duration(milliseconds: 1500), () {
+                if (context.mounted && isListening) {
+                  setModalState(() {
+                    isListening = false;
+                  });
+                  final spokenQuery = _currentLanguage == 'hi'
+                      ? 'खेत की वर्तमान स्थिति क्या है?'
+                      : (_currentLanguage == 'mr'
+                          ? 'सध्या शेताची काय स्थिती आहे?'
+                          : (_currentLanguage == 'pa'
+                              ? 'ਖੇਤ ਦੀ ਮੌਜੂਦਾ ਸਥਿਤੀ ਕੀ ਹੈ?'
+                              : 'What is the current farm status?'));
+                  sendQuery(spokenQuery);
+                }
               });
             }
           }
@@ -940,6 +1001,35 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ],
                   ),
+                  if (isListening) ...[
+                    const SizedBox(height: 8),
+                    Container(
+                      key: const Key('assistant_listening_status'),
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: PraharTheme.primaryGreen.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: PraharTheme.primaryGreen),
+                      ),
+                      child: Row(
+                        children: [
+                          const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: PraharTheme.primaryGreen),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              AppLocalizations.getText('assistant_listening', _currentLanguage),
+                              style: const TextStyle(fontSize: 12, color: PraharTheme.primaryGreen, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 12),
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
@@ -951,6 +1041,30 @@ class _HomeScreenState extends State<HomeScreen> {
                           backgroundColor: const Color(0xFF1A3327),
                           side: const BorderSide(color: PraharTheme.primaryGreen),
                           onPressed: () => sendQuery('Which zone needs attention first?'),
+                        ),
+                        const SizedBox(width: 6),
+                        ActionChip(
+                          key: const Key('assistant_chip_prediction'),
+                          label: Text(AppLocalizations.getText('assistant_chip_prediction', _currentLanguage), style: const TextStyle(fontSize: 11, color: Colors.white)),
+                          backgroundColor: const Color(0xFF1A3327),
+                          side: const BorderSide(color: PraharTheme.alertAmber),
+                          onPressed: () => sendQuery('Predict scenario outcome if untreated'),
+                        ),
+                        const SizedBox(width: 6),
+                        ActionChip(
+                          key: const Key('assistant_chip_analysis'),
+                          label: Text(AppLocalizations.getText('assistant_chip_analysis', _currentLanguage), style: const TextStyle(fontSize: 11, color: Colors.white)),
+                          backgroundColor: const Color(0xFF1A3327),
+                          side: const BorderSide(color: PraharTheme.primaryGreen),
+                          onPressed: () => sendQuery('Give comprehensive field analysis'),
+                        ),
+                        const SizedBox(width: 6),
+                        ActionChip(
+                          key: const Key('assistant_chip_compare'),
+                          label: Text(AppLocalizations.getText('assistant_chip_compare', _currentLanguage), style: const TextStyle(fontSize: 11, color: Colors.white)),
+                          backgroundColor: const Color(0xFF1A3327),
+                          side: const BorderSide(color: PraharTheme.alertSky),
+                          onPressed: () => sendQuery('Compare Zone 1 and Zone 2 status'),
                         ),
                         const SizedBox(width: 6),
                         ActionChip(
@@ -1037,7 +1151,16 @@ class _HomeScreenState extends State<HomeScreen> {
                           onSubmitted: sendQuery,
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 6),
+                      IconButton(
+                        key: const Key('assistant_mic_button'),
+                        icon: Icon(
+                          isListening ? Icons.mic_off : Icons.mic,
+                          color: isListening ? PraharTheme.alertRose : PraharTheme.primaryGreen,
+                        ),
+                        onPressed: isProcessing ? null : toggleVoiceInput,
+                      ),
+                      const SizedBox(width: 4),
                       IconButton(
                         key: const Key('assistant_send_button'),
                         icon: isProcessing
@@ -1071,7 +1194,10 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 4,
+                            crossAxisAlignment: WrapCrossAlignment.center,
                             children: [
                               Container(
                                 key: const Key('assistant_intent_chip'),
@@ -1085,8 +1211,43 @@ class _HomeScreenState extends State<HomeScreen> {
                                   style: const TextStyle(color: PraharTheme.primaryGreen, fontSize: 9, fontWeight: FontWeight.bold),
                                 ),
                               ),
-                              if (latestResponse!.referencedZone != null) ...[
-                                const SizedBox(width: 6),
+                              if (latestResponse!.aiProvider.isNotEmpty)
+                                Container(
+                                  key: const Key('assistant_provider_badge'),
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: latestResponse!.aiProvider == 'OLLAMA_QWEN3_8B'
+                                        ? PraharTheme.primaryGreen.withValues(alpha: 0.2)
+                                        : Colors.orange.withValues(alpha: 0.2),
+                                    borderRadius: BorderRadius.circular(4),
+                                    border: Border.all(
+                                      color: latestResponse!.aiProvider == 'OLLAMA_QWEN3_8B'
+                                          ? PraharTheme.primaryGreen
+                                          : Colors.orange,
+                                      width: 0.8,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        latestResponse!.aiProvider == 'OLLAMA_QWEN3_8B' ? Icons.psychology : Icons.settings_backup_restore,
+                                        size: 10,
+                                        color: latestResponse!.aiProvider == 'OLLAMA_QWEN3_8B' ? PraharTheme.primaryGreen : Colors.orange,
+                                      ),
+                                      const SizedBox(width: 3),
+                                      Text(
+                                        latestResponse!.aiProvider == 'OLLAMA_QWEN3_8B' ? 'Qwen3 8B' : 'Deterministic Fallback',
+                                        style: TextStyle(
+                                          color: latestResponse!.aiProvider == 'OLLAMA_QWEN3_8B' ? PraharTheme.primaryGreen : Colors.orange,
+                                          fontSize: 8,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              if (latestResponse!.referencedZone != null)
                                 Container(
                                   key: const Key('assistant_zone_chip'),
                                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -1099,8 +1260,6 @@ class _HomeScreenState extends State<HomeScreen> {
                                     style: const TextStyle(color: Colors.lightBlueAccent, fontSize: 9, fontWeight: FontWeight.bold),
                                   ),
                                 ),
-                              ],
-                              const Spacer(),
                               Container(
                                 key: const Key('assistant_severity_chip'),
                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -1125,6 +1284,31 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                             ],
                           ),
+                          if (latestResponse!.isPrediction) ...[
+                            const SizedBox(height: 8),
+                            Container(
+                              key: const Key('assistant_prediction_banner'),
+                              width: double.infinity,
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: PraharTheme.alertAmber.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: PraharTheme.alertAmber.withValues(alpha: 0.4)),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.analytics_outlined, size: 14, color: PraharTheme.alertAmber),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      latestResponse!.predictionLabel ?? AppLocalizations.getText('assistant_prediction_disclaimer', _currentLanguage),
+                                      style: const TextStyle(fontSize: 10, color: PraharTheme.alertAmber, fontWeight: FontWeight.bold),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                           const SizedBox(height: 10),
                           Text(
                             latestResponse!.answer,
@@ -1144,6 +1328,49 @@ class _HomeScreenState extends State<HomeScreen> {
                               child: Text(
                                 'Evidence: ${latestResponse!.evidence!}',
                                 style: TextStyle(color: Colors.grey[300], fontSize: 11),
+                              ),
+                            ),
+                          ],
+                          if (latestResponse!.evidenceBreakdown.isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            Container(
+                              key: const Key('assistant_evidence_breakdown_card'),
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF0C1914),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: PraharTheme.borderGreen),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    AppLocalizations.getText('evidence_breakdown', _currentLanguage),
+                                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: PraharTheme.primaryGreen),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  ...latestResponse!.evidenceBreakdown.map(
+                                    (item) => Padding(
+                                      padding: const EdgeInsets.symmetric(vertical: 2),
+                                      child: Row(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            '• ${item.metric}: ',
+                                            style: const TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.w600),
+                                          ),
+                                          Expanded(
+                                            child: Text(
+                                              '${item.observed} (${item.threshold}) [${item.status}]',
+                                              style: const TextStyle(fontSize: 10, color: Colors.white70),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ],
@@ -1998,7 +2225,168 @@ class _HomeScreenState extends State<HomeScreen> {
                 );
               }).toList(),
             ),
-          const SizedBox(height: 14),
+          // Phase 8: Deterministic Demo Scenario Selector Card
+          AnimatedBuilder(
+            animation: _scenariosProvider,
+            builder: (context, _) {
+              return Card(
+                key: const Key('demo_scenario_selector_card'),
+                color: const Color(0xFF0C1914),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  side: const BorderSide(color: PraharTheme.borderGreen),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.science_outlined, size: 16, color: PraharTheme.primaryGreen),
+                              const SizedBox(width: 6),
+                              Text(
+                                AppLocalizations.getText('demo_scenarios_title', _currentLanguage),
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
+                              ),
+                            ],
+                          ),
+                          TextButton.icon(
+                            key: const Key('reset_scenario_button'),
+                            style: TextButton.styleFrom(
+                              visualDensity: VisualDensity.compact,
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            ),
+                            icon: const Icon(Icons.refresh, size: 14, color: PraharTheme.alertAmber),
+                            label: Text(
+                              AppLocalizations.getText('reset_scenario', _currentLanguage),
+                              style: const TextStyle(fontSize: 11, color: PraharTheme.alertAmber, fontWeight: FontWeight.bold),
+                            ),
+                            onPressed: _scenariosProvider.isLoading
+                                ? null
+                                : () async {
+                                    await _scenariosProvider.resetFieldState();
+                                    if (mounted) {
+                                      await _loadRemoteData();
+                                    }
+                                  },
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: _scenariosProvider.scenarios.map((sc) {
+                            final isSelected = sc.id == _scenariosProvider.activeScenarioId;
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 6),
+                              child: ChoiceChip(
+                                key: Key('scenario_chip_${sc.id}'),
+                                label: Text(
+                                  sc.name,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                    color: isSelected ? Colors.black : Colors.white70,
+                                  ),
+                                ),
+                                selected: isSelected,
+                                selectedColor: PraharTheme.primaryGreen,
+                                backgroundColor: const Color(0xFF13241D),
+                                side: BorderSide(
+                                  color: isSelected ? PraharTheme.primaryGreen : PraharTheme.borderGreen,
+                                ),
+                                onSelected: (sel) async {
+                                  if (sel) {
+                                    await _scenariosProvider.selectScenario(sc.id);
+                                    if (mounted) {
+                                      await _loadRemoteData();
+                                    }
+                                  }
+                                },
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 10),
+
+          // Phase 8: Judge Mode Entry Card
+          Card(
+            key: const Key('judge_mode_entry_card'),
+            color: const Color(0xFF10261E),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+              side: const BorderSide(color: PraharTheme.alertSky, width: 1.2),
+            ),
+            child: InkWell(
+              key: const Key('open_judge_mode_button'),
+              borderRadius: BorderRadius.circular(10),
+              onTap: _openJudgeModeSheet,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: PraharTheme.alertSky.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.gavel_rounded, color: PraharTheme.alertSky, size: 20),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Text(
+                                AppLocalizations.getText('judge_mode_title', _currentLanguage),
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
+                              ),
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                decoration: BoxDecoration(
+                                  color: PraharTheme.alertSky.withValues(alpha: 0.2),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  AppLocalizations.getText('judge_mode_badge', _currentLanguage),
+                                  style: const TextStyle(fontSize: 8, color: PraharTheme.alertSky, fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            AppLocalizations.getText('judge_mode_subtitle', _currentLanguage),
+                            style: TextStyle(color: Colors.grey[400], fontSize: 11),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(Icons.arrow_forward_ios, size: 14, color: PraharTheme.alertSky),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
 
           // Phase 7B: PRAHAR Contextual Field Assistant Entry Card
           Card(
