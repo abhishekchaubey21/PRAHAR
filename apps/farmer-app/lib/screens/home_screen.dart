@@ -587,42 +587,73 @@ class _HomeScreenState extends State<HomeScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
+                      Expanded(
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: PraharTheme.primaryGreenLight,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: const Icon(Icons.mic, color: PraharTheme.primaryGreen, size: 22),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    _isHindi ? 'प्रहार आवाज़ सहायक' : 'PRAHAR Voice Assistant',
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: PraharTheme.textHeading),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  Text(
+                                    voiceService.ttsAvailable
+                                        ? (_isHindi ? 'टीटीएस सक्रिय — उत्तर सुनाई देगा' : 'TTS active — answers spoken aloud')
+                                        : (_isHindi ? 'टीटीएस अनुपलब्ध — टेक्स्ट उत्तर' : 'TTS unavailable — text answers'),
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: voiceService.ttsAvailable ? PraharTheme.primaryGreen : PraharTheme.textMuted,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
                       Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
                           Container(
-                            padding: const EdgeInsets.all(8),
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
-                              color: PraharTheme.primaryGreenLight,
-                              borderRadius: BorderRadius.circular(10),
+                              color: PraharTheme.alertAmberLight,
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: PraharTheme.alertAmber),
                             ),
-                            child: const Icon(Icons.mic, color: PraharTheme.primaryGreen, size: 22),
+                            child: const Text(
+                              'SIMULATION / DEMO INTENT',
+                              style: TextStyle(fontSize: 9, color: PraharTheme.alertAmber, fontWeight: FontWeight.bold),
+                            ),
                           ),
-                          const SizedBox(width: 10),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                _isHindi ? 'PRAHAR आवाज़ सहायक' : 'PRAHAR Voice Assistant',
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: PraharTheme.textHeading),
-                              ),
-                              Text(
-                                voiceService.ttsAvailable
-                                    ? (_isHindi ? 'टीटीएस सक्रिय — उत्तर सुनाई देगा' : 'TTS active — answers spoken aloud')
-                                    : (_isHindi ? 'टीटीएस अनुपलब्ध — टेक्स्ट उत्तर' : 'TTS unavailable — text answers'),
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: voiceService.ttsAvailable ? PraharTheme.primaryGreen : PraharTheme.textMuted,
-                                ),
-                              ),
-                            ],
+                          IconButton(
+                            icon: const Icon(Icons.close, color: PraharTheme.textMuted),
+                            onPressed: () => Navigator.pop(context),
                           ),
                         ],
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.close, color: PraharTheme.textMuted),
-                        onPressed: () => Navigator.pop(context),
-                      ),
                     ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    _isHindi
+                        ? 'स्पष्ट सूचना: माइक्रोफ़ोन/एसटीटी हार्डवेयर अनुपलब्ध — सिम्युलेटेड वॉयस इनपुट सक्रिय। आवाज़ सीधे मोटर नहीं चला सकती।'
+                        : 'Honest STT Notice: Real microphone hardware not connected — Simulated Voice Input active. Voice commands CANNOT directly drive motors.',
+                    style: const TextStyle(color: PraharTheme.textMuted, fontSize: 11, fontStyle: FontStyle.italic),
                   ),
                   const SizedBox(height: 12),
                   // Response area
@@ -1444,7 +1475,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   const SizedBox(width: 6),
                                   Expanded(
                                     child: Text(
-                                      latestResponse!.recommendation!,
+                                      'Recommendation: ${latestResponse!.recommendation!}',
                                       style: const TextStyle(color: PraharTheme.alertAmber, fontSize: 11, fontWeight: FontWeight.w600),
                                     ),
                                   ),
@@ -2247,7 +2278,7 @@ class _HomeScreenState extends State<HomeScreen> {
             animation: _scenariosProvider,
             builder: (context, _) {
               return Card(
-                key: const Key('demo_scenario_selector_card_v2'),
+                key: const Key('demo_scenario_selector_card'),
                 child: Padding(
                   padding: const EdgeInsets.all(12),
                   child: Column(
@@ -2396,6 +2427,60 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           const SizedBox(height: 12),
 
+          // Quick Action Hub (Voice Assistant, Evidence Report, Opportunities)
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  icon: const Icon(Icons.mic, size: 16, color: PraharTheme.primaryGreen),
+                  label: Text(
+                    _isHindi ? 'आवाज़ सहायक' : 'Voice (Demo)',
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: PraharTheme.darkGreen),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    backgroundColor: PraharTheme.cardBgGreen,
+                    side: const BorderSide(color: PraharTheme.borderGreen),
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                  ),
+                  onPressed: _openVoiceDialog,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton.icon(
+                  icon: const Icon(Icons.description, size: 16, color: PraharTheme.alertAmber),
+                  label: Text(
+                    _isHindi ? 'साक्ष्य रिपोर्ट' : 'Evidence Report',
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: PraharTheme.darkGreen),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    backgroundColor: PraharTheme.cardBgGreen,
+                    side: const BorderSide(color: PraharTheme.borderGreen),
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                  ),
+                  onPressed: _openEvidenceReportDialog,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton.icon(
+                  icon: const Icon(Icons.account_balance, size: 16, color: PraharTheme.alertSky),
+                  label: Text(
+                    _isHindi ? 'योजनाएं' : 'Opportunities',
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: PraharTheme.darkGreen),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    backgroundColor: PraharTheme.cardBgGreen,
+                    side: const BorderSide(color: PraharTheme.alertSky),
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                  ),
+                  onPressed: _openOpportunityCenterDialog,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
           // ── ASK PRAHAR — Prominent Farmer-First CTA ───────────────────────────
           GestureDetector(
             onTap: _openFieldAssistantDialog,
@@ -2458,56 +2543,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           const SizedBox(height: 12),
 
-          // Quick Action Hub — light style
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  icon: const Icon(Icons.mic, size: 16, color: PraharTheme.primaryGreen),
-                  label: Text(
-                    _isHindi ? 'आवाज़' : 'Voice',
-                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: PraharTheme.darkGreen),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                  ),
-                  onPressed: _openVoiceDialog,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: OutlinedButton.icon(
-                  icon: const Icon(Icons.description, size: 16, color: PraharTheme.alertAmber),
-                  label: Text(
-                    _isHindi ? 'रिपोर्ट' : 'Report',
-                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: PraharTheme.alertAmber),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: PraharTheme.alertAmber,
-                    side: const BorderSide(color: PraharTheme.alertAmber),
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                  ),
-                  onPressed: _openEvidenceReportDialog,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: OutlinedButton.icon(
-                  icon: const Icon(Icons.account_balance, size: 16, color: PraharTheme.alertSky),
-                  label: Text(
-                    _isHindi ? 'योजनाएं' : 'Schemes',
-                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: PraharTheme.alertSky),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: PraharTheme.alertSky,
-                    side: const BorderSide(color: PraharTheme.alertSky),
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                  ),
-                  onPressed: _openOpportunityCenterDialog,
-                ),
-              ),
-            ],
-          ),
           const SizedBox(height: 16),
 
           // Closed-Loop Verification Result Card (if verified)
@@ -2846,15 +2881,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   spacing: 8,
                   children: [
                     Chip(
-                      label: Text('SIH 2026', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: PraharTheme.darkGreen)),
+                      label: Text('SIH 2026 • Team KYROS', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: PraharTheme.darkGreen)),
                       padding: EdgeInsets.zero,
                     ),
                     Chip(
-                      label: Text('Team KYROS', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: PraharTheme.darkGreen)),
-                      padding: EdgeInsets.zero,
-                    ),
-                    Chip(
-                      label: Text('VNIT Nagpur', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: PraharTheme.darkGreen)),
+                      label: Text('Vivekananda Institute of Professional Studies', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: PraharTheme.darkGreen)),
                       padding: EdgeInsets.zero,
                     ),
                   ],

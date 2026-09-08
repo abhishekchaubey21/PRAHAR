@@ -323,6 +323,31 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ],
                   ),
+                  const SizedBox(height: 12),
+
+                  // Demo Presentation Quick Login
+                  OutlinedButton.icon(
+                    key: const Key('login_demo_quick_button'),
+                    icon: const Icon(Icons.flash_on, size: 16, color: PraharTheme.alertAmber),
+                    label: const Text(
+                      'डेमो किसान लॉगिन / Quick Demo Login (Ramesh)',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: PraharTheme.darkGreen),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      backgroundColor: PraharTheme.cardBgGreen,
+                      side: const BorderSide(color: PraharTheme.borderGreen),
+                      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                    ),
+                    onPressed: _isLoading
+                        ? null
+                        : () {
+                            setState(() {
+                              _emailController.text = 'farmer.ramesh@kisan.in';
+                              _passwordController.text = 'Kisan@123';
+                            });
+                            _handleLogin();
+                          },
+                  ),
                 ],
               ),
             ),
@@ -342,9 +367,13 @@ class _LoginScreenState extends State<LoginScreen> {
           children: const [
             Icon(Icons.agriculture, color: PraharTheme.primaryGreen, size: 14),
             SizedBox(width: 6),
-            Text(
-              'PRAHAR  |  SIH 2026  |  Team KYROS  |  VNIT Nagpur',
-              style: TextStyle(fontSize: 10, color: PraharTheme.darkGreen, fontWeight: FontWeight.w600),
+            Expanded(
+              child: Text(
+                'PRAHAR  |  SIH 2026 • Team KYROS  |  Vivekananda Institute of Professional Studies',
+                textAlign: TextAlign.center,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 10, color: PraharTheme.darkGreen, fontWeight: FontWeight.w600),
+              ),
             ),
           ],
         ),
