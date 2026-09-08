@@ -534,7 +534,7 @@ class _PraharChatScreenState extends State<PraharChatScreen> with SingleTickerPr
             ),
             child: const Icon(Icons.smart_toy, size: 20, color: PraharTheme.primaryGreen),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 8),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -542,21 +542,24 @@ class _PraharChatScreenState extends State<PraharChatScreen> with SingleTickerPr
               children: [
                 Row(
                   children: [
-                    Text(
-                      _currentLanguage == 'hi'
-                          ? 'प्रहार सहायक'
-                          : (_currentLanguage == 'mr'
-                              ? 'प्रहार सहाय्यक'
-                              : (_currentLanguage == 'pa' ? 'ਪ੍ਰਹਾਰ ਸਹਾਇਕ' : 'PRAHAR Field Assistant')),
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w900,
-                        color: PraharTheme.textHeading,
+                    Flexible(
+                      child: Text(
+                        _currentLanguage == 'hi'
+                            ? 'प्रहार सहायक'
+                            : (_currentLanguage == 'mr'
+                                ? 'प्रहार सहाय्यक'
+                                : (_currentLanguage == 'pa' ? 'ਪ੍ਰਹਾਰ ਸਹਾਇਕ' : 'PRAHAR Field Assistant')),
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w900,
+                          color: PraharTheme.textHeading,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    const SizedBox(width: 6),
+                    const SizedBox(width: 5),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1.5),
                       decoration: BoxDecoration(
                         color: PraharTheme.cardBgGreen,
                         borderRadius: BorderRadius.circular(4),
@@ -1049,8 +1052,18 @@ class _PraharChatScreenState extends State<PraharChatScreen> with SingleTickerPr
                                 child: Row(
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Text(item.metric, style: const TextStyle(fontSize: 10, color: PraharTheme.textBody)),
-                                    Text(item.observed, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: PraharTheme.textHeading)),
+                                    Expanded(
+                                      child: Text(
+                                        item.metric,
+                                        style: const TextStyle(fontSize: 10, color: PraharTheme.textBody),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      item.observed,
+                                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: PraharTheme.textHeading),
+                                    ),
                                   ],
                                 ),
                               )),
@@ -1083,7 +1096,7 @@ class _PraharChatScreenState extends State<PraharChatScreen> with SingleTickerPr
                       ),
                     ),
                   ],
-                                    if (structured?.safetyLevel == AssistantSafetyLevel.prohibitedAutonomous) ...[
+                  if (structured?.safetyLevel == AssistantSafetyLevel.prohibitedAutonomous) ...[
                     const SizedBox(height: 10),
                     Container(
                       key: const Key('assistant_prohibited_box'),
@@ -1102,6 +1115,7 @@ class _PraharChatScreenState extends State<PraharChatScreen> with SingleTickerPr
                             child: Text(
                               'ACTION PROHIBITED BY SAFETY PROTOCOL',
                               style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: PraharTheme.alertRose),
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ],
@@ -1126,9 +1140,12 @@ class _PraharChatScreenState extends State<PraharChatScreen> with SingleTickerPr
                             children: [
                               Icon(Icons.shield_outlined, color: PraharTheme.alertAmber, size: 16),
                               SizedBox(width: 6),
-                              Text(
-                                'CONFIRMATION REQUIRED (Simulation Only)',
-                                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: PraharTheme.alertAmber),
+                              Expanded(
+                                child: Text(
+                                  'CONFIRMATION REQUIRED (Simulation Only)',
+                                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: PraharTheme.alertAmber),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
                             ],
                           ),

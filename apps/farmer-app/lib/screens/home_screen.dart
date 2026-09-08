@@ -355,15 +355,6 @@ class _HomeScreenState extends State<HomeScreen> {
     } catch (_) {}
   }
 
-  Future<void> _toggleLanguage() async {
-    final nextLang = _isHindi ? 'en' : 'hi';
-    setState(() {
-      _isHindi = !_isHindi;
-      _currentLanguage = nextLang;
-    });
-    await _offlineStorage.setLanguagePreference(nextLang);
-  }
-
   Future<void> _handleLogout() async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -1073,33 +1064,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
             ],
           ),
-          // Language Switcher Toggle (Requirement 9)
-          TextButton(
-            key: const Key('language_toggle_button'),
-            style: TextButton.styleFrom(
-              visualDensity: VisualDensity.compact,
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-              minimumSize: Size.zero,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
-            onPressed: _toggleLanguage,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.language, color: PraharTheme.primaryGreen, size: 16),
-                const SizedBox(width: 3),
-                Text(
-                  _isHindi ? 'English' : 'हिन्दी',
-                  style: const TextStyle(color: PraharTheme.primaryGreen, fontWeight: FontWeight.bold, fontSize: 11),
-                ),
-              ],
-            ),
-          ),
-          // Phase 7A: 4-Language Selector Menu (en, hi, mr, pa)
+          // Unified Global 4-Language Selector Menu (en, hi, mr, pa)
           PopupMenuButton<String>(
             key: const Key('language_selector_menu_button'),
-            icon: const Icon(Icons.translate, color: PraharTheme.primaryGreen, size: 18),
             tooltip: _isHindi ? 'भाषा चुनें' : 'Select Language',
+            padding: EdgeInsets.zero,
             onSelected: (String langCode) async {
               setState(() {
                 _currentLanguage = langCode;
@@ -1107,22 +1076,82 @@ class _HomeScreenState extends State<HomeScreen> {
               });
               await _offlineStorage.setLanguagePreference(langCode);
             },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+              margin: const EdgeInsets.symmetric(horizontal: 2),
+              decoration: BoxDecoration(
+                color: PraharTheme.primaryGreenLight,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: PraharTheme.borderGreen),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.language, color: PraharTheme.primaryGreen, size: 15),
+                  const SizedBox(width: 3),
+                  Text(
+                    _currentLanguage.toUpperCase(),
+                    style: const TextStyle(
+                      color: PraharTheme.darkGreen,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ),
+            ),
             itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-              const PopupMenuItem<String>(
+              PopupMenuItem<String>(
                 value: 'en',
-                child: Text('English', style: TextStyle(color: PraharTheme.textBody, fontSize: 13)),
+                child: Row(
+                  children: [
+                    if (_currentLanguage == 'en')
+                      const Icon(Icons.check, size: 16, color: PraharTheme.primaryGreen)
+                    else
+                      const SizedBox(width: 16),
+                    const SizedBox(width: 6),
+                    const Text('English', style: TextStyle(color: PraharTheme.textBody, fontSize: 13)),
+                  ],
+                ),
               ),
-              const PopupMenuItem<String>(
+              PopupMenuItem<String>(
                 value: 'hi',
-                child: Text('हिन्दी', style: TextStyle(color: PraharTheme.textBody, fontSize: 13)),
+                child: Row(
+                  children: [
+                    if (_currentLanguage == 'hi')
+                      const Icon(Icons.check, size: 16, color: PraharTheme.primaryGreen)
+                    else
+                      const SizedBox(width: 16),
+                    const SizedBox(width: 6),
+                    const Text('हिन्दी', style: TextStyle(color: PraharTheme.textBody, fontSize: 13)),
+                  ],
+                ),
               ),
-              const PopupMenuItem<String>(
+              PopupMenuItem<String>(
                 value: 'mr',
-                child: Text('मराठी', style: TextStyle(color: PraharTheme.textBody, fontSize: 13)),
+                child: Row(
+                  children: [
+                    if (_currentLanguage == 'mr')
+                      const Icon(Icons.check, size: 16, color: PraharTheme.primaryGreen)
+                    else
+                      const SizedBox(width: 16),
+                    const SizedBox(width: 6),
+                    const Text('मराठी', style: TextStyle(color: PraharTheme.textBody, fontSize: 13)),
+                  ],
+                ),
               ),
-              const PopupMenuItem<String>(
+              PopupMenuItem<String>(
                 value: 'pa',
-                child: Text('ਪੰਜਾਬੀ', style: TextStyle(color: PraharTheme.textBody, fontSize: 13)),
+                child: Row(
+                  children: [
+                    if (_currentLanguage == 'pa')
+                      const Icon(Icons.check, size: 16, color: PraharTheme.primaryGreen)
+                    else
+                      const SizedBox(width: 16),
+                    const SizedBox(width: 6),
+                    const Text('ਪੰਜਾਬੀ', style: TextStyle(color: PraharTheme.textBody, fontSize: 13)),
+                  ],
+                ),
               ),
             ],
           ),

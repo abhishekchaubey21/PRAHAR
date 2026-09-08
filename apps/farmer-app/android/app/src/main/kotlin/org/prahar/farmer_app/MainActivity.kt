@@ -28,6 +28,11 @@ class MainActivity : FlutterActivity() {
         // Initialize TTS eagerly so it's ready when the user first taps the mic
         tts = TextToSpeech(this) { status ->
             ttsReady = (status == TextToSpeech.SUCCESS)
+            if (ttsReady) {
+                runOnUiThread {
+                    voiceChannel?.invokeMethod("onTtsReady", mapOf("ready" to true))
+                }
+            }
         }
     }
 
@@ -40,6 +45,23 @@ class MainActivity : FlutterActivity() {
 
                     "isTtsAvailable" -> {
                         result.success(ttsReady)
+                    }
+
+                    "isLanguageAvailable" -> {
+                        val lang = call.argument<String>("lang") ?: "en"
+                        if (!ttsReady || tts == null) {
+                            result.success(mapOf("available" to false, "reason" to "NOT_READY"))
+                            return@setMethodCallHandler
+                        }
+                        val locale = when (lang) {
+                            "hi" -> Locale("hi", "IN")
+                            "mr" -> Locale("mr", "IN")
+                            "pa" -> Locale("pa", "IN")
+                            else -> Locale("en", "IN")
+                        }
+                        val res = tts!!.isLanguageAvailable(locale)
+                        val isAvail = res >= TextToSpeech.LANG_AVAILABLE
+                        result.success(mapOf("available" to isAvail, "status" to res))
                     }
 
                     "isSpeaking" -> {

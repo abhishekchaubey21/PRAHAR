@@ -315,113 +315,308 @@ class FieldAssistantEngine {
         );
 
       case AssistantIntent.generalFarmGuidance:
+        return _handleGeneralGuidance(text, language, targetZoneId);
+
+      case AssistantIntent.scenarioPrediction:
+        return _handleScenarioPrediction(targetZoneId ?? 'DEMO-ZONE-02', text, language);
+
+      case AssistantIntent.fieldAnalysis:
+        return _handleFieldAnalysis(text, language);
+
+      case AssistantIntent.zoneComparison:
+        return _handleZoneComparison(text, language);
+
+      case AssistantIntent.unknown:
+        // Contextual Fallback: Grounded in active farm data rather than canned greeting
         return AssistantStructuredResponse(
           answer: _translate(
-            'Agronomic Best Practice: For Black Cotton Soil preparing for Kharif season, ensure deep summer ploughing (25-30 cm) to eliminate dormant pest pupae and improve monsoon moisture infiltration. Implement broad-bed furrow (BBF) systems for soybean.',
-            'सटीक कृषि सलाह: खरीफ मौसम की तैयारी के लिए काली कपास मिट्टी में गहरी गर्मी की जुताई (25-30 सेमी) करें ताकि सुप्त कीट नष्ट हों और वर्षा जल का संचय बेहतर हो। सोयाबीन के लिए चौड़ी क्यारी-कूड़ (BBF) प्रणाली अपनाएं।',
-            'कृषी सल्ला: काळ्या कापूस मातीमध्ये खरीप हंगामाच्या पूर्वतयारीसाठी खोल उन्हाळी नांगरणी (25-30 सेमी) करा. सोयाबीनसाठी रुंद गादीवाफा (BBF) पद्धत वापरा.',
-            'ਖੇਤੀਬਾੜੀ ਸਲਾਹ: ਖਰੀਫ ਸੀਜ਼ਨ ਦੀ ਤਿਆਰੀ ਲਈ ਕਾਲੀ ਮਿੱਟੀ ਵਿੱਚ ਡੂੰਘੀ ਵਹਾਈ ਕਰੋ। ਸੋਇਆਬੀਨ ਲਈ ਚੌੜੀ ਕਿਆਰੀ ਵਿਧੀ ਅਪਣਾਓ।',
+            'Patil Krishi Farm (4.2 Acres, Amravati) is under active surveillance across 4 zones. Zone 2 (East Sector) currently has 16.8% soil moisture and requires attention, while Zone 1 is healthy (32.4%). I can answer questions about soil moisture, sensor telemetry, rover detection, rescan verification, or government schemes.',
+            'पाटिल कृषि फार्म (4.2 एकड़, अमरावती) 4 ज़ोन में सक्रिय निगरानी में है। ज़ोन 2 (पूर्वी सेक्टर) में 16.8% नमी है और ध्यान देने की आवश्यकता है, जबकि ज़ोन 1 स्वस्थ (32.4%) है। आप मिट्टी की नमी, सेंसर डेटा, रोवर जांच, सत्यापन या सरकारी योजनाओं के बारे में पूछ सकते हैं।',
+            'पाटील कृषी फार्म (4.2 एकर, अमरावती) 4 झोनमध्ये सक्रिय देखरेखीखाली आहे. झोन 2 मध्ये 16.8% ओलावा असून लक्ष देणे गरजेचे आहे. आपण सेन्सर डेटा, रोव्हर तपासणी किंवा योजनांविषयी विचारू शकता.',
+            'ਪਾਟਿਲ ਕ੍ਰਿਸ਼ੀ ਫਾਰਮ (4.2 ਏਕੜ) 4 ਜ਼ੋਨਾਂ ਵਿੱਚ ਨਿਗਰਾਨੀ ਅਧੀਨ ਹੈ। ਜ਼ੋਨ 2 ਵਿੱਚ 16.8% ਨਮੀ ਹੈ। ਤੁਸੀਂ ਸੈਂਸਰ ਡੇਟਾ, ਰੋਵਰ ਜਾਂਚ ਜਾਂ ਸਰਕਾਰੀ ਸਕੀਮਾਂ ਬਾਰੇ ਪੁੱਛ ਸਕਦੇ ਹੋ।',
             language,
           ),
           intent: AssistantIntent.generalFarmGuidance,
           severity: 'LOW',
-          evidence: 'Agronomic recommendation grounded in ICAR / KVK Vidarbha package of practices.',
-          recommendation: 'Conduct soil test prior to basal fertilizer application.',
-          actionRequired: false,
-          actionType: AssistantActionType.none,
-          requiresConfirmation: false,
-          safetyLevel: AssistantSafetyLevel.safeInformational,
-          simulationStatus: 'SIMULATION ONLY • Physical Rover Disconnected',
-        );
-
-      case AssistantIntent.scenarioPrediction:
-        return AssistantStructuredResponse(
-          answer: _translate(
-            'PRAHAR Predictive Scenario Estimate: If Zone 2 remains untreated for 24-48 hours, soil moisture will drop further to ~11-13%, leading to irreversible leaf wilting, stomatal closure, and estimated 22-28% crop yield loss. Micro-irrigation prevents this progression.',
-            'प्रहार पूर्वानुमान परिदृश्य अनुमान: यदि ज़ोन 2 को 24-48 घंटे तक अनुपचारित छोड़ दिया जाता है, तो मिट्टी की नमी ~11-13% तक गिर जाएगी, जिससे पत्तियों का सूखना और 22-28% उपज हानि हो सकती है।',
-            'प्रहार अंदाज: जर झोन 2 मध्ये 24-48 तास पाणी दिले नाही, तर ओलावा 11-13% पर्यंत घसरेल आणि 22-28% नुकसान संभवते.',
-            'ਪ੍ਰਹਾਰ ਅਨੁਮਾਨ: ਜੇਕਰ ਜ਼ੋਨ 2 ਦਾ 24-48 ਘੰਟਿਆਂ ਵਿੱਚ ਇਲਾਜ ਨਾ ਕੀਤਾ ਗਿਆ, ਤਾਂ ਨਮੀ 11-13% ਤੱਕ ਘਟ ਜਾਵੇਗੀ ਅਤੇ 22-28% ਨੁਕਸਾਨ ਹੋ ਸਕਦਾ ਹੈ।',
-            language,
-          ),
-          intent: AssistantIntent.scenarioPrediction,
-          referencedZone: targetZoneId ?? 'DEMO-ZONE-02',
-          severity: 'HIGH',
-          evidence: 'Historical evapotranspiration models + current sandy loam moisture deficit rate (-0.28%/hr).',
-          recommendation: 'Execute 30-second micro-irrigation simulation immediately to avert wilting.',
-          actionRequired: true,
-          actionType: AssistantActionType.irrigate,
-          requiresConfirmation: true,
-          safetyLevel: AssistantSafetyLevel.requiresConfirmation,
-          simulationStatus: 'SIMULATION ONLY • Physical Rover Disconnected',
-          isPrediction: true,
-          predictionLabel: 'PRAHAR Scenario Estimate • Indicative Simulation',
-          aiProvider: 'DETERMINISTIC_FALLBACK',
-        );
-
-      case AssistantIntent.fieldAnalysis:
-        return AssistantStructuredResponse(
-          answer: _translate(
-            'Comprehensive Field Analysis: 4 Zones evaluated. Zone 1 is Healthy (32.4% moisture). Zone 2 exhibits acute Water Stress (16.8% moisture). Zone 3 has Spodoptera litura pest hazard. Zone 4 shows Nitrogen chlorosis deficiency (pH 7.8).',
-            'व्यापक खेत विश्लेषण: 4 ज़ोन का मूल्यांकन किया गया। ज़ोन 1 स्वस्थ है (32.4% नमी)। ज़ोन 2 में गंभीर जल तनाव (16.8% नमी) है। ज़ोन 3 में कीट का खतरा है। ज़ोन 4 में नाइट्रोजन की कमी है।',
-            'सर्वसमावेशक शेत विश्लेषण: 4 झोन तपासले. झोन 1 निरोगी आहे. झोन 2 मध्ये पाण्याचा ताण आहे. झोन 3 मध्ये कीड आणि झोन 4 मध्ये खताची कमतरता आहे.',
-            'ਵਿਆਪਕ ਖੇਤ ਵਿਸ਼ਲੇਸ਼ਣ: 4 ਜ਼ੋਨਾਂ ਦੀ ਜਾਂਚ ਕੀਤੀ ਗਈ। ਜ਼ੋਨ 1 ਤੰਦਰੁਸਤ ਹੈ। ਜ਼ੋਨ 2 ਵਿੱਚ ਪਾਣੀ ਦੀ ਕਮੀ, ਜ਼ੋਨ 3 ਵਿੱਚ ਕੀੜੇ ਅਤੇ ਜ਼ੋਨ 4 ਵਿੱਚ ਖੁਰਾਕੀ ਤੱਤਾਂ ਦੀ ਘਾਟ ਹੈ।',
-            language,
-          ),
-          intent: AssistantIntent.fieldAnalysis,
-          referencedZone: 'DEMO-ZONE-02',
-          severity: 'HIGH',
-          evidence: 'Z1: 32.4% opt • Z2: 16.8% crit • Z3: Pest detected • Z4: pH 7.8 chlorosis.',
-          recommendation: '1. Irrigate Zone 2. 2. Apply Bio-Neem in Zone 3. 3. Foliar urea in Zone 4.',
+          evidence: 'Farm Context: 4 Zones • 3 Alerts • Zone 2 Priority (16.8% moisture).',
+          recommendation: 'Ask specific questions about zone telemetry, NDVI, pests, or irrigation.',
           actionRequired: false,
           actionType: AssistantActionType.none,
           requiresConfirmation: false,
           safetyLevel: AssistantSafetyLevel.safeInformational,
           simulationStatus: 'SIMULATION ONLY • Physical Rover Disconnected',
           aiProvider: 'DETERMINISTIC_FALLBACK',
-        );
-
-      case AssistantIntent.zoneComparison:
-        return AssistantStructuredResponse(
-          answer: _translate(
-            'Zone Comparison (Zone 1 vs Zone 2): Zone 1 (North Plot) is at optimal 32.4% moisture with healthy canopy. In contrast, Zone 2 (East Sector) is severely moisture depleted at 16.8% (-15.6% relative difference) requiring immediate micro-irrigation.',
-            'ज़ोन तुलना (ज़ोन 1 बनाम ज़ोन 2): ज़ोन 1 (उत्तर प्लॉट) 32.4% नमी पर इष्टतम है। इसके विपरीत, ज़ोन 2 (पूर्वी सेक्टर) 16.8% पर गंभीर नमी की कमी में है और तत्काल सिंचाई की आवश्यकता है।',
-            'झोन तुलना (झोन 1 विरुद्ध झोन 2): झोन 1 मध्ये 32.4% ओलावा उत्तम आहे. याउलट झोन 2 मध्ये 16.8% ओलावा असून तातडीने सिंचनाची गरज आहे.',
-            'ਜ਼ੋਨ ਤੁਲਨਾ (ਜ਼ੋਨ 1 ਬਨਾਮ ਜ਼ੋਨ 2): ਜ਼ੋਨ 1 ਵਿੱਚ 32.4% ਨਮੀ ਵਧੀਆ ਹੈ। ਜ਼ੋਨ 2 ਵਿੱਚ 16.8% ਨਮੀ ਕਾਰਨ ਤੁਰੰਤ ਸਿੰਚਾਈ ਦੀ ਲੋੜ ਹੈ।',
-            language,
-          ),
-          intent: AssistantIntent.zoneComparison,
-          referencedZone: 'DEMO-ZONE-02',
-          severity: 'MEDIUM',
-          evidence: 'Z1 Moisture: 32.4% vs Z2 Moisture: 16.8% (Delta: -15.6%).',
-          recommendation: 'Bring Zone 2 moisture closer to Zone 1 baseline via targeted irrigation.',
-          actionRequired: false,
-          actionType: AssistantActionType.none,
-          requiresConfirmation: false,
-          safetyLevel: AssistantSafetyLevel.safeInformational,
-          simulationStatus: 'SIMULATION ONLY • Physical Rover Disconnected',
-          aiProvider: 'DETERMINISTIC_FALLBACK',
-        );
-
-      case AssistantIntent.unknown:
-        return AssistantStructuredResponse(
-          answer: _translate(
-            'I am the PRAHAR Field Assistant. I can help with: 1) "Which zone needs attention first?", 2) "Why is Zone 2 under water stress?", 3) "What to do about pest in Zone 3?", 4) "Show irrigation verification", 5) "Relevant government schemes", or 6) "My farm profile".',
-            'मैं प्रहार फील्ड सहायक हूँ। आप पूछ सकते हैं: 1) "खेत में सबसे बड़ी समस्या क्या है?", 2) "ज़ोन 2 में जल तनाव क्यों है?", 3) "ज़ोन 3 में कीट से कैसे निपटें?", 4) "सिंचाई के बाद क्या हुआ?", 5) "सरकारी योजनाएं", या 6) "मेरा प्रोफ़ाइल"।',
-            'मी प्रहार फील्ड सहाय्यक आहे. मी पुढील प्रश्नांची उत्तरे देऊ शकतो: 1) "कोणत्या झोनवर लक्ष दिले पाहिजे?", 2) "झोन 2 मध्ये पाण्याचा ताण का आहे?", 3) "शासकीय योजना", किंवा 4) "माझे शेत प्रोफाईल".',
-            'ਮੈਂ ਪ੍ਰਹਾਰ ਫੀਲਡ ਸਹਾਇਕ ਹਾਂ। ਤੁਸੀਂ ਪੁੱਛ ਸਕਦੇ ਹੋ: 1) "ਸਭ ਤੋਂ ਵੱਡੀ ਸਮੱਸਿਆ ਕੀ ਹੈ?", 2) "ਜ਼ੋਨ 2 ਵਿੱਚ ਪਾਣੀ ਦੀ ਕਮੀ ਕਿਉਂ ਹੈ?", 3) "ਸਰਕਾਰੀ ਯੋਜਨਾਵਾਂ"।',
-            language,
-          ),
-          intent: AssistantIntent.unknown,
-          severity: 'NONE',
-          evidence: 'Query did not match supported agronomic intents.',
-          recommendation: 'Select one of the suggested query chips above.',
-          actionRequired: false,
-          actionType: AssistantActionType.none,
-          requiresConfirmation: false,
-          safetyLevel: AssistantSafetyLevel.safeInformational,
-          simulationStatus: 'SIMULATION ONLY • Physical Rover Disconnected',
         );
     }
+  }
+
+  AssistantStructuredResponse _handleGeneralGuidance(String text, String language, String? zoneId) {
+    // 1. NDVI explanation
+    if (text.contains('ndvi') || text.contains('vegetation index') || text.contains('वनस्पति सूचकांक') || text.contains('पिकाची वाढ')) {
+      return AssistantStructuredResponse(
+        answer: _translate(
+          'NDVI (Normalized Difference Vegetation Index) measures crop greenness and photosynthetic health by comparing near-infrared and red light reflectance. Values above 0.70 indicate healthy vigorous canopy (Zone 1: 0.82), while values below 0.60 indicate crop stress or canopy thinning (Zone 2: 0.62).',
+          'NDVI (सामान्यीकृत अंतर वनस्पति सूचकांक) फसलों के हरेपन और प्रकाश संश्लेषण स्वास्थ्य को मापता है। 0.70 से ऊपर का मान स्वस्थ फसल दर्शाता है (ज़ोन 1: 0.82), जबकि 0.60 से कम मान तनाव या पत्तियों की कमी को दर्शाता है (ज़ोन 2: 0.62)।',
+          'NDVI हे पिकांचे हिरवेपण आणि आरोग्य मोजण्याचे प्रमाण आहे. 0.70 वरील मूल्य निरोगी पीक दर्शवते (झोन 1: 0.82), तर 0.60 खालील मूल्य पिकातील ताण दर्शवते.',
+          'NDVI ਫਸਲ ਦੇ ਹਰੇਪਣ ਅਤੇ ਤੰਦਰੁਸਤੀ ਨੂੰ ਮਾਪਦਾ ਹੈ। 0.70 ਤੋਂ ਉੱਪਰ ਮੁੱਲ ਤੰਦਰੁਸਤ ਫਸਲ ਦਰਸਾਉਂਦਾ ਹੈ (ਜ਼ੋਨ 1: 0.82)।',
+          language,
+        ),
+        intent: AssistantIntent.generalFarmGuidance,
+        referencedZone: 'DEMO-ZONE-01',
+        severity: 'LOW',
+        evidence: 'Z1 NDVI: 0.82 (Healthy Canopy) vs Z2 NDVI: 0.62 (Moisture Stressed).',
+        recommendation: 'Use NDVI trends to identify localized crop stress before visual wilting occurs.',
+        actionRequired: false,
+        actionType: AssistantActionType.none,
+        requiresConfirmation: false,
+        safetyLevel: AssistantSafetyLevel.safeInformational,
+        simulationStatus: 'SIMULATION ONLY • Physical Rover Disconnected',
+        aiProvider: 'DETERMINISTIC_FALLBACK',
+      );
+    }
+
+    // 2. Soil pH explanation
+    if (text.contains('ph') || text.contains('पीएच') || text.contains('अम्लीय') || text.contains('क्षारीय')) {
+      return AssistantStructuredResponse(
+        answer: _translate(
+          'Soil pH measures acidity or alkalinity on a scale of 0-14. Optimal crop nutrient uptake occurs between pH 6.2 and 7.2 (Zone 1: 6.8). In Zone 4 (pH 7.8), the slight alkalinity locks micronutrients like nitrogen and iron, causing leaf chlorosis (yellowing). Gypsum or organic amendments help restore balance.',
+          'मिट्टी का pH अम्लता या क्षारीयता को मापता है। पोषक तत्वों के अवशोषण के लिए 6.2 से 7.2 का pH इष्टतम होता है (ज़ोन 1: 6.8)। ज़ोन 4 में pH 7.8 होने से नाइट्रोजन की उपलब्धता घट जाती है और पत्तियां पीली पड़ने लगती हैं।',
+          'मातीचा pH हा आम्ल किंवा अल्कधर्मीपणा मोजतो. पिकांसाठी 6.2 ते 7.2 pH उत्तम असतो (झोन 1: 6.8). झोन 4 मध्ये pH 7.8 असल्याने नायट्रोजनची कमतरता निर्माण झाली आहे.',
+          'ਮਿੱਟੀ ਦਾ pH ਖੁਰਾਕੀ ਤੱਤਾਂ ਦੇ ਸੋਖਣ ਲਈ 6.2 ਤੋਂ 7.2 ਦੇ ਵਿਚਕਾਰ ਹੋਣਾ ਚਾਹੀਦਾ ਹੈ। ਜ਼ੋਨ 4 ਵਿੱਚ pH 7.8 ਹੈ।',
+          language,
+        ),
+        intent: AssistantIntent.generalFarmGuidance,
+        referencedZone: 'DEMO-ZONE-04',
+        severity: 'MEDIUM',
+        evidence: 'Optimal pH: 6.2-7.2. Zone 4 pH: 7.8 (Alkaline chlorosis induced).',
+        recommendation: 'Apply organic compost or foliar nutrient sprays to bypass alkaline soil lock.',
+        actionRequired: false,
+        actionType: AssistantActionType.none,
+        requiresConfirmation: false,
+        safetyLevel: AssistantSafetyLevel.safeInformational,
+        simulationStatus: 'SIMULATION ONLY • Physical Rover Disconnected',
+        aiProvider: 'DETERMINISTIC_FALLBACK',
+      );
+    }
+
+    // 3. Rover & Sensors pipeline
+    if (text.contains('rover') ||
+        text.contains('sensor') ||
+        text.contains('sensors') ||
+        text.contains('how does the rover') ||
+        text.contains('detect') ||
+        text.contains('ai') ||
+        text.contains('yolo') ||
+        text.contains('camera') ||
+        text.contains('रोवर') ||
+        text.contains('सेंसर') ||
+        text.contains('कैमरा')) {
+      return AssistantStructuredResponse(
+        answer: _translate(
+          'PRAHAR uses an autonomous ground rover equipped with capacitive soil moisture probes, soil pH/NPK sensors, thermal canopy infrared sensors, and high-definition optical cameras. An onboard edge computer runs YOLOv8 vision models to detect crop pests (like Spodoptera litura) and water stress directly in the field.',
+          'प्रहार ग्राउंड रोवर कैपेसिटिव मृदा नमी प्रोब, pH/NPK सेंसर, थर्मल कैनोपी सेंसर और हाई-डेफिनिशन कैमरों से लैस है। रोवर का ऑनबोर्ड एज कंप्यूटर सीधे खेत में कीटों (जैसे स्पोडोप्टेरा) और जल तनाव का पता लगाने के लिए YOLOv8 मॉडल चलाता है।',
+          'प्रहार रोव्हर मातीतील ओलावा, pH, NPK सेन्सर्स आणि हाय-डेफिनिशन कॅमेऱ्यांनी सुसज्ज आहे. रोव्हरवरील एज कॉम्प्युटर YOLOv8 मॉडेलद्वारे कीड आणि पाण्याचा ताण त्वरित ओळखतो.',
+          'ਪ੍ਰਹਾਰ ਰੋਵਰ ਮਿੱਟੀ ਦੀ ਨਮੀ, pH ਸੈਂਸਰ ਅਤੇ ਕੈਮਰੇ ਨਾਲ ਲੈਸ ਹੈ। ਇਹ ਖੇਤ ਵਿੱਚ ਕੀੜਿਆਂ ਅਤੇ ਪਾਣੀ ਦੀ ਕਮੀ ਦੀ ਤੁਰੰਤ ਪਛਾਣ ਕਰਦਾ ਹੈ।',
+          language,
+        ),
+        intent: AssistantIntent.generalFarmGuidance,
+        referencedZone: 'DEMO-ZONE-02',
+        severity: 'LOW',
+        evidence: 'Hardware Bundle: Moisture, pH, NPK, IR Canopy Temp, YOLOv8 Optical Edge Vision.',
+        recommendation: 'Sensors feed telemetry into PRAHAR closed-loop validation engine.',
+        actionRequired: false,
+        actionType: AssistantActionType.none,
+        requiresConfirmation: false,
+        safetyLevel: AssistantSafetyLevel.safeInformational,
+        simulationStatus: 'SIMULATION ONLY • Physical Rover Disconnected',
+        aiProvider: 'DETERMINISTIC_FALLBACK',
+      );
+    }
+
+    // 4. Offline operation & Resilience
+    if (text.contains('offline') ||
+        text.contains('without internet') ||
+        text.contains('no internet') ||
+        text.contains('इंटरनेट') ||
+        text.contains('ऑफ़लाइन') ||
+        text.contains('ऑफलाइन') ||
+        text.contains('नेटवर्क') ||
+        text.contains('ਇੰਟਰਨੈਟ')) {
+      return AssistantStructuredResponse(
+        answer: _translate(
+          'PRAHAR is designed for zero-connectivity rural environments. All sensor telemetry, AI pest inferences, and farmer action requests are buffered locally in an offline persistent queue. When internet connectivity is restored, the queue synchronizes idempotently with the central gateway with zero data loss.',
+          'प्रहार बिना इंटरनेट वाले ग्रामीण क्षेत्रों के लिए डिज़ाइन किया गया है। सभी सेंसर डेटा, AI कीट पहचान और किसान कार्रवाइयां स्थानीय ऑफ़लाइन कतार में सुरक्षित रहती हैं। इंटरनेट जुड़ते ही डेटा बिना किसी नुकसान के सर्वर से सिंक हो जाता है।',
+          'प्रहार पूर्णपणे ऑफलाइन काम करू शकतो. इंटरनेट नसताना सर्व डेटा स्थानिकरित्या जतन केला जातो आणि इंटरनेट आल्यावर स्वयंचलित सिंक होतो.',
+          'ਪ੍ਰਹਾਰ ਬਿਨਾਂ ਇੰਟਰਨੈੱਟ ਦੇ ਪੂਰੀ ਤਰ੍ਹਾਂ ਕੰਮ ਕਰਦਾ ਹੈ। ਸਾਰਾ ਡਾਟਾ ਸਥਾਨਕ ਤੌਰ ਤੇ ਸੁਰੱਖਿਅਤ ਹੁੰਦਾ ਹੈ।',
+          language,
+        ),
+        intent: AssistantIntent.generalFarmGuidance,
+        severity: 'LOW',
+        evidence: 'Local Storage: 5-State Idempotent Action Queue & Structured SQLite/File Cache.',
+        recommendation: 'You can review buffered actions anytime; sync completes automatically.',
+        actionRequired: false,
+        actionType: AssistantActionType.none,
+        requiresConfirmation: false,
+        safetyLevel: AssistantSafetyLevel.safeInformational,
+        simulationStatus: 'SIMULATION ONLY • Physical Rover Disconnected',
+        aiProvider: 'DETERMINISTIC_FALLBACK',
+      );
+    }
+
+    // 5. Why rescan after action
+    if (text.contains('rescan') ||
+        text.contains('why rescan') ||
+        text.contains('re-scan') ||
+        text.contains('पुनः स्कैन') ||
+        text.contains('पुन्हा तपासणी') ||
+        text.contains('ਦੁਬਾਰਾ ਸਕੈਨ')) {
+      return AssistantStructuredResponse(
+        answer: _translate(
+          'PRAHAR performs a mandatory closed-loop rescan after every remediation action to measure the exact agronomic delta (e.g. soil moisture improving from 16.8% to 28.2%). This guarantees the root hazard is genuinely resolved before marking the field alert as clear.',
+          'प्रहार हर कार्रवाई के बाद अनिवार्य पुनः स्कैन करता है ताकि सटीक सुधार (जैसे नमी का 16.8% से 28.2% होना) मापा जा सके। इससे यह सुनिश्चित होता है कि समस्या पूरी तरह हल हो गई है।',
+          'कारवाईनंतर प्रहार पुन्हा तपासणी करतो जेणेकरून ओलावा वाढल्याची (16.8% वरून 28.2%) अचूक खात्री पटते.',
+          'ਕਾਰਵਾਈ ਤੋਂ ਬਾਅਦ ਦੁਬਾਰਾ ਸਕੈਨ ਕੀਤਾ ਜਾਂਦਾ ਹੈ ਤਾਂ ਜੋ ਨਮੀ ਦੇ ਸੁਧਾਰ ਦੀ ਪੁਸ਼ਟੀ ਹੋ ਸਕੇ।',
+          language,
+        ),
+        intent: AssistantIntent.verificationStatus,
+        referencedZone: 'DEMO-ZONE-02',
+        severity: 'LOW',
+        evidence: 'Closed-loop verification pipeline: Ingest Pre-Scan -> Action -> Ingest Post-Scan -> Compute Delta.',
+        recommendation: 'Check the Verification Delta tab for historical intervention reports.',
+        actionRequired: false,
+        actionType: AssistantActionType.none,
+        requiresConfirmation: false,
+        safetyLevel: AssistantSafetyLevel.safeInformational,
+        simulationStatus: 'SIMULATION ONLY • Physical Rover Disconnected',
+        aiProvider: 'DETERMINISTIC_FALLBACK',
+      );
+    }
+
+    // 6. Simulation mode clarity
+    if (text.contains('simulation') ||
+        text.contains('demo mode') ||
+        text.contains('live data') ||
+        text.contains('simulated') ||
+        text.contains('सिम्युलेशन') ||
+        text.contains('डेमो')) {
+      return AssistantStructuredResponse(
+        answer: _translate(
+          'DEMO MODE NOTICE: Telemetry and actions displayed are simulated based on deterministic agronomic benchmarks (Physical Rover is Disconnected). Actions demonstrate PRAHAR\'s precision intelligence without activating live physical actuators.',
+          'डेमो मोड सूचना: प्रदर्शित डेटा और कार्रवाइयां सटीक कृषि बेंचमार्क पर आधारित सिम्युलेटेड डेटा हैं (भौतिक रोवर डिस्कनेक्ट है)। यह बिना मोटर चलाए प्रहार की कार्यप्रणाली को प्रदर्शित करता है।',
+          'डेमो मोड सूचना: हा सर्व डेटा सिम्युलेटेड आहे (भौतिक रोव्हर डिस्कनेक्ट आहे). हे प्रहारच्या अचूक प्रणालीचे प्रात्यक्षिक आहे.',
+          'ਡੈਮੋ ਮੋਡ ਸੂਚਨਾ: ਇਹ ਡਾਟਾ ਸਿਮੂਲੇਟਿਡ ਹੈ (ਰੋਵਰ ਡਿਸਕਨੈਕਟ ਹੈ)।',
+          language,
+        ),
+        intent: AssistantIntent.generalFarmGuidance,
+        severity: 'LOW',
+        evidence: 'Operating Mode: Deterministic Benchmark Simulation (Physical Actuators Disabled).',
+        recommendation: 'Explore different demo scenarios from Judge Mode or Scenario Selector.',
+        actionRequired: false,
+        actionType: AssistantActionType.none,
+        requiresConfirmation: false,
+        safetyLevel: AssistantSafetyLevel.safeInformational,
+        simulationStatus: 'SIMULATION ONLY • Physical Rover Disconnected',
+        aiProvider: 'DETERMINISTIC_FALLBACK',
+      );
+    }
+
+    // Default general guidance
+    return AssistantStructuredResponse(
+      answer: _translate(
+        'Agronomic Guidance for Patil Krishi Farm (Soybean & Wheat, Black Cotton Soil): Maintain soil moisture between 20% and 40%. Deep summer ploughing (25-30 cm) helps destroy pest pupae and improves monsoon water retention. Rotate with legumes to maintain nitrogen balance.',
+        'पाटिल कृषि फार्म के लिए कृषि सलाह (सोयाबीन व गेहूं, काली कपास मिट्टी): मिट्टी की नमी 20% से 40% के बीच रखें। गर्मी की गहरी जुताई (25-30 सेमी) से कीट नष्ट होते हैं और जल संचय बढ़ता है। नाइट्रोजन बनाए रखने के लिए दलहनी फसलों का चक्र अपनाएं।',
+        'पाटील कृषी फार्मसाठी पीक सल्ला: मातीतील ओलावा 20% ते 40% दरम्यान ठेवावा. उन्हाळी खोल नांगरणीमुळे किडींचा नायनाट होतो.',
+        'ਪਾਟਿਲ ਫਾਰਮ ਲਈ ਖੇਤੀ ਸਲਾਹ: ਮਿੱਟੀ ਦੀ ਨਮੀ 20% ਤੋਂ 40% ਦੇ ਵਿਚਕਾਰ ਰੱਖੋ। ਗਰਮੀਆਂ ਦੀ ਡੂੰਘੀ ਵਹਾਈ ਕਰੋ।',
+        language,
+      ),
+      intent: AssistantIntent.generalFarmGuidance,
+      severity: 'LOW',
+      evidence: 'Agronomic recommendation grounded in ICAR / KVK Vidarbha package of practices.',
+      recommendation: 'Conduct soil test prior to basal fertilizer application.',
+      actionRequired: false,
+      actionType: AssistantActionType.none,
+      requiresConfirmation: false,
+      safetyLevel: AssistantSafetyLevel.safeInformational,
+      simulationStatus: 'SIMULATION ONLY • Physical Rover Disconnected',
+      aiProvider: 'DETERMINISTIC_FALLBACK',
+    );
+  }
+
+  AssistantStructuredResponse _handleScenarioPrediction(String zoneId, String text, String language) {
+    return AssistantStructuredResponse(
+      answer: _translate(
+        'PRAHAR Predictive Scenario Estimate: If Zone 2 remains untreated for 24-48 hours under current ambient heat (31.4°C), soil moisture will drop from 16.8% to ~11-13%, leading to irreversible leaf wilting, stomatal closure, and estimated 22-28% crop yield loss. Micro-irrigation prevents this progression.',
+        'प्रहार पूर्वानुमान परिदृश्य अनुमान: यदि ज़ोन 2 को 24-48 घंटे तक अनुपचारित छोड़ दिया जाता है, तो मिट्टी की नमी ~11-13% तक गिर जाएगी, जिससे पत्तियों का सूखना और 22-28% उपज हानि हो सकती है। 30 सेकंड की सूक्ष्म-सिंचाई इसे रोकती है।',
+        'प्रहार अंदाज: जर झोन 2 मध्ये 24-48 तास पाणी दिले नाही, तर ओलावा 11-13% पर्यंत घसरेल आणि 22-28% नुकसान संभवते.',
+        'ਪ੍ਰਹਾਰ ਅਨੁਮਾਨ: ਜੇਕਰ ਜ਼ੋਨ 2 ਦਾ 24-48 ਘੰਟਿਆਂ ਵਿੱਚ ਇਲਾਜ ਨਾ ਕੀਤਾ ਗਿਆ, ਤਾਂ ਨਮੀ 11-13% ਤੱਕ ਘਟ ਜਾਵੇਗੀ ਅਤੇ 22-28% ਨੁਕਸਾਨ ਹੋ ਸਕਦਾ ਹੈ।',
+        language,
+      ),
+      intent: AssistantIntent.scenarioPrediction,
+      referencedZone: zoneId,
+      severity: 'HIGH',
+      evidence: 'Historical evapotranspiration models + current sandy loam moisture deficit rate (-0.28%/hr).',
+      recommendation: 'Execute 30-second micro-irrigation simulation immediately to avert wilting.',
+      actionRequired: true,
+      actionType: AssistantActionType.irrigate,
+      requiresConfirmation: true,
+      safetyLevel: AssistantSafetyLevel.requiresConfirmation,
+      simulationStatus: 'SIMULATION ONLY • Physical Rover Disconnected',
+      isPrediction: true,
+      predictionLabel: 'PRAHAR Scenario Estimate • Indicative Simulation',
+      aiProvider: 'DETERMINISTIC_FALLBACK',
+      pendingAction: AssistantPendingAction(
+        actionType: 'IRRIGATE',
+        zoneId: zoneId,
+        durationSeconds: 30,
+        volumeLiters: 7.5,
+      ),
+    );
+  }
+
+  AssistantStructuredResponse _handleFieldAnalysis(String text, String language) {
+    return AssistantStructuredResponse(
+      answer: _translate(
+        'Comprehensive Field Analysis: 4 Zones evaluated. Zone 1 is Healthy (32.4% moisture, NDVI 0.82). Zone 2 exhibits acute Water Stress (16.8% moisture). Zone 3 has Spodoptera litura pest hazard (89% confidence). Zone 4 shows Nitrogen chlorosis deficiency (pH 7.8). Priority action is Zone 2 micro-irrigation.',
+        'व्यापक खेत विश्लेषण: 4 ज़ोन का मूल्यांकन किया गया। ज़ोन 1 स्वस्थ है (32.4% नमी, 0.82 NDVI)। ज़ोन 2 में गंभीर जल तनाव (16.8% नमी) है। ज़ोन 3 में कीट का खतरा है (89%)। ज़ोन 4 में नाइट्रोजन की कमी (pH 7.8) है।',
+        'सर्वसमावेशक शेत विश्लेषण: 4 झोन तपासले. झोन 1 निरोगी आहे. झोन 2 मध्ये पाण्याचा ताण आहे. झोन 3 मध्ये कीड आणि झोन 4 मध्ये खताची कमतरता आहे.',
+        'ਵਿਆਪਕ ਖੇਤ ਵਿਸ਼ਲੇਸ਼ਣ: 4 ਜ਼ੋਨਾਂ ਦੀ ਜਾਂਚ ਕੀਤੀ ਗਈ। ਜ਼ੋਨ 1 ਤੰਦਰੁਸਤ ਹੈ। ਜ਼ੋਨ 2 ਵਿੱਚ ਪਾਣੀ ਦੀ ਕਮੀ, ਜ਼ੋਨ 3 ਵਿੱਚ ਕੀੜੇ ਅਤੇ ਜ਼ੋਨ 4 ਵਿੱਚ ਖੁਰਾਕੀ ਤੱਤਾਂ ਦੀ ਘਾਟ ਹੈ।',
+        language,
+      ),
+      intent: AssistantIntent.fieldAnalysis,
+      referencedZone: 'DEMO-ZONE-02',
+      severity: 'HIGH',
+      evidence: 'Z1: 32.4% opt • Z2: 16.8% crit • Z3: Pest detected • Z4: pH 7.8 chlorosis.',
+      recommendation: '1. Irrigate Zone 2. 2. Apply Bio-Neem in Zone 3. 3. Foliar urea in Zone 4.',
+      actionRequired: false,
+      actionType: AssistantActionType.none,
+      requiresConfirmation: false,
+      safetyLevel: AssistantSafetyLevel.safeInformational,
+      simulationStatus: 'SIMULATION ONLY • Physical Rover Disconnected',
+      aiProvider: 'DETERMINISTIC_FALLBACK',
+    );
+  }
+
+  AssistantStructuredResponse _handleZoneComparison(String text, String language) {
+    return AssistantStructuredResponse(
+      answer: _translate(
+        'Zone Comparison (Zone 1 vs Zone 2): Zone 1 (North Plot) is at optimal 32.4% moisture with healthy canopy (NDVI 0.82). In contrast, Zone 2 (East Sector) is severely moisture depleted at 16.8% (-15.6% relative difference, NDVI 0.62) requiring immediate micro-irrigation.',
+        'ज़ोन तुलना (ज़ोन 1 बनाम ज़ोन 2): ज़ोन 1 (उत्तर प्लॉट) 32.4% नमी पर इष्टतम है (NDVI 0.82)। इसके विपरीत, ज़ोन 2 (पूर्वी सेक्टर) 16.8% पर गंभीर नमी की कमी में है और तत्काल सिंचाई की आवश्यकता है।',
+        'झोन तुलना (झोन 1 विरुद्ध झोन 2): झोन 1 मध्ये 32.4% ओलावा उत्तम आहे. याउलट झोन 2 मध्ये 16.8% ओलावा असून तातडीने सिंचनाची गरज आहे.',
+        'ਜ਼ੋਨ ਤੁਲਨਾ (ਜ਼ੋਨ 1 ਬਨਾਮ ਜ਼ੋਨ 2): ਜ਼ੋਨ 1 ਵਿੱਚ 32.4% ਨਮੀ ਵਧੀਆ ਹੈ। ਜ਼ੋਨ 2 ਵਿੱਚ 16.8% ਨਮੀ ਕਾਰਨ ਤੁਰੰਤ ਸਿੰਚਾਈ ਦੀ ਲੋੜ ਹੈ।',
+        language,
+      ),
+      intent: AssistantIntent.zoneComparison,
+      referencedZone: 'DEMO-ZONE-02',
+      severity: 'MEDIUM',
+      evidence: 'Z1 Moisture: 32.4% vs Z2 Moisture: 16.8% (Delta: -15.6%).',
+      recommendation: 'Bring Zone 2 moisture closer to Zone 1 baseline via targeted irrigation.',
+      actionRequired: false,
+      actionType: AssistantActionType.none,
+      requiresConfirmation: false,
+      safetyLevel: AssistantSafetyLevel.safeInformational,
+      simulationStatus: 'SIMULATION ONLY • Physical Rover Disconnected',
+      aiProvider: 'DETERMINISTIC_FALLBACK',
+    );
   }
 
   AssistantStructuredResponse _handleZoneStatus(String zoneId, String language) {
@@ -683,25 +878,53 @@ class FieldAssistantEngine {
   }
 
   AssistantIntent _classifyIntent(String text) {
+    // 1. Explicit Out-of-Scope boundary detection
+    if (text.contains('capital of') ||
+        text.contains('france') ||
+        text.contains('paris') ||
+        text.contains('poem') ||
+        text.contains('song') ||
+        text.contains('movie') ||
+        text.contains('football') ||
+        text.contains('cricket match') ||
+        text.contains('president') ||
+        text.contains('bitcoin') ||
+        text.contains('weather in new york') ||
+        text.contains('कविता') ||
+        text.contains('गाना') ||
+        text.contains('फ्रांस')) {
+      return AssistantIntent.generalFarmGuidance;
+    }
+
     if (text.contains('predict') ||
         text.contains('forecast') ||
         text.contains('outcome') ||
+        text.contains('what happens if') ||
+        text.contains('wilting') ||
         text.contains('भविष्यवाणी') ||
         text.contains('अंदाज') ||
-        text.contains('ਨਤੀਜਾ')) {
+        text.contains('ਨਤੀਜਾ') ||
+        text.contains('सूख जाएगा') ||
+        text.contains('नुकसान होगा')) {
       return AssistantIntent.scenarioPrediction;
     }
     if (text.contains('field analysis') ||
         text.contains('comprehensive analysis') ||
         text.contains('field report') ||
+        text.contains('health of my field') ||
+        text.contains('explain my field') ||
         text.contains('खेत विश्लेषण') ||
         text.contains('शेताचे विश्लेषण')) {
       return AssistantIntent.fieldAnalysis;
     }
     if (text.contains('compare') ||
         text.contains('comparison') ||
+        text.contains('difference') ||
+        text.contains('versus') ||
+        text.contains('vs') ||
         text.contains('तुलना') ||
         text.contains('तुलना करा') ||
+        text.contains('फरक') ||
         text.contains('ਟਾਕਰਾ')) {
       return AssistantIntent.zoneComparison;
     }
@@ -713,6 +936,18 @@ class FieldAssistantEngine {
         text.contains('pm-kisan') ||
         text.contains('pmfby') ||
         text.contains('fasal bima') ||
+        text.contains('smam') ||
+        text.contains('soil health card') ||
+        text.contains('document') ||
+        text.contains('documents') ||
+        text.contains('दस्तावेज़') ||
+        text.contains('कागदपत्रे') ||
+        text.contains('ਦਸਤਾਵੇਜ਼') ||
+        text.contains('eligibility') ||
+        text.contains('पात्रता') ||
+        text.contains('ਲਾਭ') ||
+        text.contains('benefit') ||
+        text.contains('opportunity') ||
         text.contains('ਸਕੀਮ')) {
       return AssistantIntent.schemeQuery;
     }
@@ -733,11 +968,14 @@ class FieldAssistantEngine {
         text.contains('verification') ||
         text.contains('resolved') ||
         text.contains('solved') ||
+        text.contains('rescan') ||
+        text.contains('re-scan') ||
         text.contains('बाद') ||
         text.contains('सत्यापन') ||
         text.contains('सत्यापित') ||
         text.contains('हल') ||
         text.contains('निकाला') ||
+        text.contains('पुनः स्कैन') ||
         text.contains('ਬਾਅਦ ਕੀ ਹੋਇਆ')) {
       return AssistantIntent.verificationStatus;
     }
@@ -765,7 +1003,8 @@ class FieldAssistantEngine {
         text.contains('ਕੀ ਕਰਨਾ ਚਾਹੀਦਾ') ||
         text.contains('क्या अभी सिंचाई') ||
         text.contains('irrigate') ||
-        text.contains('start')) {
+        text.contains('start irrigation') ||
+        text.contains('सिंचाई चालू')) {
       return AssistantIntent.recommendationExplanation;
     }
     if (text.contains('why') ||
@@ -774,6 +1013,9 @@ class FieldAssistantEngine {
         text.contains('कीट') ||
         text.contains('कीड') ||
         text.contains('spodoptera') ||
+        text.contains('water stress') ||
+        text.contains('dry') ||
+        text.contains('सूखा') ||
         text.contains('कारण') ||
         text.contains('क्यों') ||
         text.contains('का आहे') ||
@@ -802,9 +1044,28 @@ class FieldAssistantEngine {
         text.contains('kharif') ||
         text.contains('rabi') ||
         text.contains('season') ||
+        text.contains('ndvi') ||
+        text.contains('ph') ||
+        text.contains('rover') ||
+        text.contains('sensor') ||
+        text.contains('sensors') ||
+        text.contains('ai') ||
+        text.contains('yolo') ||
+        text.contains('camera') ||
+        text.contains('offline') ||
+        text.contains('internet') ||
+        text.contains('simulation') ||
+        text.contains('simulated') ||
+        text.contains('demo mode') ||
+        text.contains('live data') ||
         text.contains('खेती') ||
         text.contains('बुवाई') ||
-        text.contains('मशागत')) {
+        text.contains('मशागत') ||
+        text.contains('सेंसर') ||
+        text.contains('रोवर') ||
+        text.contains('पीएच') ||
+        text.contains('ऑफ़लाइन') ||
+        text.contains('सिम्युलेशन')) {
       return AssistantIntent.generalFarmGuidance;
     }
     if (text.contains('problem') ||
@@ -812,6 +1073,9 @@ class FieldAssistantEngine {
         text.contains('status') ||
         text.contains('farm') ||
         text.contains('field') ||
+        text.contains('overview') ||
+        text.contains('condition') ||
+        text.contains('how is my farm') ||
         text.contains('समस्या') ||
         text.contains('खेत') ||
         text.contains('हाल') ||

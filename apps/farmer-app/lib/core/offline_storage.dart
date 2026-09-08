@@ -96,7 +96,7 @@ class OfflineStorageService {
 
   Future<String> loadLanguagePreference({String defaultLanguage = 'en'}) async {
     final cached = await _store.getCachedData('user_language_preference');
-    if (cached is String && (cached == 'en' || cached == 'hi')) {
+    if (cached is String && ['en', 'hi', 'mr', 'pa'].contains(cached)) {
       _languagePreference = cached;
       return cached;
     }

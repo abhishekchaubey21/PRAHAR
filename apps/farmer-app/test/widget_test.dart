@@ -156,7 +156,9 @@ void main() {
     expect(find.text('Evidence Report'), findsOneWidget);
     expect(find.text('Opportunities'), findsOneWidget);
 
-    // Test Language Toggle to Hindi (Requirement 9)
+    // Test Language Selection to Hindi (Requirement 9 & 10)
+    await tester.tap(find.byKey(const Key('language_selector_menu_button')));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('हिन्दी'));
     await tester.pumpAndSettle();
 

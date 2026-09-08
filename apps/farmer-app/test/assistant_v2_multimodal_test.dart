@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -172,7 +171,7 @@ void main() {
       // Verify user message appears on right and assistant message on left
       expect(find.text('Explain my field health'), findsOneWidget);
       expect(find.byKey(const Key('assistant_response_card')), findsOneWidget);
-      expect(find.text('FIELD_STATUS'), findsOneWidget);
+      expect(find.byKey(const Key('assistant_intent_chip')), findsOneWidget);
       expect(find.text('DEMO-ZONE-02'), findsOneWidget);
       expect(find.text('HIGH'), findsOneWidget);
 

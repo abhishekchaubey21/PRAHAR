@@ -407,23 +407,29 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
-      // Initial state is English; toggle button offers Hindi
-      expect(find.byKey(const Key('language_toggle_button')), findsOneWidget);
-      expect(find.text('हिन्दी'), findsOneWidget);
+      // Initial state is English; selector button displays EN
+      expect(find.byKey(const Key('language_selector_menu_button')), findsOneWidget);
+      expect(find.text('EN'), findsOneWidget);
 
-      // Tap toggle -> switches to Hindi (Scenario I)
-      await tester.tap(find.byKey(const Key('language_toggle_button')));
+      // Tap selector -> opens menu and switches to Hindi (Scenario I)
+      await tester.tap(find.byKey(const Key('language_selector_menu_button')));
+      await tester.pumpAndSettle();
+      expect(find.text('हिन्दी'), findsOneWidget);
+      await tester.tap(find.text('हिन्दी'));
       await tester.pumpAndSettle();
 
       expect(await offlineStore.getCachedData('user_language_preference'), 'hi');
-      expect(find.text('English'), findsOneWidget);
+      expect(find.text('HI'), findsOneWidget);
 
-      // Tap toggle again -> switches back to English (Scenario H)
-      await tester.tap(find.byKey(const Key('language_toggle_button')));
+      // Tap selector again -> opens menu and switches back to English (Scenario H)
+      await tester.tap(find.byKey(const Key('language_selector_menu_button')));
+      await tester.pumpAndSettle();
+      expect(find.text('English'), findsOneWidget);
+      await tester.tap(find.text('English'));
       await tester.pumpAndSettle();
 
       expect(await offlineStore.getCachedData('user_language_preference'), 'en');
-      expect(find.text('हिन्दी'), findsOneWidget);
+      expect(find.text('EN'), findsOneWidget);
     });
 
     test('Scenario J: Language preference is restored on app restart', () async {

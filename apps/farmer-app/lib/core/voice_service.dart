@@ -26,6 +26,7 @@ class VoiceService {
       ValueNotifier(TtsPlaybackState.idle);
   final ValueNotifier<String?> activeUtteranceNotifier = ValueNotifier(null);
 
+  bool get isInitialized => _initialized;
   bool get ttsAvailable => _ttsAvailable;
   bool get sttAvailable => _sttAvailable;
   String? get lastSttError => _lastSttError;
@@ -37,6 +38,11 @@ class VoiceService {
 
   Future<void> _handleNativeCall(MethodCall call) async {
     switch (call.method) {
+      case 'onTtsReady':
+        _ttsAvailable = true;
+        _initialized = true;
+        break;
+
       case 'onTtsStart':
         final utteranceId = call.arguments is Map
             ? (call.arguments['utteranceId'] as String?)
@@ -57,12 +63,13 @@ class VoiceService {
     }
   }
 
-  /// Call once at startup.
+  /// Call once at startup or when checking capability.
   Future<void> init() async {
-    if (_initialized) return;
     try {
-      _ttsAvailable = (await _channel.invokeMethod<bool>('isTtsAvailable')) ?? false;
-      _sttAvailable = (await _channel.invokeMethod<bool>('isSttAvailable')) ?? false;
+      final tts = await _channel.invokeMethod<bool>('isTtsAvailable');
+      _ttsAvailable = tts ?? false;
+      final stt = await _channel.invokeMethod<bool>('isSttAvailable');
+      _sttAvailable = stt ?? false;
       _initialized = true;
     } on MissingPluginException {
       // Running in test or web; no-op
@@ -74,6 +81,21 @@ class VoiceService {
       _ttsAvailable = false;
       _sttAvailable = false;
       _initialized = true;
+    }
+  }
+
+  /// Check if the native TTS engine supports the given language.
+  Future<bool> isLanguageSupported(String lang) async {
+    await init();
+    if (!_ttsAvailable) return false;
+    try {
+      final res = await _channel.invokeMapMethod<String, dynamic>(
+        'isLanguageAvailable',
+        {'lang': lang},
+      );
+      return res?['available'] == true;
+    } catch (_) {
+      return true; // Assume standard Indian locale fallback
     }
   }
 
