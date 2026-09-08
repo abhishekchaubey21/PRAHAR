@@ -1595,7 +1595,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                       label: const Text('Dispatch Simulation Action', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: actionConfirmed ? PraharTheme.primaryGreen : Colors.grey,
-                                        foregroundColor: Colors.black,
+                                        foregroundColor: Colors.white,
                                       ),
                                       onPressed: actionConfirmed && !isProcessing ? executeConfirmedAction : null,
                                     ),
@@ -2212,7 +2212,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '${_selectedFarm!.location} • ${_selectedFarm!.totalHectares} ha • ${_zones.length} ${_isHindi ? "निगरानी वाले ज़ोन" : "Monitored Zones"}',
+                      '${_selectedFarm!.location} • ${_selectedFarm!.totalHectares.toStringAsFixed(1)} ha • ${_zones.length} ${_isHindi ? "निगरानी वाले ज़ोन" : "Monitored Zones"}',
                       style: const TextStyle(color: PraharTheme.textMuted, fontSize: 12),
                     ),
                     const Divider(height: 16, color: PraharTheme.borderLight),
@@ -2494,7 +2494,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           Text(
                             AppLocalizations.getText('judge_mode_subtitle', _currentLanguage),
                             style: const TextStyle(color: PraharTheme.textMuted, fontSize: 11),
-                            maxLines: 1,
+                            maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
                         ],
@@ -2898,7 +2898,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: PraharTheme.primaryGreen,
-                                foregroundColor: Colors.black,
+                                foregroundColor: Colors.white,
                               ),
                               onPressed: () => _approveAndIrrigate(alert),
                             ),

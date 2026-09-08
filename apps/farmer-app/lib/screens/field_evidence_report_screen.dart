@@ -296,7 +296,7 @@ class _FieldEvidenceReportScreenState extends State<FieldEvidenceReportScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       key: const Key('field_evidence_report_screen'),
-      backgroundColor: PraharTheme.darkBg,
+      backgroundColor: PraharTheme.lightBg,
       appBar: AppBar(
         title: Text(
           _isHindi ? 'फ़ील्ड साक्ष्य रिपोर्ट' : 'Field Evidence Report',
@@ -416,8 +416,8 @@ class _FieldEvidenceReportScreenState extends State<FieldEvidenceReportScreen> {
                 const SizedBox(height: 4),
                 Text(
                   _isHindi ? mandatoryDisclaimerHi : mandatoryDisclaimer,
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.85),
+                  style: const TextStyle(
+                    color: PraharTheme.textBody,
                     fontSize: 11,
                     height: 1.35,
                   ),

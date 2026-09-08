@@ -69,7 +69,7 @@ class _JudgeModeSheetState extends State<JudgeModeSheet> {
         case 2: // FIELD SCAN
           await Future.delayed(const Duration(milliseconds: 300));
           _stepOutput =
-              'Autonomous multi-zone scan completed across 4 sectors.\n• Zone 1: Moisture 68.0%, NDVI 0.82 (Healthy)\n• Zone 2: Moisture 16.8%, Temp 31.4°C (Stress)\n• Zone 3: Moisture 62.0%, Larvae detected (Pest Alert)\n• Zone 4: Moisture 58.0%, NPK 18-12-14 (Low N)';
+              'Autonomous multi-zone scan completed across 4 sectors.\n• Zone 1: Moisture 68.0%, Temp 24.5°C (Healthy)\n• Zone 2: Moisture 16.8%, Temp 31.4°C (Stress)\n• Zone 3: Moisture 62.0%, Larvae detected (Pest Alert)\n• Zone 4: Moisture 58.0%, NPK 18-12-14 (Low N)';
           break;
 
         case 3: // DETECT PROBLEM
