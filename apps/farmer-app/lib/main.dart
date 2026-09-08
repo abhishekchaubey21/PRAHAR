@@ -19,11 +19,15 @@ void main() async {
   final hasValidSession = session != null && session.accessToken.isNotEmpty;
   final initialLanguage = await offlineStorage.loadLanguagePreference();
 
+  // Fast local-only startup check: NEVER block the first UI frame on network/backend I/O.
+  // Full remote profile sync is handled asynchronously inside screens after first frame.
   final profileRepo = FarmerProfileRepository(
     apiClient: ApiClient(sessionStore: sessionStore),
     offlineStore: offlineStore,
   );
-  final isOnboardingCompleted = await profileRepo.isOnboardingCompleted();
+  final isOnboardingCompleted = hasValidSession
+      ? await profileRepo.isOnboardingCompleted(allowRemote: false)
+      : false;
 
   runApp(PraharFarmerApp(
     hasValidSession: hasValidSession,

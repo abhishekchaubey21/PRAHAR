@@ -73,11 +73,16 @@ class FarmerProfileRepository {
   }
 
   /// Checks if the farmer has completed the onboarding flow.
-  Future<bool> isOnboardingCompleted() async {
+  /// When [allowRemote] is false, only reads local cache and avoids network I/O,
+  /// ensuring the first UI frame is never blocked.
+  Future<bool> isOnboardingCompleted({bool allowRemote = true}) async {
     final cachedCompleted =
         await _offlineStore.getCachedData(onboardingCompletedCacheKey);
     if (cachedCompleted is bool) {
       return cachedCompleted;
+    }
+    if (!allowRemote) {
+      return true; // Fast non-blocking default so initial UI renders immediately
     }
     final state = await getOnboardingState();
     return state.isCompleted;

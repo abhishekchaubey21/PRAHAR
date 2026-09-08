@@ -49,3 +49,7 @@ ios/Flutter/Generated.xcconfig
 supabase/.temp/
 supabase/.branches/
 .supabase/
+
+# Verification Screenshots
+screenshots/
+
