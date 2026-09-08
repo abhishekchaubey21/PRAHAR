@@ -138,7 +138,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF08100C),
+      backgroundColor: PraharTheme.lightBg,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -173,7 +173,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       fontSize: 28,
                       fontWeight: FontWeight.w900,
                       letterSpacing: 2.0,
-                      color: Colors.white,
+                      color: PraharTheme.textHeading,
                     ),
                   ),
                   const SizedBox(height: 6),
@@ -192,19 +192,19 @@ class _LoginScreenState extends State<LoginScreen> {
                       key: const Key('login_error_banner'),
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: Colors.red.withOpacity(0.15),
-                        border: Border.all(color: Colors.redAccent),
+                        color: PraharTheme.alertRoseLight,
+                        border: Border.all(color: PraharTheme.alertRose),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Icon(Icons.error_outline, color: Colors.redAccent, size: 20),
+                          const Icon(Icons.error_outline, color: PraharTheme.alertRose, size: 20),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
                               _errorMessage!,
-                              style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+                              style: const TextStyle(color: PraharTheme.alertRose, fontSize: 12),
                             ),
                           ),
                         ],
@@ -218,24 +218,9 @@ class _LoginScreenState extends State<LoginScreen> {
                     key: const Key('login_email_field'),
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: InputDecoration(
+                    decoration: const InputDecoration(
                       labelText: 'ईमेल / Email',
-                      prefixIcon: const Icon(Icons.email_outlined, color: PraharTheme.primaryGreen),
-                      filled: true,
-                      fillColor: const Color(0xFF131F19),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: PraharTheme.borderGreen),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: PraharTheme.borderGreen),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: PraharTheme.primaryGreen, width: 2),
-                      ),
+                      prefixIcon: Icon(Icons.email_outlined, color: PraharTheme.primaryGreen),
                     ),
                     validator: (val) {
                       if (val == null || val.trim().isEmpty) {
@@ -254,34 +239,19 @@ class _LoginScreenState extends State<LoginScreen> {
                     key: const Key('login_password_field'),
                     controller: _passwordController,
                     obscureText: _obscurePassword,
-                    style: const TextStyle(color: Colors.white),
                     decoration: InputDecoration(
                       labelText: 'पासवर्ड / Password',
                       prefixIcon: const Icon(Icons.lock_outline, color: PraharTheme.primaryGreen),
                       suffixIcon: IconButton(
                         icon: Icon(
                           _obscurePassword ? Icons.visibility_off : Icons.visibility,
-                          color: Colors.grey,
+                          color: PraharTheme.textMuted,
                         ),
                         onPressed: () {
                           setState(() {
                             _obscurePassword = !_obscurePassword;
                           });
                         },
-                      ),
-                      filled: true,
-                      fillColor: const Color(0xFF131F19),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: PraharTheme.borderGreen),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: PraharTheme.borderGreen),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: PraharTheme.primaryGreen, width: 2),
                       ),
                     ),
                     validator: (val) {
@@ -301,12 +271,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     key: const Key('login_submit_button'),
                     onPressed: _isLoading ? null : _handleLogin,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: PraharTheme.primaryGreen,
-                      foregroundColor: Colors.black,
+                      foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
                     ),
                     child: _isLoading
                         ? const SizedBox(
@@ -331,7 +297,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     children: [
                       const Text(
                         'खाता नहीं है? / No account? ',
-                        style: TextStyle(color: Colors.grey, fontSize: 13),
+                        style: TextStyle(color: PraharTheme.textMuted, fontSize: 13),
                       ),
                       TextButton(
                         key: const Key('login_register_link'),
@@ -361,6 +327,26 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             ),
           ),
+        ),
+      ),
+
+      // SIH identity footer
+      bottomNavigationBar: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+        decoration: const BoxDecoration(
+          color: PraharTheme.primaryGreenLight,
+          border: Border(top: BorderSide(color: PraharTheme.borderGreen)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: const [
+            Icon(Icons.agriculture, color: PraharTheme.primaryGreen, size: 14),
+            SizedBox(width: 6),
+            Text(
+              'PRAHAR  |  SIH 2026  |  Team KYROS  |  VNIT Nagpur',
+              style: TextStyle(fontSize: 10, color: PraharTheme.darkGreen, fontWeight: FontWeight.w600),
+            ),
+          ],
         ),
       ),
     );

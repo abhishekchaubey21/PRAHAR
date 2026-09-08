@@ -61,7 +61,7 @@ class PraharFarmerApp extends StatelessWidget {
     return MaterialApp(
       title: 'PRAHAR Farmer',
       debugShowCheckedModeBanner: false,
-      theme: PraharTheme.darkTheme,
+      theme: PraharTheme.lightTheme,
       home: initialHome ??
           (hasValidSession
               ? (isOnboardingCompleted

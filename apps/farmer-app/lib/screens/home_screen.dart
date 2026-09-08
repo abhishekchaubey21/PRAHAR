@@ -30,6 +30,7 @@ import '../data/assistant/field_assistant_engine.dart';
 import '../core/localization/app_localizations.dart';
 import '../data/providers/demo_scenarios_provider.dart';
 import 'judge_mode_sheet.dart';
+import '../core/voice_service.dart';
 
 class HomeScreen extends StatefulWidget {
   final ApiClient? apiClient;
@@ -339,12 +340,12 @@ class _HomeScreenState extends State<HomeScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF131F19),
         title: Text(_isHindi ? 'लॉग आउट पुष्टि' : 'Confirm Logout'),
         content: Text(
           _isHindi
               ? 'क्या आप सुनिश्चित हैं कि आप लॉग आउट करना चाहते हैं? स्थानीय डेटा साफ़ हो जाएगा।'
               : 'Are you sure you want to log out? Local cached user data will be cleared.',
+          style: const TextStyle(color: PraharTheme.textBody),
         ),
         actions: [
           TextButton(
@@ -460,22 +461,27 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // Phase 6A-2: Voice Assistant Dialog (Connected to Gateway /api/voice/interact)
+  // Voice Assistant Dialog (with native TTS + backend AI)
   void _openVoiceDialog() {
     bool voiceConfirmed = false;
     bool isProcessing = false;
+    bool isSpeaking = false;
+    bool isListeningNative = false;
     String responseText = _isHindi
-        ? 'आदेश बोलें या लिखें (सिमुलेटेड वॉयस इनपुट)'
-        : 'Speak or type command (Simulated Voice Input)';
+        ? 'नीचे टाइप करें या माइक बटन दबाएं'
+        : 'Type your question below or tap the mic';
     VoiceResponseModel? latestVoiceResponse;
     String? voiceError;
     final textController = TextEditingController();
     final voiceSessionId = 'voice_session_${DateTime.now().millisecondsSinceEpoch}';
 
+    // Initialize native voice on first open
+    voiceService.init();
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: const Color(0xFF131F19),
+      backgroundColor: PraharTheme.cardBg,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -491,16 +497,28 @@ class _HomeScreenState extends State<HomeScreen> {
             try {
               final res = await _voiceRepo.sendVoiceQuery(
                 text: text.trim(),
-                language: _isHindi ? 'hi' : 'en',
+                language: _currentLanguage,
                 sessionId: voiceSessionId,
               );
 
               setModalState(() {
                 latestVoiceResponse = res;
-                responseText = _isHindi ? res.spokenTextHi : res.spokenTextEn;
+                responseText = _currentLanguage == 'hi'
+                    ? res.spokenTextHi
+                    : res.spokenTextEn;
                 voiceConfirmed = false;
                 textController.clear();
               });
+
+              // Speak the response via native TTS
+              final spokenText = _currentLanguage == 'hi'
+                  ? res.spokenTextHi
+                  : res.spokenTextEn;
+              if (voiceService.ttsAvailable) {
+                setModalState(() => isSpeaking = true);
+                await voiceService.speak(spokenText, lang: _currentLanguage);
+                if (context.mounted) setModalState(() => isSpeaking = false);
+              }
             } on NetworkUnavailableException {
               setModalState(() {
                 voiceError = _isHindi
@@ -530,6 +548,19 @@ class _HomeScreenState extends State<HomeScreen> {
             }
           }
 
+          Future<void> startNativeListening() async {
+            if (!voiceService.sttAvailable || isProcessing || isListeningNative) return;
+            setModalState(() => isListeningNative = true);
+            final transcript = await voiceService.startListening(lang: _currentLanguage);
+            if (context.mounted) {
+              setModalState(() => isListeningNative = false);
+              if (transcript != null && transcript.isNotEmpty) {
+                textController.text = transcript;
+                await sendQuery(transcript);
+              }
+            }
+          }
+
           return Padding(
             padding: EdgeInsets.only(
               left: 20.0,
@@ -542,89 +573,139 @@ class _HomeScreenState extends State<HomeScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Handle bar
+                  Center(
+                    child: Container(
+                      width: 40, height: 4,
+                      decoration: BoxDecoration(
+                        color: PraharTheme.borderLight,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Expanded(
-                        child: Row(
-                          children: [
-                            const Icon(Icons.mic, color: PraharTheme.primaryGreen),
-                            const SizedBox(width: 8),
-                            Flexible(
-                              child: Text(
-                                _isHindi ? 'प्रहार आवाज़ सहायक' : 'PRAHAR Voice Assistant',
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                                overflow: TextOverflow.ellipsis,
-                              ),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: PraharTheme.primaryGreenLight,
+                              borderRadius: BorderRadius.circular(10),
                             ),
-                          ],
-                        ),
+                            child: const Icon(Icons.mic, color: PraharTheme.primaryGreen, size: 22),
+                          ),
+                          const SizedBox(width: 10),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _isHindi ? 'PRAHAR आवाज़ सहायक' : 'PRAHAR Voice Assistant',
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: PraharTheme.textHeading),
+                              ),
+                              Text(
+                                voiceService.ttsAvailable
+                                    ? (_isHindi ? 'टीटीएस सक्रिय — उत्तर सुनाई देगा' : 'TTS active — answers spoken aloud')
+                                    : (_isHindi ? 'टीटीएस अनुपलब्ध — टेक्स्ट उत्तर' : 'TTS unavailable — text answers'),
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: voiceService.ttsAvailable ? PraharTheme.primaryGreen : PraharTheme.textMuted,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: PraharTheme.alertAmber.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: PraharTheme.alertAmber),
-                        ),
-                        child: const Text(
-                          'SIMULATION / DEMO INTENT',
-                          style: TextStyle(fontSize: 10, color: PraharTheme.alertAmber, fontWeight: FontWeight.bold),
-                        ),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: PraharTheme.textMuted),
+                        onPressed: () => Navigator.pop(context),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    _isHindi
-                        ? 'स्पष्ट सूचना: माइक्रोफ़ोन/एसटीटी हार्डवेयर अनुपलब्ध — सिम्युलेटेड वॉयस इनपुट सक्रिय। आवाज़ सीधे मोटर नहीं चला सकती।'
-                        : 'Honest STT Notice: Real microphone hardware not connected — Simulated Voice Input active. Voice commands CANNOT directly drive motors.',
-                    style: TextStyle(color: Colors.grey[400], fontSize: 11, fontStyle: FontStyle.italic),
-                  ),
-                  const Divider(height: 20, color: PraharTheme.borderGreen),
+                  const SizedBox(height: 12),
+                  // Response area
                   Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF0C1410),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: PraharTheme.borderGreen),
+                      color: isProcessing || isSpeaking
+                          ? PraharTheme.primaryGreenLight
+                          : (voiceError != null ? PraharTheme.alertRoseLight : PraharTheme.cardBgGreen),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: voiceError != null ? PraharTheme.alertRose : PraharTheme.borderGreen,
+                      ),
                     ),
                     child: isProcessing
-                        ? const Center(
-                            child: SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: PraharTheme.primaryGreen),
-                            ),
+                        ? Row(
+                            children: [
+                              const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2, color: PraharTheme.primaryGreen)),
+                              const SizedBox(width: 10),
+                              Text(_isHindi ? 'सोच रहा हूं...' : 'Thinking...', style: const TextStyle(color: PraharTheme.primaryGreen, fontWeight: FontWeight.w600)),
+                            ],
                           )
-                        : Text(
-                            responseText,
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: voiceError != null ? PraharTheme.alertRose : Colors.white,
+                        : isSpeaking
+                          ? Row(
+                              children: [
+                                const Icon(Icons.volume_up, color: PraharTheme.primaryGreen, size: 18),
+                                const SizedBox(width: 8),
+                                Text(_isHindi ? 'बोल रहा हूं...' : 'Speaking...', style: const TextStyle(color: PraharTheme.primaryGreen, fontWeight: FontWeight.w600)),
+                              ],
+                            )
+                          : Text(
+                              responseText,
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: voiceError != null ? PraharTheme.alertRose : PraharTheme.textBody,
+                                height: 1.4,
+                              ),
                             ),
-                          ),
                   ),
+                  if (isSpeaking) ...[
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        icon: const Icon(Icons.stop_circle_outlined, size: 16),
+                        label: Text(_isHindi ? 'बोलना रोकें' : 'Stop Speaking'),
+                        onPressed: () async {
+                          await voiceService.stopSpeaking();
+                          setModalState(() => isSpeaking = false);
+                        },
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 12),
-                  // Text Input for Voice Command Simulation
+                  // Input row
                   Row(
                     children: [
                       Expanded(
                         child: TextField(
                           key: const Key('voice_input_field'),
                           controller: textController,
+                          style: const TextStyle(color: PraharTheme.textBody),
                           decoration: InputDecoration(
-                            hintText: _isHindi ? 'वॉयस इनपुट लिखें...' : 'Type simulated voice command...',
-                            hintStyle: TextStyle(fontSize: 12, color: Colors.grey[500]),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                            hintText: _isHindi ? 'सवाल लिखें...' : 'Type your question...',
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                           ),
                           onSubmitted: (val) => sendQuery(val),
                         ),
                       ),
                       const SizedBox(width: 8),
+                      // Native mic button
+                      if (voiceService.sttAvailable)
+                        IconButton(
+                          key: const Key('voice_native_mic_button'),
+                          tooltip: _isHindi ? 'बोलकर पूछें' : 'Speak your question',
+                          icon: Icon(
+                            isListeningNative ? Icons.mic_off : Icons.mic,
+                            color: isListeningNative ? PraharTheme.alertRose : PraharTheme.primaryGreen,
+                          ),
+                          onPressed: isProcessing ? null : startNativeListening,
+                        ),
                       IconButton(
                         key: const Key('voice_send_button'),
                         icon: const Icon(Icons.send, color: PraharTheme.primaryGreen),
@@ -633,24 +714,24 @@ class _HomeScreenState extends State<HomeScreen> {
                     ],
                   ),
                   const SizedBox(height: 10),
-                  // Preset Voice Intent Quick Action Chips
+                  // Quick intent chips
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
                     children: [
                       ActionChip(
                         avatar: const Icon(Icons.info_outline, size: 16, color: PraharTheme.primaryGreen),
-                        label: Text(_isHindi ? 'खेत का हाल बताओ' : 'What is farm status?'),
+                        label: Text(_isHindi ? 'खेत का हाल बताओ' : 'What is farm status?', style: const TextStyle(color: PraharTheme.darkGreen)),
                         onPressed: isProcessing ? null : () => sendQuery(_isHindi ? 'खेत का हाल बताओ' : 'What is farm status?'),
                       ),
                       ActionChip(
                         avatar: const Icon(Icons.water_drop, size: 16, color: PraharTheme.alertSky),
-                        label: Text(_isHindi ? 'ज़ोन 2 में सिंचाई चालू करो' : 'Start irrigation in Zone 2'),
+                        label: Text(_isHindi ? 'ज़ोन 2 में सिंचाई' : 'Zone 2 irrigation', style: const TextStyle(color: PraharTheme.darkGreen)),
                         onPressed: isProcessing ? null : () => sendQuery(_isHindi ? 'ज़ोन 2 में सिंचाई चालू करो' : 'Start irrigation in Zone 2'),
                       ),
                       ActionChip(
-                        avatar: const Icon(Icons.help_outline, size: 16, color: Colors.grey),
-                        label: Text(_isHindi ? 'अज्ञात आदेश' : 'Unknown command'),
+                        avatar: const Icon(Icons.help_outline, size: 16, color: PraharTheme.textMuted),
+                        label: Text(_isHindi ? 'अज्ञात आदेश' : 'Unknown command', style: const TextStyle(color: PraharTheme.darkGreen)),
                         onPressed: isProcessing ? null : () => sendQuery('fly to the moon'),
                       ),
                     ],
@@ -662,8 +743,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       key: const Key('voice_safety_banner'),
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: PraharTheme.alertAmber.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
+                        color: PraharTheme.alertAmberLight,
+                        borderRadius: BorderRadius.circular(10),
                         border: Border.all(color: PraharTheme.alertAmber),
                       ),
                       child: Column(
@@ -707,9 +788,9 @@ class _HomeScreenState extends State<HomeScreen> {
                           ElevatedButton(
                             key: const Key('voice_confirm_button'),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: voiceConfirmed ? PraharTheme.primaryGreen : Colors.grey,
-                              foregroundColor: Colors.black,
-                              minimumSize: const Size(double.infinity, 36),
+                              backgroundColor: voiceConfirmed ? PraharTheme.primaryGreen : Colors.grey[300],
+                              foregroundColor: voiceConfirmed ? Colors.white : Colors.grey,
+                              minimumSize: const Size(double.infinity, 40),
                             ),
                             onPressed: voiceConfirmed && !isProcessing
                                 ? () async {
@@ -771,7 +852,7 @@ class _HomeScreenState extends State<HomeScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: const Color(0xFF0D1813),
+      backgroundColor: PraharTheme.cardBg,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -901,7 +982,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       width: 40,
                       height: 4,
                       decoration: BoxDecoration(
-                        color: Colors.grey[700],
+                        color: PraharTheme.borderLight,
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
@@ -945,9 +1026,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(
-                      color: PraharTheme.alertAmber.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: PraharTheme.alertAmber.withValues(alpha: 0.3)),
+                      color: PraharTheme.alertAmberLight,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: PraharTheme.alertAmber.withValues(alpha: 0.5)),
                     ),
                     child: Row(
                       children: [
@@ -969,32 +1050,28 @@ class _HomeScreenState extends State<HomeScreen> {
                     children: [
                       Chip(
                         avatar: const Icon(Icons.person, size: 12, color: PraharTheme.primaryGreen),
-                        label: Text(_onboardingState?.profile.name ?? 'Ramesh Patil', style: const TextStyle(fontSize: 10, color: Colors.white)),
-                        backgroundColor: const Color(0xFF13241D),
+                        label: Text(_onboardingState?.profile.name ?? 'Ramesh Patil', style: const TextStyle(fontSize: 10, color: PraharTheme.darkGreen)),
                         side: const BorderSide(color: PraharTheme.borderGreen),
                         padding: EdgeInsets.zero,
                         materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
                       Chip(
                         avatar: const Icon(Icons.landscape, size: 12, color: PraharTheme.primaryGreen),
-                        label: Text('${_onboardingState?.farm.areaAcres ?? 4.2} Acres', style: const TextStyle(fontSize: 10, color: Colors.white)),
-                        backgroundColor: const Color(0xFF13241D),
+                        label: Text('${_onboardingState?.farm.areaAcres ?? 4.2} Acres', style: const TextStyle(fontSize: 10, color: PraharTheme.darkGreen)),
                         side: const BorderSide(color: PraharTheme.borderGreen),
                         padding: EdgeInsets.zero,
                         materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
                       Chip(
                         avatar: const Icon(Icons.grass, size: 12, color: PraharTheme.primaryGreen),
-                        label: Text('${_zones.isNotEmpty ? _zones.length : 4} Zones', style: const TextStyle(fontSize: 10, color: Colors.white)),
-                        backgroundColor: const Color(0xFF13241D),
+                        label: Text('${_zones.isNotEmpty ? _zones.length : 4} Zones', style: const TextStyle(fontSize: 10, color: PraharTheme.darkGreen)),
                         side: const BorderSide(color: PraharTheme.borderGreen),
                         padding: EdgeInsets.zero,
                         materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
                       Chip(
                         avatar: const Icon(Icons.warning_amber_rounded, size: 12, color: PraharTheme.alertAmber),
-                        label: Text('${_alerts.isNotEmpty ? _alerts.length : 3} Alerts', style: const TextStyle(fontSize: 10, color: Colors.white)),
-                        backgroundColor: const Color(0xFF13241D),
+                        label: Text('${_alerts.isNotEmpty ? _alerts.length : 3} Alerts', style: const TextStyle(fontSize: 10, color: PraharTheme.alertAmber)),
                         side: const BorderSide(color: PraharTheme.alertAmber),
                         padding: EdgeInsets.zero,
                         materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -1037,89 +1114,73 @@ class _HomeScreenState extends State<HomeScreen> {
                       children: [
                         ActionChip(
                           key: const Key('assistant_chip_attention'),
-                          label: Text(AppLocalizations.getText('assistant_chip_attention', _currentLanguage), style: const TextStyle(fontSize: 11, color: Colors.white)),
-                          backgroundColor: const Color(0xFF1A3327),
-                          side: const BorderSide(color: PraharTheme.primaryGreen),
+                          label: Text(AppLocalizations.getText('assistant_chip_attention', _currentLanguage), style: const TextStyle(fontSize: 11, color: PraharTheme.darkGreen)),
                           onPressed: () => sendQuery('Which zone needs attention first?'),
                         ),
                         const SizedBox(width: 6),
                         ActionChip(
                           key: const Key('assistant_chip_prediction'),
-                          label: Text(AppLocalizations.getText('assistant_chip_prediction', _currentLanguage), style: const TextStyle(fontSize: 11, color: Colors.white)),
-                          backgroundColor: const Color(0xFF1A3327),
+                          label: Text(AppLocalizations.getText('assistant_chip_prediction', _currentLanguage), style: const TextStyle(fontSize: 11, color: PraharTheme.alertAmber)),
+                          backgroundColor: PraharTheme.alertAmberLight,
                           side: const BorderSide(color: PraharTheme.alertAmber),
                           onPressed: () => sendQuery('Predict scenario outcome if untreated'),
                         ),
                         const SizedBox(width: 6),
                         ActionChip(
                           key: const Key('assistant_chip_analysis'),
-                          label: Text(AppLocalizations.getText('assistant_chip_analysis', _currentLanguage), style: const TextStyle(fontSize: 11, color: Colors.white)),
-                          backgroundColor: const Color(0xFF1A3327),
-                          side: const BorderSide(color: PraharTheme.primaryGreen),
+                          label: Text(AppLocalizations.getText('assistant_chip_analysis', _currentLanguage), style: const TextStyle(fontSize: 11, color: PraharTheme.darkGreen)),
                           onPressed: () => sendQuery('Give comprehensive field analysis'),
                         ),
                         const SizedBox(width: 6),
                         ActionChip(
                           key: const Key('assistant_chip_compare'),
-                          label: Text(AppLocalizations.getText('assistant_chip_compare', _currentLanguage), style: const TextStyle(fontSize: 11, color: Colors.white)),
-                          backgroundColor: const Color(0xFF1A3327),
+                          label: Text(AppLocalizations.getText('assistant_chip_compare', _currentLanguage), style: const TextStyle(fontSize: 11, color: PraharTheme.alertSky)),
+                          backgroundColor: PraharTheme.alertSkyLight,
                           side: const BorderSide(color: PraharTheme.alertSky),
                           onPressed: () => sendQuery('Compare Zone 1 and Zone 2 status'),
                         ),
                         const SizedBox(width: 6),
                         ActionChip(
                           key: const Key('assistant_chip_farm_status'),
-                          label: const Text('Farm Status', style: TextStyle(fontSize: 11, color: Colors.white)),
-                          backgroundColor: const Color(0xFF1A3327),
-                          side: const BorderSide(color: PraharTheme.primaryGreen),
+                          label: const Text('Farm Status', style: TextStyle(fontSize: 11, color: PraharTheme.darkGreen)),
                           onPressed: () => sendQuery('What is the current farm status?'),
                         ),
                         const SizedBox(width: 6),
                         ActionChip(
                           key: const Key('assistant_chip_zone2'),
-                          label: const Text('Zone 2 Moisture', style: TextStyle(fontSize: 11, color: Colors.white)),
-                          backgroundColor: const Color(0xFF1A3327),
-                          side: const BorderSide(color: PraharTheme.primaryGreen),
+                          label: const Text('Zone 2 Moisture', style: TextStyle(fontSize: 11, color: PraharTheme.darkGreen)),
                           onPressed: () => sendQuery('Why is Zone 2 under water stress?'),
                         ),
                         const SizedBox(width: 6),
                         ActionChip(
                           key: const Key('assistant_chip_stress'),
-                          label: Text(AppLocalizations.getText('assistant_chip_stress', _currentLanguage), style: const TextStyle(fontSize: 11, color: Colors.white)),
-                          backgroundColor: const Color(0xFF1A3327),
-                          side: const BorderSide(color: PraharTheme.primaryGreen),
+                          label: Text(AppLocalizations.getText('assistant_chip_stress', _currentLanguage), style: const TextStyle(fontSize: 11, color: PraharTheme.darkGreen)),
                           onPressed: () => sendQuery('Why is Zone 2 under water stress?'),
                         ),
                         const SizedBox(width: 6),
                         ActionChip(
                           key: const Key('assistant_chip_pest'),
-                          label: Text(AppLocalizations.getText('assistant_chip_pest', _currentLanguage), style: const TextStyle(fontSize: 11, color: Colors.white)),
-                          backgroundColor: const Color(0xFF1A3327),
-                          side: const BorderSide(color: PraharTheme.primaryGreen),
+                          label: Text(AppLocalizations.getText('assistant_chip_pest', _currentLanguage), style: const TextStyle(fontSize: 11, color: PraharTheme.darkGreen)),
                           onPressed: () => sendQuery('What should I do about the pest detected in South Sector?'),
                         ),
                         const SizedBox(width: 6),
                         ActionChip(
                           key: const Key('assistant_chip_schemes'),
-                          label: Text(AppLocalizations.getText('assistant_chip_schemes', _currentLanguage), style: const TextStyle(fontSize: 11, color: Colors.white)),
-                          backgroundColor: const Color(0xFF1A3327),
+                          label: Text(AppLocalizations.getText('assistant_chip_schemes', _currentLanguage), style: const TextStyle(fontSize: 11, color: PraharTheme.alertSky)),
+                          backgroundColor: PraharTheme.alertSkyLight,
                           side: const BorderSide(color: PraharTheme.alertSky),
                           onPressed: () => sendQuery('Which government schemes may be relevant to me?'),
                         ),
                         const SizedBox(width: 6),
                         ActionChip(
                           key: const Key('assistant_chip_verification'),
-                          label: Text(AppLocalizations.getText('assistant_chip_verification', _currentLanguage), style: const TextStyle(fontSize: 11, color: Colors.white)),
-                          backgroundColor: const Color(0xFF1A3327),
-                          side: const BorderSide(color: PraharTheme.borderGreen),
+                          label: Text(AppLocalizations.getText('assistant_chip_verification', _currentLanguage), style: const TextStyle(fontSize: 11, color: PraharTheme.darkGreen)),
                           onPressed: () => sendQuery('Show me what happened after the irrigation action'),
                         ),
                         const SizedBox(width: 6),
                         ActionChip(
                           key: const Key('assistant_chip_profile'),
-                          label: Text(AppLocalizations.getText('assistant_chip_profile', _currentLanguage), style: const TextStyle(fontSize: 11, color: Colors.white)),
-                          backgroundColor: const Color(0xFF1A3327),
-                          side: const BorderSide(color: PraharTheme.borderGreen),
+                          label: Text(AppLocalizations.getText('assistant_chip_profile', _currentLanguage), style: const TextStyle(fontSize: 11, color: PraharTheme.darkGreen)),
                           onPressed: () => sendQuery('Show my farm profile and acres'),
                         ),
                       ],
@@ -1132,21 +1193,11 @@ class _HomeScreenState extends State<HomeScreen> {
                         child: TextField(
                           key: const Key('assistant_input_field'),
                           controller: textController,
-                          style: const TextStyle(color: Colors.white, fontSize: 13),
+                          style: const TextStyle(color: PraharTheme.textBody, fontSize: 13),
                           decoration: InputDecoration(
                             hintText: AppLocalizations.getText('assistant_query_hint', _currentLanguage),
-                            hintStyle: TextStyle(color: Colors.grey[500], fontSize: 12),
-                            filled: true,
-                            fillColor: const Color(0xFF09140F),
                             contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: const BorderSide(color: PraharTheme.borderGreen),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: const BorderSide(color: PraharTheme.borderGreen),
-                            ),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                           ),
                           onSubmitted: sendQuery,
                         ),
@@ -1187,7 +1238,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       width: double.infinity,
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF09140F),
+                        color: PraharTheme.cardBgGreen,
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(color: PraharTheme.borderGreen),
                       ),
@@ -1313,7 +1364,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           Text(
                             latestResponse!.answer,
                             key: const Key('assistant_answer_text'),
-                            style: const TextStyle(color: Colors.white, fontSize: 13, height: 1.4),
+                            style: const TextStyle(color: PraharTheme.textBody, fontSize: 13, height: 1.4),
                           ),
                           if (latestResponse!.evidence != null) ...[
                             const SizedBox(height: 8),
@@ -1322,12 +1373,13 @@ class _HomeScreenState extends State<HomeScreen> {
                               width: double.infinity,
                               padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF132018),
+                                color: PraharTheme.primaryGreenLight,
                                 borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: PraharTheme.borderGreen),
                               ),
                               child: Text(
                                 'Evidence: ${latestResponse!.evidence!}',
-                                style: TextStyle(color: Colors.grey[300], fontSize: 11),
+                                style: const TextStyle(color: PraharTheme.textBody, fontSize: 11),
                               ),
                             ),
                           ],
@@ -1338,7 +1390,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               width: double.infinity,
                               padding: const EdgeInsets.all(10),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF0C1914),
+                                color: PraharTheme.primaryGreenLight,
                                 borderRadius: BorderRadius.circular(8),
                                 border: Border.all(color: PraharTheme.borderGreen),
                               ),
@@ -1358,12 +1410,12 @@ class _HomeScreenState extends State<HomeScreen> {
                                         children: [
                                           Text(
                                             '• ${item.metric}: ',
-                                            style: const TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.w600),
+                                            style: const TextStyle(fontSize: 10, color: PraharTheme.textMuted, fontWeight: FontWeight.w600),
                                           ),
                                           Expanded(
                                             child: Text(
                                               '${item.observed} (${item.threshold}) [${item.status}]',
-                                              style: const TextStyle(fontSize: 10, color: Colors.white70),
+                                              style: const TextStyle(fontSize: 10, color: PraharTheme.textBody),
                                             ),
                                           ),
                                         ],
@@ -1379,14 +1431,24 @@ class _HomeScreenState extends State<HomeScreen> {
                             Container(
                               key: const Key('assistant_recommendation_box'),
                               width: double.infinity,
-                              padding: const EdgeInsets.all(8),
+                              padding: const EdgeInsets.all(10),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF162B21),
+                                color: PraharTheme.alertAmberLight,
                                 borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: PraharTheme.alertAmber.withValues(alpha: 0.5)),
                               ),
-                              child: Text(
-                                'Recommendation: ${latestResponse!.recommendation!}',
-                                style: const TextStyle(color: PraharTheme.primaryGreen, fontSize: 11, fontWeight: FontWeight.w600),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Icon(Icons.lightbulb_outline, size: 14, color: PraharTheme.alertAmber),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      latestResponse!.recommendation!,
+                                      style: const TextStyle(color: PraharTheme.alertAmber, fontSize: 11, fontWeight: FontWeight.w600),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ],
@@ -1395,7 +1457,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             Text(
                               latestResponse!.indicativeDisclaimer!,
                               key: const Key('assistant_disclaimer_text'),
-                              style: TextStyle(color: Colors.grey[500], fontSize: 10, fontStyle: FontStyle.italic),
+                              style: const TextStyle(color: PraharTheme.textMuted, fontSize: 10, fontStyle: FontStyle.italic),
                             ),
                           ],
                           if (latestResponse!.safetyLevel == AssistantSafetyLevel.prohibitedAutonomous) ...[
@@ -1461,7 +1523,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                       Expanded(
                                         child: Text(
                                           AppLocalizations.getText('assistant_confirm_action', _currentLanguage),
-                                          style: const TextStyle(fontSize: 12, color: Colors.white),
+                                          style: const TextStyle(fontSize: 12, color: PraharTheme.textBody),
                                         ),
                                       ),
                                     ],
@@ -1538,6 +1600,14 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        backgroundColor: PraharTheme.cardBg,
+        elevation: 0,
+        shadowColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(height: 1, color: PraharTheme.borderLight),
+        ),
         titleSpacing: 8,
         title: FittedBox(
           fit: BoxFit.scaleDown,
@@ -1545,14 +1615,18 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('PRAHAR'),
+              const Icon(Icons.agriculture, color: PraharTheme.primaryGreen, size: 22),
               const SizedBox(width: 6),
-              Chip(
-                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                visualDensity: VisualDensity.compact,
-                label: Text(_isHindi ? 'किसान v0.3' : 'Farmer v0.3', style: const TextStyle(fontSize: 10, color: Colors.white)),
-                backgroundColor: PraharTheme.borderGreen,
-                padding: const EdgeInsets.symmetric(horizontal: 4),
+              const Text('PRAHAR', style: TextStyle(color: PraharTheme.textHeading, fontWeight: FontWeight.w900, fontSize: 18, letterSpacing: 1.5)),
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: PraharTheme.primaryGreenLight,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: PraharTheme.borderGreen),
+                ),
+                child: Text(_isHindi ? 'किसान' : 'Farmer App', style: const TextStyle(fontSize: 10, color: PraharTheme.darkGreen, fontWeight: FontWeight.bold)),
               ),
             ],
           ),
@@ -1564,7 +1638,7 @@ class _HomeScreenState extends State<HomeScreen> {
             visualDensity: VisualDensity.compact,
             padding: const EdgeInsets.all(4),
             constraints: const BoxConstraints(),
-            icon: const Icon(Icons.analytics_outlined, color: Colors.white, size: 20),
+            icon: const Icon(Icons.analytics_outlined, color: PraharTheme.textHeading, size: 20),
             tooltip: _isHindi ? 'खेत स्वास्थ्य एवं रुझान' : 'Field Health & Analytics',
             onPressed: () {
               Navigator.push(
@@ -1589,7 +1663,7 @@ class _HomeScreenState extends State<HomeScreen> {
             visualDensity: VisualDensity.compact,
             padding: const EdgeInsets.all(4),
             constraints: const BoxConstraints(),
-            icon: const Icon(Icons.account_balance_outlined, color: Colors.white, size: 20),
+            icon: const Icon(Icons.account_balance_outlined, color: PraharTheme.textHeading, size: 20),
             tooltip: _isHindi ? 'अवसर एवं सरकारी योजना केंद्र' : 'Opportunity & Scheme Center',
             onPressed: _openOpportunityCenterDialog,
           ),
@@ -1602,7 +1676,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 visualDensity: VisualDensity.compact,
                 padding: const EdgeInsets.all(4),
                 constraints: const BoxConstraints(),
-                icon: const Icon(Icons.notifications_outlined, color: Colors.white, size: 20),
+                icon: const Icon(Icons.notifications_outlined, color: PraharTheme.textHeading, size: 20),
                 tooltip: _isHindi ? 'सूचना केंद्र' : 'Notification Center',
                 onPressed: () async {
                   await Navigator.push(
@@ -1665,7 +1739,6 @@ class _HomeScreenState extends State<HomeScreen> {
             key: const Key('language_selector_menu_button'),
             icon: const Icon(Icons.translate, color: PraharTheme.primaryGreen, size: 18),
             tooltip: _isHindi ? 'भाषा चुनें' : 'Select Language',
-            color: const Color(0xFF131F19),
             onSelected: (String langCode) async {
               setState(() {
                 _currentLanguage = langCode;
@@ -1676,19 +1749,19 @@ class _HomeScreenState extends State<HomeScreen> {
             itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
               const PopupMenuItem<String>(
                 value: 'en',
-                child: Text('English', style: TextStyle(color: Colors.white, fontSize: 13)),
+                child: Text('English', style: TextStyle(color: PraharTheme.textBody, fontSize: 13)),
               ),
               const PopupMenuItem<String>(
                 value: 'hi',
-                child: Text('हिन्दी', style: TextStyle(color: Colors.white, fontSize: 13)),
+                child: Text('हिन्दी', style: TextStyle(color: PraharTheme.textBody, fontSize: 13)),
               ),
               const PopupMenuItem<String>(
                 value: 'mr',
-                child: Text('मराठी', style: TextStyle(color: Colors.white, fontSize: 13)),
+                child: Text('मराठी', style: TextStyle(color: PraharTheme.textBody, fontSize: 13)),
               ),
               const PopupMenuItem<String>(
                 value: 'pa',
-                child: Text('ਪੰਜਾਬੀ', style: TextStyle(color: Colors.white, fontSize: 13)),
+                child: Text('ਪੰਜਾਬੀ', style: TextStyle(color: PraharTheme.textBody, fontSize: 13)),
               ),
             ],
           ),
@@ -1697,7 +1770,7 @@ class _HomeScreenState extends State<HomeScreen> {
             visualDensity: VisualDensity.compact,
             padding: const EdgeInsets.all(4),
             constraints: const BoxConstraints(),
-            icon: const Icon(Icons.logout, color: Colors.grey, size: 18),
+            icon: const Icon(Icons.logout, color: PraharTheme.textMuted, size: 18),
             tooltip: _isHindi ? 'लॉग आउट' : 'Log Out',
             onPressed: _handleLogout,
           ),
@@ -1707,132 +1780,81 @@ class _HomeScreenState extends State<HomeScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16.0),
         children: [
-          // Phase 7A Demo Data & Backend Status Banner
+          // Farmer-first status banner (light)
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             margin: const EdgeInsets.only(bottom: 14),
             decoration: BoxDecoration(
-              color: _offlineStorage.isOnline ? const Color(0xFF10281F) : const Color(0xFF2A1C14),
+              color: _offlineStorage.isOnline ? PraharTheme.primaryGreenLight : PraharTheme.alertAmberLight,
               border: Border.all(
-                color: _offlineStorage.isOnline ? PraharTheme.primaryGreen : PraharTheme.alertAmber,
+                color: _offlineStorage.isOnline ? PraharTheme.borderGreen : PraharTheme.alertAmber,
                 width: 1,
               ),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(12),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Row(
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Row(
-                        children: [
-                          Icon(
-                            _offlineStorage.isOnline ? Icons.cloud_done : Icons.cloud_off,
-                            color: _offlineStorage.isOnline ? PraharTheme.primaryGreen : PraharTheme.alertAmber,
-                            size: 20,
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                FittedBox(
-                                  fit: BoxFit.scaleDown,
-                                  alignment: Alignment.centerLeft,
-                                  child: Text(
-                                    _offlineStorage.isOnline
-                                        ? (_isHindi ? 'क्लाउड सिंक सक्रिय (ऑनलाइन)' : 'Backend Sync: Online (Physical Rover Disconnected)')
-                                        : (_isHindi ? 'ऑफ़लाइन मोड (स्थानीय कैश)' : 'Offline Mode (Local Cache)'),
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12,
-                                      color: _offlineStorage.isOnline ? PraharTheme.primaryGreen : PraharTheme.alertAmber,
-                                    ),
-                                  ),
-                                ),
-                                Text(
-                                  _isHindi
-                                      ? 'लंबित कतार: ${_offlineStorage.pendingCount} कार्य'
-                                      : 'Buffered: ${_offlineStorage.pendingCount} pending events',
-                                  style: TextStyle(color: Colors.grey[400], fontSize: 11),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Offline toggle for field testing
-                        IconButton(
-                          visualDensity: VisualDensity.compact,
-                          padding: const EdgeInsets.all(4),
-                          constraints: const BoxConstraints(),
-                          icon: Icon(
-                            _offlineStorage.isOnline ? Icons.wifi : Icons.wifi_off,
-                            size: 20,
-                            color: Colors.grey[300],
-                          ),
-                          tooltip: 'Toggle Network Connectivity',
-                          onPressed: () {
-                            setState(() {
-                              _offlineStorage.isOnline = !_offlineStorage.isOnline;
-                            });
-                          },
+                Icon(
+                  _offlineStorage.isOnline ? Icons.cloud_done : Icons.cloud_off,
+                  color: _offlineStorage.isOnline ? PraharTheme.primaryGreen : PraharTheme.alertAmber,
+                  size: 22,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _offlineStorage.isOnline
+                            ? (_isHindi ? 'आपका खेत जुड़ा हुआ है' : 'Farm Connected — Live Data')
+                            : (_isHindi ? 'ऑफ़लाइन मोड' : 'Offline Mode — Cached Data'),
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                          color: _offlineStorage.isOnline ? PraharTheme.darkGreen : PraharTheme.alertAmber,
                         ),
-                        if (_offlineStorage.pendingCount > 0 && _offlineStorage.isOnline) ...[
-                          const SizedBox(width: 4),
-                          TextButton(
-                            onPressed: _syncNow,
-                            style: TextButton.styleFrom(
-                              backgroundColor: PraharTheme.primaryGreen,
-                              foregroundColor: Colors.black,
-                              visualDensity: VisualDensity.compact,
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            ),
-                            child: Text(
-                              _isHindi ? 'सिंक करें' : 'Sync Now',
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ],
+                      ),
+                      Text(
+                        _isHindi
+                            ? '${_offlineStorage.pendingCount} लंबित कार्य  •  डेमो टेलीमेट्री'
+                            : '${_offlineStorage.pendingCount} buffered  •  Demo Rover Telemetry',
+                        style: const TextStyle(color: PraharTheme.textMuted, fontSize: 11),
+                      ),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 8),
-                const Divider(height: 1, color: PraharTheme.borderGreen),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Container(
-                      key: const Key('demo_data_source_badge'),
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: PraharTheme.alertAmber.withValues(alpha: 0.18),
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: PraharTheme.alertAmber.withValues(alpha: 0.5)),
-                      ),
-                      child: Text(
-                        _isHindi ? 'डेटा स्रोत: डेमो रोवर टेलीमेट्री' : 'Data: DEMO ROVER TELEMETRY',
-                        style: const TextStyle(fontSize: 10, color: PraharTheme.alertAmber, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        _isHindi ? 'भौतिक रोवर: डिस्कनेक्टेड' : 'Physical Rover: Disconnected',
-                        style: TextStyle(fontSize: 10, color: Colors.grey[400]),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
+                // Offline toggle for field testing
+                IconButton(
+                  key: const Key('wifi_toggle_button'),
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.all(4),
+                  constraints: const BoxConstraints(),
+                  icon: Icon(
+                    _offlineStorage.isOnline ? Icons.wifi : Icons.wifi_off,
+                    size: 20,
+                    color: PraharTheme.textMuted,
+                  ),
+                  tooltip: 'Toggle Network Connectivity',
+                  onPressed: () {
+                    setState(() {
+                      _offlineStorage.isOnline = !_offlineStorage.isOnline;
+                    });
+                  },
                 ),
+                if (_offlineStorage.pendingCount > 0 && _offlineStorage.isOnline)
+                  TextButton(
+                    onPressed: _syncNow,
+                    style: TextButton.styleFrom(
+                      backgroundColor: PraharTheme.primaryGreen,
+                      foregroundColor: Colors.white,
+                      visualDensity: VisualDensity.compact,
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    ),
+                    child: Text(
+                      _isHindi ? 'सिंक' : 'Sync',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -1844,9 +1866,9 @@ class _HomeScreenState extends State<HomeScreen> {
               padding: const EdgeInsets.all(12),
               margin: const EdgeInsets.only(bottom: 14),
               decoration: BoxDecoration(
-                color: PraharTheme.alertRose.withValues(alpha: 0.15),
+                color: PraharTheme.alertRoseLight,
                 border: Border.all(color: PraharTheme.alertRose),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(10),
               ),
               child: Row(
                 children: [
@@ -1873,9 +1895,9 @@ class _HomeScreenState extends State<HomeScreen> {
               padding: const EdgeInsets.all(12),
               margin: const EdgeInsets.only(bottom: 14),
               decoration: BoxDecoration(
-                color: PraharTheme.alertAmber.withValues(alpha: 0.15),
+                color: PraharTheme.alertAmberLight,
                 border: Border.all(color: PraharTheme.alertAmber),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(10),
               ),
               child: Row(
                 children: [
@@ -1970,25 +1992,25 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             )
           else if (_selectedFarm != null) ...[
-            // Phase 7A: Farmer & Farm Profile Identity Card
+            // Farmer & Farm Profile Identity Card (light)
             Container(
               key: const Key('farmer_identity_card'),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               margin: const EdgeInsets.only(bottom: 12),
               decoration: BoxDecoration(
-                color: const Color(0xFF0F1E17),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: PraharTheme.primaryGreen.withValues(alpha: 0.5)),
+                color: PraharTheme.cardBgGreen,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: PraharTheme.borderGreen),
               ),
               child: Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: PraharTheme.primaryGreen.withValues(alpha: 0.15),
+                    padding: const EdgeInsets.all(10),
+                    decoration: const BoxDecoration(
+                      color: PraharTheme.primaryGreenLight,
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.person, color: PraharTheme.primaryGreen, size: 20),
+                    child: const Icon(Icons.person, color: PraharTheme.primaryGreen, size: 22),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -2001,29 +2023,29 @@ class _HomeScreenState extends State<HomeScreen> {
                               child: Text(
                                 _farmerIdentityTitle,
                                 key: const Key('farmer_identity_title'),
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: PraharTheme.textHeading),
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
-                                color: PraharTheme.alertAmber.withValues(alpha: 0.2),
-                                borderRadius: BorderRadius.circular(4),
+                                color: PraharTheme.alertAmberLight,
+                                borderRadius: BorderRadius.circular(6),
                                 border: Border.all(color: PraharTheme.alertAmber.withValues(alpha: 0.5)),
                               ),
                               child: const Text(
-                                'DEMO FARM',
+                                'DEMO',
                                 style: TextStyle(fontSize: 9, color: PraharTheme.alertAmber, fontWeight: FontWeight.bold),
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 2),
+                        const SizedBox(height: 3),
                         Text(
                           _farmerIdentitySubtitle,
                           key: const Key('farmer_identity_subtitle'),
-                          style: TextStyle(color: Colors.grey[300], fontSize: 11),
+                          style: const TextStyle(color: PraharTheme.textMuted, fontSize: 11),
                         ),
                       ],
                     ),
@@ -2039,10 +2061,6 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             Card(
               key: const Key('farm_card'),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-                side: const BorderSide(color: PraharTheme.borderGreen, width: 1),
-              ),
               child: Padding(
                 padding: const EdgeInsets.all(14.0),
                 child: Column(
@@ -2054,7 +2072,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         Expanded(
                           child: Text(
                             _selectedFarm!.name,
-                            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.white),
+                            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: PraharTheme.textHeading),
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
@@ -2062,7 +2080,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           DropdownButton<String>(
                             key: const Key('farm_selector_dropdown'),
                             value: _selectedFarm!.id,
-                            dropdownColor: const Color(0xFF131F19),
+                            dropdownColor: PraharTheme.cardBg,
                             style: const TextStyle(color: PraharTheme.primaryGreen, fontSize: 12, fontWeight: FontWeight.bold),
                             underline: const SizedBox(),
                             items: _farms
@@ -2083,9 +2101,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(height: 4),
                     Text(
                       '${_selectedFarm!.location} • ${_selectedFarm!.totalHectares} ha • ${_zones.length} ${_isHindi ? "निगरानी वाले ज़ोन" : "Monitored Zones"}',
-                      style: TextStyle(color: Colors.grey[400], fontSize: 12),
+                      style: const TextStyle(color: PraharTheme.textMuted, fontSize: 12),
                     ),
-                    const Divider(height: 16, color: PraharTheme.borderGreen),
+                    const Divider(height: 16, color: PraharTheme.borderLight),
                     // Phase 4: Weather Risk Indicator with Mandatory Simulation/Demo Label
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -2113,7 +2131,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                           Text(
                             _isHindi ? '31°C | ताप तनाव: मध्यम' : '31°C Sunny | Heat Risk: MODERATE',
-                            style: TextStyle(color: Colors.grey[300], fontSize: 11),
+                            style: const TextStyle(color: PraharTheme.textMuted, fontSize: 11),
                           ),
                         ],
                       ),
@@ -2131,7 +2149,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       key: const Key('simulated_rover_telemetry_card'),
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF09140F),
+                        color: PraharTheme.primaryGreenLight,
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(color: PraharTheme.borderGreen),
                       ),
@@ -2154,8 +2172,9 @@ class _HomeScreenState extends State<HomeScreen> {
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                                 decoration: BoxDecoration(
-                                  color: PraharTheme.alertAmber.withValues(alpha: 0.15),
+                                  color: PraharTheme.alertAmberLight,
                                   borderRadius: BorderRadius.circular(3),
+                                  border: Border.all(color: PraharTheme.alertAmber.withValues(alpha: 0.5)),
                                 ),
                                 child: Text(
                                   _isHindi ? 'हार्डवेयर अलग है' : 'Benchmark',
@@ -2167,14 +2186,14 @@ class _HomeScreenState extends State<HomeScreen> {
                           const SizedBox(height: 4),
                           Text(
                             'Rover: ${_rover.roverId} • State: ${_rover.state} • GPS: 20.9320° N, 77.7523° E (Amravati)',
-                            style: TextStyle(color: Colors.grey[300], fontSize: 10),
+                            style: const TextStyle(color: PraharTheme.textBody, fontSize: 10),
                           ),
                           const SizedBox(height: 2),
                           Text(
                             _isHindi
                                 ? 'फ़ील्ड कवरेज: 100% (4/4 ज़ोन स्कैन किए गए • डेमोंस्ट्रेशन मोड)'
                                 : 'Field Coverage: 100% (4/4 Zones Scanned • Demo Mode)',
-                            style: TextStyle(color: Colors.grey[400], fontSize: 10),
+                            style: const TextStyle(color: PraharTheme.textMuted, fontSize: 10),
                           ),
                         ],
                       ),
@@ -2189,7 +2208,7 @@ class _HomeScreenState extends State<HomeScreen> {
           // Monitored Zones Section
           Text(
             _isHindi ? 'निगरानी वाले ज़ोन' : 'Monitored Zones',
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: PraharTheme.textHeading),
           ),
           const SizedBox(height: 8),
           if (_zones.isEmpty)
@@ -2198,13 +2217,13 @@ class _HomeScreenState extends State<HomeScreen> {
               width: double.infinity,
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: const Color(0xFF0C1410),
+                color: PraharTheme.primaryGreenLight,
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: PraharTheme.borderGreen),
               ),
               child: Text(
                 _isHindi ? 'इस खेत के लिए कोई ज़ोन कॉन्फ़िगर नहीं किया गया है।' : 'No zones configured for this farm.',
-                style: TextStyle(color: Colors.grey[400], fontSize: 12),
+                style: const TextStyle(color: PraharTheme.textMuted, fontSize: 12),
               ),
             )
           else
@@ -2218,24 +2237,17 @@ class _HomeScreenState extends State<HomeScreen> {
                   avatar: const Icon(Icons.grass, size: 16, color: PraharTheme.primaryGreen),
                   label: Text(
                     '${zone.name} (${zone.soilType}, ${zone.moisturePct.toStringAsFixed(1)}%)',
-                    style: const TextStyle(fontSize: 12, color: Colors.white),
+                    style: const TextStyle(fontSize: 12, color: PraharTheme.darkGreen),
                   ),
-                  backgroundColor: const Color(0xFF13241D),
-                  side: const BorderSide(color: PraharTheme.borderGreen),
                 );
               }).toList(),
             ),
-          // Phase 8: Deterministic Demo Scenario Selector Card
+          // Demo Scenario Selector Card (light theme)
           AnimatedBuilder(
             animation: _scenariosProvider,
             builder: (context, _) {
               return Card(
-                key: const Key('demo_scenario_selector_card'),
-                color: const Color(0xFF0C1914),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  side: const BorderSide(color: PraharTheme.borderGreen),
-                ),
+                key: const Key('demo_scenario_selector_card_v2'),
                 child: Padding(
                   padding: const EdgeInsets.all(12),
                   child: Column(
@@ -2250,7 +2262,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               const SizedBox(width: 6),
                               Text(
                                 AppLocalizations.getText('demo_scenarios_title', _currentLanguage),
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: PraharTheme.textHeading),
                               ),
                             ],
                           ),
@@ -2291,15 +2303,11 @@ class _HomeScreenState extends State<HomeScreen> {
                                   style: TextStyle(
                                     fontSize: 11,
                                     fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                    color: isSelected ? Colors.black : Colors.white70,
+                                    color: isSelected ? Colors.white : PraharTheme.darkGreen,
                                   ),
                                 ),
                                 selected: isSelected,
                                 selectedColor: PraharTheme.primaryGreen,
-                                backgroundColor: const Color(0xFF13241D),
-                                side: BorderSide(
-                                  color: isSelected ? PraharTheme.primaryGreen : PraharTheme.borderGreen,
-                                ),
                                 onSelected: (sel) async {
                                   if (sel) {
                                     await _scenariosProvider.selectScenario(sc.id);
@@ -2321,20 +2329,20 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           const SizedBox(height: 10),
 
-          // Phase 8: Judge Mode Entry Card
+          // Judge Mode Entry Card (light)
           Card(
             key: const Key('judge_mode_entry_card'),
-            color: const Color(0xFF10261E),
+            color: PraharTheme.alertSkyLight,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(12),
               side: const BorderSide(color: PraharTheme.alertSky, width: 1.2),
             ),
             child: InkWell(
               key: const Key('open_judge_mode_button'),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(12),
               onTap: _openJudgeModeSheet,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 child: Row(
                   children: [
                     Container(
@@ -2354,7 +2362,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             children: [
                               Text(
                                 AppLocalizations.getText('judge_mode_title', _currentLanguage),
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: PraharTheme.alertSky),
                               ),
                               const SizedBox(width: 6),
                               Container(
@@ -2373,7 +2381,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           const SizedBox(height: 2),
                           Text(
                             AppLocalizations.getText('judge_mode_subtitle', _currentLanguage),
-                            style: TextStyle(color: Colors.grey[400], fontSize: 11),
+                            style: const TextStyle(color: PraharTheme.textMuted, fontSize: 11),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -2388,86 +2396,80 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           const SizedBox(height: 12),
 
-          // Phase 7B: PRAHAR Contextual Field Assistant Entry Card
-          Card(
-            color: const Color(0xFF0C1D16),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-              side: const BorderSide(color: PraharTheme.primaryGreen, width: 1.5),
-            ),
-            child: InkWell(
+          // ── ASK PRAHAR — Prominent Farmer-First CTA ───────────────────────────
+          GestureDetector(
+            onTap: _openFieldAssistantDialog,
+            child: Container(
               key: const Key('open_field_assistant_button'),
-              borderRadius: BorderRadius.circular(10),
-              onTap: _openFieldAssistantDialog,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: PraharTheme.primaryGreen.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Icon(Icons.smart_toy, color: PraharTheme.primaryGreen, size: 22),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Text(
-                                AppLocalizations.getText('assistant_title', _currentLanguage),
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
-                              ),
-                              const SizedBox(width: 6),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                                decoration: BoxDecoration(
-                                  color: PraharTheme.alertAmber.withValues(alpha: 0.2),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: const Text(
-                                  'DEMO AI',
-                                  style: TextStyle(fontSize: 8, color: PraharTheme.alertAmber, fontWeight: FontWeight.bold),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            AppLocalizations.getText('assistant_query_hint', _currentLanguage),
-                            style: TextStyle(color: Colors.grey[400], fontSize: 11),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Icon(Icons.arrow_forward_ios, size: 14, color: PraharTheme.primaryGreen),
-                  ],
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [PraharTheme.primaryGreen, PraharTheme.mediumGreen],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: PraharTheme.primaryGreen.withValues(alpha: 0.25),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.smart_toy, color: Colors.white, size: 28),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _isHindi ? 'PRAHAR से पूछें' : 'Ask PRAHAR',
+                          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Colors.white),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          _isHindi
+                              ? 'खेत के बारे में कोई भी सवाल पूछें'
+                              : (_currentLanguage == 'mr'
+                                  ? 'शेताबद्दल कोणताही प्रश्न विचारा'
+                                  : (_currentLanguage == 'pa'
+                                      ? 'ਖੇਤ ਬਾਰੇ ਕੋਈ ਵੀ ਸਵਾਲ ਪੁੱਛੋ'
+                                      : 'Ask anything about your farm')),
+                          style: const TextStyle(color: Colors.white70, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.arrow_forward_ios, size: 18, color: Colors.white),
+                ],
               ),
             ),
           ),
           const SizedBox(height: 12),
 
-          // Phase 4: Quick Action Hub (Voice Assistant, Evidence Report, Opportunities)
+          // Quick Action Hub — light style
           Row(
             children: [
               Expanded(
                 child: OutlinedButton.icon(
                   icon: const Icon(Icons.mic, size: 16, color: PraharTheme.primaryGreen),
                   label: Text(
-                    _isHindi ? 'आवाज़ सहायक' : 'Voice (Demo)',
-                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+                    _isHindi ? 'आवाज़' : 'Voice',
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: PraharTheme.darkGreen),
                   ),
                   style: OutlinedButton.styleFrom(
-                    backgroundColor: const Color(0xFF13241D),
-                    side: const BorderSide(color: PraharTheme.borderGreen),
-                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
                   ),
                   onPressed: _openVoiceDialog,
                 ),
@@ -2477,13 +2479,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: OutlinedButton.icon(
                   icon: const Icon(Icons.description, size: 16, color: PraharTheme.alertAmber),
                   label: Text(
-                    _isHindi ? 'साक्ष्य रिपोर्ट' : 'Evidence Report',
-                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+                    _isHindi ? 'रिपोर्ट' : 'Report',
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: PraharTheme.alertAmber),
                   ),
                   style: OutlinedButton.styleFrom(
-                    backgroundColor: const Color(0xFF13241D),
-                    side: const BorderSide(color: PraharTheme.borderGreen),
-                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    foregroundColor: PraharTheme.alertAmber,
+                    side: const BorderSide(color: PraharTheme.alertAmber),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
                   ),
                   onPressed: _openEvidenceReportDialog,
                 ),
@@ -2493,13 +2495,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: OutlinedButton.icon(
                   icon: const Icon(Icons.account_balance, size: 16, color: PraharTheme.alertSky),
                   label: Text(
-                    _isHindi ? 'योजनाएं' : 'Opportunities',
-                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+                    _isHindi ? 'योजनाएं' : 'Schemes',
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: PraharTheme.alertSky),
                   ),
                   style: OutlinedButton.styleFrom(
-                    backgroundColor: const Color(0xFF13241D),
+                    foregroundColor: PraharTheme.alertSky,
                     side: const BorderSide(color: PraharTheme.alertSky),
-                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
                   ),
                   onPressed: _openOpportunityCenterDialog,
                 ),
@@ -2511,7 +2513,7 @@ class _HomeScreenState extends State<HomeScreen> {
           // Closed-Loop Verification Result Card (if verified)
           if (_latestVerification != null) ...[
             Card(
-              color: const Color(0xFF13241D),
+              color: PraharTheme.primaryGreenLight,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(14),
                 side: const BorderSide(color: PraharTheme.primaryGreen, width: 1.5),
@@ -2531,7 +2533,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               Expanded(
                                 child: Text(
                                   _isHindi ? 'उपचार सत्यापन सफल' : 'Remediation Verified (Closed-Loop)',
-                                  style: const TextStyle(fontWeight: FontWeight.bold, color: PraharTheme.primaryGreen, fontSize: 13),
+                                  style: const TextStyle(fontWeight: FontWeight.bold, color: PraharTheme.darkGreen, fontSize: 13),
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
@@ -2542,7 +2544,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         Chip(
                           materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                           visualDensity: VisualDensity.compact,
-                          label: Text(_isHindi ? 'सत्यापित' : 'RESOLVED', style: const TextStyle(fontSize: 10, color: Colors.black)),
+                          label: Text(_isHindi ? 'सत्यापित' : 'RESOLVED', style: const TextStyle(fontSize: 10, color: Colors.white)),
                           backgroundColor: PraharTheme.primaryGreen,
                         ),
                       ],
@@ -2550,7 +2552,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(height: 10),
                     Text(
                       _isHindi ? _latestVerification!.summaryHi : _latestVerification!.summaryEn,
-                      style: const TextStyle(fontSize: 13),
+                      style: const TextStyle(fontSize: 13, color: PraharTheme.textBody),
                     ),
                     const SizedBox(height: 8),
                     Wrap(
@@ -2560,7 +2562,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       children: [
                         Text(
                           '${_isHindi ? "पहले" : "Pre"}: ${_latestVerification!.preMoisture}%  →  ${_isHindi ? "बाद में" : "Post"}: ${_latestVerification!.postMoisture}%',
-                          style: TextStyle(color: Colors.grey[300], fontWeight: FontWeight.w600, fontSize: 13),
+                          style: const TextStyle(color: PraharTheme.textBody, fontWeight: FontWeight.w600, fontSize: 13),
                         ),
                         Text(
                           '(+${_latestVerification!.moistureDelta}%)',
@@ -2578,7 +2580,7 @@ class _HomeScreenState extends State<HomeScreen> {
           // Active Field Alerts Header
           Text(
             _isHindi ? 'सक्रिय खेत अलर्ट और सिफारिशें' : 'Active Field Alerts & Recommendations',
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: PraharTheme.textHeading),
           ),
           const SizedBox(height: 10),
 
@@ -2639,21 +2641,22 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                           Text(
                             alert.zoneName,
-                            style: TextStyle(color: Colors.grey[400], fontSize: 12),
+                            style: const TextStyle(color: PraharTheme.textMuted, fontSize: 12),
                           ),
                         ],
                       ),
                       const SizedBox(height: 10),
                       Text(
                         _isHindi ? alert.messageHi : alert.message,
-                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: PraharTheme.textBody),
                       ),
                       const SizedBox(height: 8),
                       Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF101B17),
+                          color: PraharTheme.alertAmberLight,
                           borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: PraharTheme.alertAmber.withValues(alpha: 0.4)),
                         ),
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -2663,7 +2666,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             Expanded(
                               child: Text(
                                 _isHindi ? alert.recommendedActionHi : alert.recommendedAction,
-                                style: TextStyle(color: Colors.grey[300], fontSize: 12),
+                                style: const TextStyle(color: PraharTheme.textBody, fontSize: 12),
                               ),
                             ),
                           ],
@@ -2679,10 +2682,10 @@ class _HomeScreenState extends State<HomeScreen> {
                           });
                         },
                         child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                          padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 10),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF0D1814),
-                            borderRadius: BorderRadius.circular(6),
+                            color: PraharTheme.primaryGreenLight,
+                            borderRadius: BorderRadius.circular(8),
                             border: Border.all(color: PraharTheme.borderGreen),
                           ),
                           child: Row(
@@ -2693,7 +2696,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   const Icon(Icons.psychology, size: 14, color: PraharTheme.primaryGreen),
                                   const SizedBox(width: 6),
                                   Text(
-                                    _isHindi ? 'कारण और साक्ष्य देखें (WHY Reasoning)' : 'Inspect "WHY" Reasoning & Evidence',
+                                    _isHindi ? 'कारण और साक्ष्य देखें' : 'Inspect "WHY" Reasoning',
                                     style: const TextStyle(fontSize: 11, color: PraharTheme.primaryGreen, fontWeight: FontWeight.w600),
                                   ),
                                 ],
@@ -2713,7 +2716,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         Container(
                           padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF09120E),
+                            color: PraharTheme.primaryGreenLight,
                             borderRadius: BorderRadius.circular(6),
                             border: Border.all(color: PraharTheme.borderGreen),
                           ),
@@ -2738,7 +2741,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 alert.type == HazardType.waterStress
                                     ? (_isHindi ? 'प्रेक्षित नमी: 16.8% | सुरक्षा सीमा: < 20.0%' : 'Observed Moisture: 16.8% | Safety Threshold: < 20.0%')
                                     : (_isHindi ? 'प्रेक्षित आर्द्रता: 74.0% | कीट अनुकूल सीमा: > 70.0%' : 'Observed RH: 74.0% | Pest Favorable: > 70.0%'),
-                                style: TextStyle(fontSize: 11, color: Colors.grey[300]),
+                                style: const TextStyle(fontSize: 11, color: PraharTheme.textBody),
                               ),
                             ],
                           ),
@@ -2750,12 +2753,12 @@ class _HomeScreenState extends State<HomeScreen> {
                       if (alert.type == HazardType.waterStress) ...[
                         if (!alert.isApproved) ...[
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                             margin: const EdgeInsets.only(bottom: 6),
                             decoration: BoxDecoration(
-                              color: PraharTheme.alertAmber.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(4),
-                              border: Border.all(color: PraharTheme.alertAmber.withValues(alpha: 0.4)),
+                              color: PraharTheme.alertAmberLight,
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: PraharTheme.alertAmber.withValues(alpha: 0.5)),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
@@ -2787,18 +2790,19 @@ class _HomeScreenState extends State<HomeScreen> {
                         ]
                         else
                           Container(
-                            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 10),
+                            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
                             decoration: BoxDecoration(
-                              color: PraharTheme.borderGreen,
-                              borderRadius: BorderRadius.circular(6),
+                              color: PraharTheme.primaryGreenLight,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: PraharTheme.borderGreen),
                             ),
                             child: Row(
                               children: [
-                                const Icon(Icons.check, size: 16, color: PraharTheme.primaryGreen),
+                                const Icon(Icons.check_circle, size: 16, color: PraharTheme.primaryGreen),
                                 const SizedBox(width: 6),
                                 Text(
-                                  _isHindi ? 'स्वीकृत - रोवर द्वारा उपचार पूरा' : 'Approved - Remediated by Rover',
-                                  style: const TextStyle(fontSize: 12, color: PraharTheme.primaryGreen),
+                                  _isHindi ? 'स्वीकृत - रोवर द्वारा उपचार पूरा' : 'Approved — Remediated by Rover',
+                                  style: const TextStyle(fontSize: 12, color: PraharTheme.darkGreen, fontWeight: FontWeight.w600),
                                 ),
                               ],
                             ),
@@ -2808,6 +2812,57 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
               )),
+
+          // ── SIH 2026 Identity Footer ─────────────────────────────────────────
+          const SizedBox(height: 24),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+            decoration: BoxDecoration(
+              color: PraharTheme.cardBgGreen,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: PraharTheme.borderGreen),
+            ),
+            child: Column(
+              children: const [
+                Text(
+                  'PRAHAR — प्रहार',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.5,
+                    color: PraharTheme.textHeading,
+                  ),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  'Smart Rover-Based Precision Agriculture Platform',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 11, color: PraharTheme.textMuted),
+                ),
+                SizedBox(height: 8),
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: 8,
+                  children: [
+                    Chip(
+                      label: Text('SIH 2026', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: PraharTheme.darkGreen)),
+                      padding: EdgeInsets.zero,
+                    ),
+                    Chip(
+                      label: Text('Team KYROS', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: PraharTheme.darkGreen)),
+                      padding: EdgeInsets.zero,
+                    ),
+                    Chip(
+                      label: Text('VNIT Nagpur', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: PraharTheme.darkGreen)),
+                      padding: EdgeInsets.zero,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
         ],
       ),
     );
@@ -2819,7 +2874,7 @@ class _HomeScreenState extends State<HomeScreen> {
       children: [
         Text(value, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color)),
         const SizedBox(height: 2),
-        Text(label, style: TextStyle(color: Colors.grey[400], fontSize: 11)),
+        Text(label, style: const TextStyle(color: PraharTheme.textMuted, fontSize: 11)),
       ],
     );
   }
