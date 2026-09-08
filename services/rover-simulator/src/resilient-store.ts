@@ -23,6 +23,7 @@ export class ResilientDataStore implements IAlertStore {
   private supabaseRepo: SupabaseDataRepository;
   private activeToken?: string;
   private userCacheLock: Set<string> = new Set();
+  private farmerProfiles: Map<string, any> = new Map();
 
   constructor(localStore?: PersistentAlertStore) {
     this.localStore = localStore || new PersistentAlertStore();
@@ -188,7 +189,16 @@ export class ResilientDataStore implements IAlertStore {
     return this.supabaseRepo;
   }
 
+  public getFarmerProfile(userId: string): any | undefined {
+    return this.farmerProfiles.get(userId);
+  }
+
+  public saveFarmerProfile(userId: string, profile: any): void {
+    this.farmerProfiles.set(userId, profile);
+  }
+
   public clear(): void {
+    this.farmerProfiles.clear();
     this.localStore.clear();
   }
 }

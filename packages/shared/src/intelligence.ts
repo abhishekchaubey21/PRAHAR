@@ -323,7 +323,7 @@ export interface OpportunityApplicationStep {
 }
 
 export interface DeterministicEligibilityRule {
-  field: 'land_acres' | 'crop_type' | 'state' | 'aadhaar_verified' | 'bank_account';
+  field: 'land_acres' | 'crop_type' | 'state' | 'aadhaar_verified' | 'bank_account' | 'irrigation_status' | 'ownership_type';
   operator: 'gte' | 'lte' | 'in' | 'eq' | 'required';
   value?: any;
   label_en: string;
@@ -403,6 +403,8 @@ export interface CheckEligibilityInput {
   crop_type?: string;
   land_acres?: number;
   state?: string;
+  irrigation_status?: string;
+  ownership_type?: string;
 }
 
 export interface UpdateTrackingInput {

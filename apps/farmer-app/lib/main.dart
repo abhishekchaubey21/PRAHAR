@@ -5,6 +5,9 @@ import 'core/storage/session_store.dart';
 import 'core/storage/offline_store.dart';
 import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
+import 'screens/onboarding_screen.dart';
+import 'core/api_client.dart';
+import 'data/repositories/farmer_profile_repository.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -16,8 +19,15 @@ void main() async {
   final hasValidSession = session != null && session.accessToken.isNotEmpty;
   final initialLanguage = await offlineStorage.loadLanguagePreference();
 
+  final profileRepo = FarmerProfileRepository(
+    apiClient: ApiClient(sessionStore: sessionStore),
+    offlineStore: offlineStore,
+  );
+  final isOnboardingCompleted = await profileRepo.isOnboardingCompleted();
+
   runApp(PraharFarmerApp(
     hasValidSession: hasValidSession,
+    isOnboardingCompleted: isOnboardingCompleted,
     sessionStore: sessionStore,
     offlineStore: offlineStore,
     initialLanguage: initialLanguage,
@@ -26,6 +36,7 @@ void main() async {
 
 class PraharFarmerApp extends StatelessWidget {
   final bool hasValidSession;
+  final bool isOnboardingCompleted;
   final ISessionStore? sessionStore;
   final IOfflineStore? offlineStore;
   final String initialLanguage;
@@ -34,6 +45,7 @@ class PraharFarmerApp extends StatelessWidget {
   const PraharFarmerApp({
     super.key,
     this.hasValidSession = false,
+    this.isOnboardingCompleted = true,
     this.sessionStore,
     this.offlineStore,
     this.initialLanguage = 'en',
@@ -48,11 +60,17 @@ class PraharFarmerApp extends StatelessWidget {
       theme: PraharTheme.darkTheme,
       home: initialHome ??
           (hasValidSession
-              ? HomeScreen(
-                  sessionStore: sessionStore,
-                  offlineStore: offlineStore,
-                  initialLanguage: initialLanguage,
-                )
+              ? (isOnboardingCompleted
+                  ? HomeScreen(
+                      sessionStore: sessionStore,
+                      offlineStore: offlineStore,
+                      initialLanguage: initialLanguage,
+                    )
+                  : OnboardingScreen(
+                      sessionStore: sessionStore,
+                      offlineStore: offlineStore,
+                      initialLanguage: initialLanguage,
+                    ))
               : LoginScreen(
                   sessionStore: sessionStore,
                   offlineStore: offlineStore,

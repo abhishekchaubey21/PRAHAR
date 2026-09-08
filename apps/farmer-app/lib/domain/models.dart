@@ -10,6 +10,7 @@ class ZoneModel {
   final double humidityPct;
   final double ph;
   final DateTime? lastScanAt;
+  final String cropType;
 
   const ZoneModel({
     required this.id,
@@ -20,6 +21,7 @@ class ZoneModel {
     required this.humidityPct,
     required this.ph,
     this.lastScanAt,
+    this.cropType = '',
   });
 
   factory ZoneModel.fromJson(Map<String, dynamic> json) {
@@ -32,6 +34,7 @@ class ZoneModel {
       humidityPct: (json['humidity_pct'] as num?)?.toDouble() ?? 50.0,
       ph: (json['ph'] as num?)?.toDouble() ?? 7.0,
       lastScanAt: json['last_scan_at'] != null ? DateTime.parse(json['last_scan_at']) : null,
+      cropType: (json['crop_type'] ?? json['crop'] ?? '') as String,
     );
   }
 }
@@ -42,6 +45,13 @@ class FarmModel {
   final String location;
   final double totalHectares;
   final String farmerId;
+  final double areaAcres;
+  final String cropType;
+  final String ownershipType;
+  final String irrigationStatus;
+  final String waterSource;
+  final String soilType;
+  final String season;
 
   const FarmModel({
     required this.id,
@@ -49,15 +59,34 @@ class FarmModel {
     required this.location,
     required this.totalHectares,
     required this.farmerId,
+    this.areaAcres = 4.2,
+    this.cropType = 'Soybean + Wheat',
+    this.ownershipType = 'OWNED',
+    this.irrigationStatus = 'PARTIAL',
+    this.waterSource = 'BOREWELL',
+    this.soilType = 'Black Cotton Loam',
+    this.season = 'KHARIF',
   });
 
   factory FarmModel.fromJson(Map<String, dynamic> json) {
+    final rawAcres = (json['area_acres'] as num?)?.toDouble();
+    final rawHectares = (json['total_hectares'] as num?)?.toDouble();
+    final acres = rawAcres ?? (rawHectares != null ? rawHectares * 2.47105 : 4.2);
+    final hectares = rawHectares ?? (rawAcres != null ? rawAcres / 2.47105 : 1.7);
+
     return FarmModel(
       id: (json['farm_id'] ?? json['id'] ?? 'FARM-DEMO-01') as String,
-      name: (json['name'] ?? 'Demo Farm Alpha') as String,
-      location: (json['location'] ?? 'Indore, MP') as String,
-      totalHectares: (json['total_hectares'] as num?)?.toDouble() ?? 4.2,
+      name: (json['name'] ?? 'Patil Krishi Farm (पाटील कृषी फार्म)') as String,
+      location: (json['location'] ?? 'Amravati, Maharashtra') as String,
+      totalHectares: hectares,
       farmerId: (json['farmer_id'] ?? '') as String,
+      areaAcres: acres,
+      cropType: (json['crop_type'] ?? 'Soybean + Wheat') as String,
+      ownershipType: (json['ownership_type'] ?? 'OWNED') as String,
+      irrigationStatus: (json['irrigation_status'] ?? 'PARTIAL') as String,
+      waterSource: (json['water_source'] ?? 'BOREWELL') as String,
+      soilType: (json['soil_type'] ?? 'Black Cotton Loam') as String,
+      season: (json['season'] ?? 'KHARIF') as String,
     );
   }
 
@@ -67,6 +96,13 @@ class FarmModel {
         'location': location,
         'total_hectares': totalHectares,
         'farmer_id': farmerId,
+        'area_acres': areaAcres,
+        'crop_type': cropType,
+        'ownership_type': ownershipType,
+        'irrigation_status': irrigationStatus,
+        'water_source': waterSource,
+        'soil_type': soilType,
+        'season': season,
       };
 }
 
@@ -164,6 +200,11 @@ class RoverStatusModel {
   final double batteryPct;
   final String currentZone;
   final bool isOffline;
+  final double gpsLat;
+  final double gpsLng;
+  final double fieldCoveragePct;
+  final bool isSimulated;
+  final String dataSource; // 'DEMO' | 'LIVE'
 
   const RoverStatusModel({
     required this.roverId,
@@ -171,6 +212,11 @@ class RoverStatusModel {
     required this.batteryPct,
     required this.currentZone,
     required this.isOffline,
+    this.gpsLat = 20.9374,
+    this.gpsLng = 77.7796,
+    this.fieldCoveragePct = 100.0,
+    this.isSimulated = true,
+    this.dataSource = 'DEMO',
   });
 }
 

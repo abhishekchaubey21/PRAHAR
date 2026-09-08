@@ -10,7 +10,7 @@
     "apps/expert-console"
   ],
   "scripts": {
-    "test": "tsx --test --test-concurrency=1 tests/rover-engine.test.ts tests/command-idempotency.test.ts tests/offline-queue.test.ts tests/shared-contracts.test.ts tests/decision-engine.test.ts tests/closed-loop-workflow.test.ts tests/phase3-persistence-rls.test.ts tests/phase3-offline-sync.test.ts tests/phase3-e2e-demo.test.ts tests/phase4-weather-risk.test.ts tests/phase4-voice-multimodal.test.ts tests/phase4-historical-reports.test.ts tests/phase4-e2e-demo.test.ts",
+    "test": "tsx --test --test-concurrency=1 tests/rover-engine.test.ts tests/command-idempotency.test.ts tests/offline-queue.test.ts tests/shared-contracts.test.ts tests/decision-engine.test.ts tests/closed-loop-workflow.test.ts tests/phase3-persistence-rls.test.ts tests/phase3-offline-sync.test.ts tests/phase3-e2e-demo.test.ts tests/phase4-weather-risk.test.ts tests/phase4-voice-multimodal.test.ts tests/phase4-historical-reports.test.ts tests/phase4-e2e-demo.test.ts tests/phase7a-farmer-profile-demo.test.ts tests/phase7b-field-assistant.test.ts",
     "dev:simulator": "tsx services/rover-simulator/src/server.ts",
     "dev:simulator:cli": "tsx services/rover-simulator/src/cli.ts",
     "dev:expert": "npm --workspace=@prahar/expert-console run dev",

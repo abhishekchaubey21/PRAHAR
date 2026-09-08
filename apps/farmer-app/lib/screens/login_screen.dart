@@ -6,6 +6,8 @@ import '../core/storage/session_store.dart';
 import '../core/storage/offline_store.dart';
 import 'home_screen.dart';
 import 'register_screen.dart';
+import 'onboarding_screen.dart';
+import '../data/repositories/farmer_profile_repository.dart';
 
 class LoginScreen extends StatefulWidget {
   final FarmerAuthService? authService;
@@ -66,16 +68,41 @@ class _LoginScreenState extends State<LoginScreen> {
       );
 
       if (success && mounted) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (_) => HomeScreen(
-              authService: _authService,
-              apiClient: _authService.apiClient,
-              offlineStore: widget.offlineStore,
-              initialLanguage: widget.initialLanguage ?? 'en',
-            ),
-          ),
+        final profileRepo = FarmerProfileRepository(
+          apiClient: _authService.apiClient,
+          offlineStore: widget.offlineStore ?? StructuredFileOfflineStore(),
         );
+        final isCompleted = await profileRepo.isOnboardingCompleted();
+        final hasFarmerId = _authService.currentUser?.farmerId != null &&
+            _authService.currentUser!.farmerId!.isNotEmpty;
+
+        if (!mounted) return;
+        if (!isCompleted && !hasFarmerId) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (_) => OnboardingScreen(
+                authService: _authService,
+                apiClient: _authService.apiClient,
+                sessionStore: widget.sessionStore,
+                offlineStore: widget.offlineStore,
+                profileRepository: profileRepo,
+                initialLanguage: widget.initialLanguage ?? 'en',
+              ),
+            ),
+          );
+        } else {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (_) => HomeScreen(
+                authService: _authService,
+                apiClient: _authService.apiClient,
+                sessionStore: widget.sessionStore,
+                offlineStore: widget.offlineStore,
+                initialLanguage: widget.initialLanguage ?? 'en',
+              ),
+            ),
+          );
+        }
       } else if (mounted) {
         setState(() {
           _errorMessage = 'Invalid email or password. Please try again.';

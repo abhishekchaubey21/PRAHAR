@@ -131,6 +131,8 @@ class OpportunityRepository {
     double? landAcres,
     String? cropType,
     String? state,
+    String? irrigationStatus,
+    String? ownershipType,
   }) async {
     final body = <String, dynamic>{
       'opportunity_id': opportunityId,
@@ -139,6 +141,12 @@ class OpportunityRepository {
     if (landAcres != null) body['land_acres'] = landAcres;
     if (cropType != null && cropType.isNotEmpty) body['crop_type'] = cropType;
     if (state != null && state.isNotEmpty) body['state'] = state;
+    if (irrigationStatus != null && irrigationStatus.isNotEmpty) {
+      body['irrigation_status'] = irrigationStatus;
+    }
+    if (ownershipType != null && ownershipType.isNotEmpty) {
+      body['ownership_type'] = ownershipType;
+    }
 
     final response = await _apiClient.post(
       '/api/opportunities/check-eligibility',

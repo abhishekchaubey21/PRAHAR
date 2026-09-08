@@ -478,6 +478,7 @@ void main() {
       await tester.pumpWidget(MaterialApp(
         home: HomeScreen(
           apiClient: apiClient,
+          offlineStore: InMemoryOfflineStore(),
           initialLanguage: 'en',
         ),
       ));

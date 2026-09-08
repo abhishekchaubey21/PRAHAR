@@ -1,0 +1,19 @@
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  errors:
+    deprecated_member_use: ignore
+    dangling_library_doc_comments: ignore
+    unnecessary_getters_setters: ignore
+    prefer_const_constructors: ignore
+    prefer_const_declarations: ignore
+    prefer_interpolation_to_compose_strings: ignore
+    curly_braces_in_flow_control_structures: ignore
+  exclude:
+    - build/**
+    - android/**
+    - ios/**
+    - web/**
+    - windows/**
+    - macos/**
+    - linux/**

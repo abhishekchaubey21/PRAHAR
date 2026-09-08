@@ -15,6 +15,7 @@ import { ClosedLoopCoordinator } from './closed-loop.js';
 import { WeatherRiskEngine } from './weather-provider.js';
 import { ExplainabilityEngine } from './explainability-engine.js';
 import { VoiceAssistant } from './voice-assistant.js';
+import { FieldAssistantService } from './field-assistant.js';
 import { MultimodalAssistant } from './multimodal-assistant.js';
 import { HistoricalAnalytics } from './historical-analytics.js';
 import { FieldEvidenceReportGenerator, OpportunityCenter } from './reports-and-opportunities.js';
@@ -39,6 +40,7 @@ import {
   RegisterFarmerRequest,
   LoginRequest,
   AuthenticatedContext,
+  AssistantQueryRequest,
 } from '@prahar/shared';
 
 const config = loadConfig();
@@ -58,6 +60,7 @@ const closedLoop = new ClosedLoopCoordinator(engine, decisionEngine, resilientSt
 const weatherRiskEngine = new WeatherRiskEngine();
 const explainabilityEngine = new ExplainabilityEngine();
 const voiceAssistant = new VoiceAssistant(resilientStore, closedLoop);
+const fieldAssistant = new FieldAssistantService(resilientStore, closedLoop, resilientStore, engine);
 const multimodalAssistant = new MultimodalAssistant();
 const historicalAnalytics = new HistoricalAnalytics(resilientStore);
 const notificationService = new NotificationService();
@@ -216,6 +219,55 @@ const server = http.createServer(async (rawReq, res) => {
       return sendJson(res, 200, {
         success: true,
         user: auth,
+      }, originHeader);
+    }
+
+    // Phase 7A: Farmer Profile & Onboarding State Endpoints
+    if (pathname === '/api/farmer/profile' && method === 'GET') {
+      const auth = await authenticateRequest(req, res, authService);
+      if (!auth) return;
+
+      const profile = resilientStore.getFarmerProfile(auth.user_id) || {
+        profile: {
+          name: auth.full_name || 'Ramesh Patil',
+          state: 'Maharashtra',
+          district: 'Amravati',
+          village: 'Nandgaon Khandeshwar',
+          preferred_language: 'en',
+        },
+        farm: {
+          area_acres: 4.2,
+          ownership_type: 'OWNED',
+          irrigation_status: 'PARTIAL',
+          water_source: 'BOREWELL',
+          soil_type: 'Black Cotton Loam',
+        },
+        crops: {
+          main_crops: ['Soybean', 'Wheat'],
+          season: 'KHARIF',
+          variety: 'JS 335 / GW 322',
+          sowing_date: '2026-06-25',
+        },
+        is_completed: true,
+      };
+
+      return sendJson(res, 200, {
+        success: true,
+        data: profile,
+      }, originHeader);
+    }
+
+    if (pathname === '/api/farmer/profile' && method === 'POST') {
+      const auth = await authenticateRequest(req, res, authService);
+      if (!auth) return;
+
+      const body = await parseJsonBody(req);
+      resilientStore.saveFarmerProfile(auth.user_id, body);
+
+      return sendJson(res, 200, {
+        success: true,
+        message: 'Farmer profile and onboarding state saved successfully.',
+        data: body,
       }, originHeader);
     }
 
@@ -907,10 +959,15 @@ const server = http.createServer(async (rawReq, res) => {
         farms: [
           {
             id: 'FARM-DEMO-01',
-            farmer_id: 'farmer-demo-01',
-            name: 'Kisan Demo Farm Alpha (डेमो खेत अल्फा)',
-            crop_type: 'Tomato (टमाटर)',
-            area_acres: 3.5,
+            farmer_id: '00000000-0000-0000-0000-000000000001',
+            name: 'Patil Krishi Farm (पाटील कृषी फार्म)',
+            crop_type: 'Soybean + Wheat',
+            area_acres: 4.2,
+            ownership_type: 'OWNED',
+            irrigation_status: 'BOREWELL_AND_RAINFED',
+            water_source: 'Borewell + Rainfed',
+            soil_type: 'Black Cotton Loam',
+            location: 'Amravati, Maharashtra',
             zones_count: 4,
             created_at: '2026-09-01T00:00:00Z',
           },
@@ -951,35 +1008,62 @@ const server = http.createServer(async (rawReq, res) => {
         farm_id: farmId || 'FARM-DEMO-01',
         zones: [
           {
-            id: 'ZONE-A1',
-            name: 'Zone 1 (North Plot)',
-            soil_type: 'Clay Loam',
-            last_moisture: 32.5,
+            id: 'DEMO-ZONE-01',
+            name: 'Zone 1 — North Plot (Soybean Healthy)',
+            crop: 'Soybean',
+            soil_type: 'Black Cotton Loam',
+            last_moisture: 32.4,
+            temperature_c: 26.2,
+            humidity_pct: 58.0,
+            ph: 6.8,
             status: 'OPTIMAL',
+            severity: 'NONE',
             last_scan_at: new Date(Date.now() - 3600000).toISOString(),
           },
           {
             id: 'DEMO-ZONE-02',
-            name: 'Zone 2 (East Sector)',
+            name: 'Zone 2 — East Sector (Soybean Water Stress)',
+            crop: 'Soybean',
             soil_type: 'Sandy Loam',
-            last_moisture: 17.5,
+            last_moisture: 16.8,
+            temperature_c: 34.5,
+            humidity_pct: 38.0,
+            ph: 6.5,
             status: 'WATER_STRESS',
+            severity: 'HIGH',
+            recommendation: 'Micro-irrigation (30 seconds)',
             last_scan_at: new Date(Date.now() - 900000).toISOString(),
           },
           {
             id: 'DEMO-ZONE-03',
-            name: 'Zone 3 (South Sector)',
-            soil_type: 'Loam',
-            last_moisture: 28.0,
-            status: 'DISEASE_SUSPECTED',
+            name: 'Zone 3 — South Sector (Wheat Pest Alert)',
+            crop: 'Wheat',
+            soil_type: 'Silt Loam',
+            last_moisture: 28.5,
+            temperature_c: 29.1,
+            humidity_pct: 74.0,
+            ph: 6.4,
+            status: 'PEST_ALERT',
+            severity: 'HIGH',
+            pest_scenario: 'Fall Armyworm (Demo AI Detection • YOLOv8-compatible scenario)',
+            confidence: 0.89,
+            recommendation: 'Pheromone traps + biopesticide; expert inspection',
             last_scan_at: new Date(Date.now() - 1800000).toISOString(),
           },
           {
             id: 'DEMO-ZONE-04',
-            name: 'Zone 4 (West Sector)',
-            soil_type: 'Silt Loam',
-            last_moisture: 30.0,
-            status: 'OPTIMAL',
+            name: 'Zone 4 — West Sector (Wheat Nutrient Deficiency)',
+            crop: 'Wheat',
+            soil_type: 'Clay Loam',
+            last_moisture: 24.2,
+            temperature_c: 28.0,
+            humidity_pct: 52.0,
+            ph: 7.8,
+            status: 'NUTRIENT_DEFICIENCY',
+            severity: 'MEDIUM',
+            nutrient_scenario: 'Nitrogen deficiency / Chlorosis',
+            confidence: 0.82,
+            recommendation: 'Split-dose urea foliar spray + gypsum amendment',
             last_scan_at: new Date(Date.now() - 7200000).toISOString(),
           },
         ],
@@ -1049,6 +1133,32 @@ const server = http.createServer(async (rawReq, res) => {
         role: authUser ? authUser.role : (body.role || 'FARMER'),
       };
       const response = await voiceAssistant.processQuery(queryWithAuth);
+      return sendJson(res, 200, {
+        success: true,
+        response,
+      }, originHeader);
+    }
+
+    // Phase 7B: PRAHAR Contextual Field Assistant
+    if (pathname === '/api/assistant/query' && method === 'POST') {
+      const token = extractBearerToken(req);
+      let authUser: AuthenticatedContext | undefined;
+
+      if (token) {
+        const auth = await authenticateRequest(req, res, authService);
+        if (!auth) return;
+        authUser = auth;
+      } else if (!config.allowSimulatorBypass || config.nodeEnv === 'production') {
+        res.writeHead(401, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        return res.end(JSON.stringify({ success: false, error: 'Authentication required for field assistant.' }));
+      }
+
+      const body: AssistantQueryRequest = await parseJsonBody(req);
+      const queryWithAuth: AssistantQueryRequest = {
+        ...body,
+        user_id: authUser ? authUser.user_id : (body.user_id || 'simulated_farmer'),
+      };
+      const response = await fieldAssistant.processQuery(queryWithAuth);
       return sendJson(res, 200, {
         success: true,
         response,
@@ -1283,6 +1393,8 @@ const server = http.createServer(async (rawReq, res) => {
             landAcres: body.land_acres !== undefined ? Number(body.land_acres) : undefined,
             cropType: body.crop_type,
             state: body.state,
+            irrigationStatus: body.irrigation_status,
+            ownershipType: body.ownership_type,
           },
           userScopedClient
         );
@@ -1787,6 +1899,7 @@ export {
   weatherRiskEngine,
   explainabilityEngine,
   voiceAssistant,
+  fieldAssistant,
   multimodalAssistant,
   historicalAnalytics,
 };

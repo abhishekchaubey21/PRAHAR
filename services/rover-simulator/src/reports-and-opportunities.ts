@@ -922,6 +922,8 @@ export class OpportunityCenter {
       landAcres?: number;
       cropType?: string;
       state?: string;
+      irrigationStatus?: string;
+      ownershipType?: string;
     },
     client?: SupabaseClient
   ) {
@@ -933,6 +935,8 @@ export class OpportunityCenter {
     let landAcres = context.landAcres;
     let cropType = context.cropType;
     let state = context.state;
+    let irrigationStatus = context.irrigationStatus;
+    let ownershipType = context.ownershipType;
 
     // Resolve missing values from authoritative Supabase profile/farms if available
     const db = client || (isSupabaseConfigured() ? getServiceRoleClient() : undefined);
@@ -1020,6 +1024,24 @@ export class OpportunityCenter {
           }
         }
       }
+    }
+
+    // Add contextual profile matches
+    if (state) {
+      matchedEn.push(`State of cultivation: ${state} (Operational under scheme directives)`);
+      matchedHi.push(`खेती का राज्य: ${state} (योजना दिशानिर्देशों के तहत पात्र)`);
+    }
+    if (cropType) {
+      matchedEn.push(`Cultivated crop: ${cropType} (Eligible agricultural produce)`);
+      matchedHi.push(`उत्पादित फसल: ${cropType} (पात्र कृषि उपज)`);
+    }
+    if (irrigationStatus) {
+      matchedEn.push(`Irrigation setup: ${irrigationStatus} (Water management profile aligned)`);
+      matchedHi.push(`सिंचाई व्यवस्था: ${irrigationStatus} (जल प्रबंधन के अनुकूल)`);
+    }
+    if (ownershipType) {
+      matchedEn.push(`Tenancy/Ownership: ${ownershipType} (Recognized farming tenure)`);
+      matchedHi.push(`भूमि स्वामित्व: ${ownershipType} (मान्य कृषि अधिकार)`);
     }
 
     const status = hasFailure ? 'LIKELY_NOT_ELIGIBLE' : 'LIKELY_ELIGIBLE';

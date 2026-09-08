@@ -11,6 +11,8 @@ class OpportunityCenterScreen extends StatefulWidget {
   final double? landAcres;
   final String? cropType;
   final String? stateName;
+  final String? irrigationStatus;
+  final String? ownershipType;
 
   const OpportunityCenterScreen({
     super.key,
@@ -20,6 +22,8 @@ class OpportunityCenterScreen extends StatefulWidget {
     this.landAcres,
     this.cropType,
     this.stateName,
+    this.irrigationStatus,
+    this.ownershipType,
   });
 
   @override
@@ -430,6 +434,8 @@ class _OpportunityCenterScreenState extends State<OpportunityCenterScreen> {
         landAcres: widget.landAcres,
         cropType: widget.cropType,
         stateName: widget.stateName,
+        irrigationStatus: widget.irrigationStatus,
+        ownershipType: widget.ownershipType,
         onTrackingUpdated: (newTracking) {
           setState(() {
             _trackingRecords.removeWhere((t) => t.opportunityId == opp.id);
@@ -450,6 +456,8 @@ class _OpportunityDetailSheet extends StatefulWidget {
   final double? landAcres;
   final String? cropType;
   final String? stateName;
+  final String? irrigationStatus;
+  final String? ownershipType;
   final ValueChanged<OpportunityTrackingModel> onTrackingUpdated;
 
   const _OpportunityDetailSheet({
@@ -461,6 +469,8 @@ class _OpportunityDetailSheet extends StatefulWidget {
     this.landAcres,
     this.cropType,
     this.stateName,
+    this.irrigationStatus,
+    this.ownershipType,
     required this.onTrackingUpdated,
   });
 
@@ -504,6 +514,8 @@ class _OpportunityDetailSheetState extends State<_OpportunityDetailSheet> {
         landAcres: widget.landAcres,
         cropType: widget.cropType,
         state: widget.stateName,
+        irrigationStatus: widget.irrigationStatus,
+        ownershipType: widget.ownershipType,
       );
 
       if (mounted) {

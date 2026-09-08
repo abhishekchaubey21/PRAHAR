@@ -19,6 +19,15 @@ import 'field_health_analytics_screen.dart';
 import 'field_evidence_report_screen.dart';
 import 'opportunity_center_screen.dart';
 import '../data/repositories/opportunity_repository.dart';
+import '../domain/farmer_profile.dart';
+import '../data/repositories/farmer_profile_repository.dart';
+import '../data/providers/telemetry_provider.dart';
+import 'onboarding_screen.dart';
+import '../domain/assistant_model.dart';
+import '../data/repositories/field_assistant_repository.dart';
+import '../data/assistant/assistant_context_builder.dart';
+import '../data/assistant/field_assistant_engine.dart';
+import '../core/localization/app_localizations.dart';
 
 class HomeScreen extends StatefulWidget {
   final ApiClient? apiClient;
@@ -31,6 +40,9 @@ class HomeScreen extends StatefulWidget {
   final NotificationRepository? notificationRepository;
   final AnalyticsRepository? analyticsRepository;
   final OpportunityRepository? opportunityRepository;
+  final FarmerProfileRepository? farmerProfileRepository;
+  final FieldAssistantRepository? fieldAssistantRepository;
+  final ITelemetryProvider? telemetryProvider;
   final ISessionStore? sessionStore;
   final IOfflineStore? offlineStore;
   final String initialLanguage;
@@ -47,6 +59,9 @@ class HomeScreen extends StatefulWidget {
     this.notificationRepository,
     this.analyticsRepository,
     this.opportunityRepository,
+    this.farmerProfileRepository,
+    this.fieldAssistantRepository,
+    this.telemetryProvider,
     this.sessionStore,
     this.offlineStore,
     this.initialLanguage = 'en',
@@ -59,6 +74,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   // Language toggle: true = Hindi ('hi'), false = English ('en')
   bool _isHindi = false;
+  String _currentLanguage = 'en';
   bool _isNetworkOffline = false;
 
   late final OfflineStorageService _offlineStorage;
@@ -72,9 +88,12 @@ class _HomeScreenState extends State<HomeScreen> {
   late final NotificationRepository _notificationRepo;
   late final AnalyticsRepository _analyticsRepo;
   late final OpportunityRepository _opportunityRepo;
+  late final FarmerProfileRepository _farmerProfileRepo;
+  late final ITelemetryProvider _telemetryProvider;
+  late final FieldAssistantEngine _assistantEngine;
   int _unreadNotificationCount = 0;
 
-
+  FarmerOnboardingState? _onboardingState;
   bool _isLoading = false;
   String? _backendError;
   List<FarmModel> _farms = [];
@@ -86,7 +105,8 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _offlineStorage = OfflineStorageService(store: widget.offlineStore);
-    _isHindi = widget.initialLanguage == 'hi';
+    _currentLanguage = widget.initialLanguage;
+    _isHindi = _currentLanguage == 'hi';
     final store = widget.sessionStore ??
         (widget.authService?.sessionStore ?? SecureFileSessionStore());
     _apiClient = widget.apiClient ??
@@ -115,9 +135,66 @@ class _HomeScreenState extends State<HomeScreen> {
     _opportunityRepo = widget.opportunityRepository ??
         OpportunityRepository(
             apiClient: _apiClient, offlineStore: _offlineStorage.store);
+    _farmerProfileRepo = widget.farmerProfileRepository ??
+        FarmerProfileRepository(
+            apiClient: _apiClient, offlineStore: _offlineStorage.store);
+    final assistantRepo = widget.fieldAssistantRepository ?? FieldAssistantRepository(apiClient: _apiClient);
+    _assistantEngine = FieldAssistantEngine(repository: assistantRepo);
+    _telemetryProvider = widget.telemetryProvider ?? DemoFieldDataProvider();
 
+    _loadProfile();
     _loadRemoteData();
     _loadUnreadNotificationCount();
+  }
+
+  Future<void> _loadProfile() async {
+    try {
+      final state = await _farmerProfileRepo.getOnboardingState();
+      if (mounted) {
+        setState(() {
+          _onboardingState = state;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _onboardingState = FarmerOnboardingState.canonicalDemo();
+        });
+      }
+    }
+  }
+
+  Future<void> _openOnboardingEdit() async {
+    final result = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => OnboardingScreen(
+          profileRepository: _farmerProfileRepo,
+          authService: _authService,
+          offlineStore: _offlineStorage.store,
+          initialLanguage: _currentLanguage,
+          isEditing: true,
+        ),
+      ),
+    );
+    if (result == true && mounted) {
+      await _loadProfile();
+      await _loadRemoteData();
+    }
+  }
+
+  String get _farmerIdentityTitle {
+    final name = _onboardingState?.profile.name ?? 'Ramesh Patil';
+    final dist = _onboardingState?.profile.district ?? 'Amravati';
+    final st = _onboardingState?.profile.state ?? 'Maharashtra';
+    return '$name • $dist, $st';
+  }
+
+  String get _farmerIdentitySubtitle {
+    final acres = _onboardingState?.farm.landAcres ?? 4.2;
+    final crops = _onboardingState?.crops.mainCrops.join(' & ') ?? 'Soybean & Wheat';
+    final ownership = _onboardingState?.farm.ownershipType ?? 'Owned';
+    return '$acres Acres • $crops • $ownership';
   }
 
 
@@ -328,19 +405,20 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
 
+    _telemetryProvider.executeSimulatedRemediation(alert.id, alert.zoneId);
     setState(() {
       alert.isApproved = true;
       alert.status = AlertStatus.actionTaken;
 
-      // Simulate closed-loop remediation verification
+      // Simulate closed-loop remediation verification (Phase 7A canonical demo)
       _latestVerification = RemediationVerificationModel(
         zoneId: alert.zoneId,
-        preMoisture: 17.5,
+        preMoisture: 16.8,
         postMoisture: 28.2,
-        moistureDelta: 10.7,
+        moistureDelta: 11.4,
         resolved: true,
-        summaryEn: 'Zone 2 remediation verified: Moisture improved from 17.5% to 28.2% (+10.7%). Solved!',
-        summaryHi: 'ज़ोन 2 उपचार का सत्यापन: नमी 17.5% से बढ़कर 28.2% हो गई (+10.7%)। समस्या हल!',
+        summaryEn: 'Zone 2 East Sector simulated micro-irrigation complete: Moisture improved from 16.8% to 28.2% (+11.4%). Water stress resolved (SIMULATED ACTION).',
+        summaryHi: 'ज़ोन 2 पूर्व खंड में सिमुलेटेड सूक्ष्म-सिंचाई पूर्ण: नमी 16.8% से बढ़कर 28.2% हो गई (+11.4%)। समस्या हल (सिम्युलेटेड कार्रवाई)!',
       );
     });
 
@@ -648,6 +726,551 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // Phase 7B: PRAHAR Contextual Field Assistant Dialog
+  void _openFieldAssistantDialog() {
+    bool isProcessing = false;
+    bool actionConfirmed = false;
+    AssistantStructuredResponse? latestResponse;
+    String? assistantError;
+    final textController = TextEditingController();
+    final assistantSessionId = 'assistant_session_${DateTime.now().millisecondsSinceEpoch}';
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF0D1813),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setModalState) {
+          Future<void> sendQuery(String queryText) async {
+            if (queryText.trim().isEmpty || isProcessing) return;
+            setModalState(() {
+              isProcessing = true;
+              assistantError = null;
+            });
+
+            try {
+              final farmerContext = AssistantContextBuilder.buildContext(
+                profile: _onboardingState?.profile,
+                farm: _selectedFarm,
+                zones: _zones,
+                alerts: _alerts,
+              );
+
+              final res = await _assistantEngine.processQuery(
+                queryText.trim(),
+                language: _currentLanguage,
+                context: farmerContext,
+                sessionId: assistantSessionId,
+              );
+
+              setModalState(() {
+                latestResponse = res;
+                actionConfirmed = false;
+                textController.clear();
+              });
+            } catch (e) {
+              setModalState(() {
+                assistantError = 'Assistant Error: $e';
+              });
+            } finally {
+              setModalState(() {
+                isProcessing = false;
+              });
+            }
+          }
+
+          Future<void> executeConfirmedAction() async {
+            if (isProcessing) return;
+            setModalState(() {
+              isProcessing = true;
+            });
+
+            try {
+              final farmerContext = AssistantContextBuilder.buildContext(
+                profile: _onboardingState?.profile,
+                farm: _selectedFarm,
+                zones: _zones,
+                alerts: _alerts,
+              );
+
+              final res = await _assistantEngine.processQuery(
+                'Confirm irrigation',
+                language: _currentLanguage,
+                context: farmerContext,
+                sessionId: assistantSessionId,
+                confirmAction: true,
+                pendingActionId: latestResponse?.pendingAction?.actionType,
+              );
+
+              setModalState(() {
+                latestResponse = res;
+                actionConfirmed = false;
+              });
+
+              _loadRemoteData();
+            } catch (e) {
+              setModalState(() {
+                assistantError = 'Action Confirmation Error: $e';
+              });
+            } finally {
+              setModalState(() {
+                isProcessing = false;
+              });
+            }
+          }
+
+          return Container(
+            key: const Key('assistant_modal_bottom_sheet'),
+            padding: EdgeInsets.only(
+              left: 18.0,
+              right: 18.0,
+              top: 18.0,
+              bottom: MediaQuery.of(context).viewInsets.bottom + 18.0,
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[700],
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: PraharTheme.primaryGreen.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: PraharTheme.borderGreen),
+                        ),
+                        child: const Icon(Icons.smart_toy, color: PraharTheme.primaryGreen, size: 20),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              AppLocalizations.getText('assistant_title', _currentLanguage),
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white),
+                            ),
+                            Text(
+                              AppLocalizations.getText('assistant_tagline', _currentLanguage),
+                              style: TextStyle(color: Colors.grey[400], fontSize: 11),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: Colors.grey),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: PraharTheme.alertAmber.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: PraharTheme.alertAmber.withValues(alpha: 0.3)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.info_outline, size: 14, color: PraharTheme.alertAmber),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            AppLocalizations.getText('assistant_simulation_banner', _currentLanguage),
+                            style: const TextStyle(fontSize: 10, color: PraharTheme.alertAmber, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: [
+                      Chip(
+                        avatar: const Icon(Icons.person, size: 12, color: PraharTheme.primaryGreen),
+                        label: Text(_onboardingState?.profile.name ?? 'Ramesh Patil', style: const TextStyle(fontSize: 10, color: Colors.white)),
+                        backgroundColor: const Color(0xFF13241D),
+                        side: const BorderSide(color: PraharTheme.borderGreen),
+                        padding: EdgeInsets.zero,
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      Chip(
+                        avatar: const Icon(Icons.landscape, size: 12, color: PraharTheme.primaryGreen),
+                        label: Text('${_onboardingState?.farm.areaAcres ?? 4.2} Acres', style: const TextStyle(fontSize: 10, color: Colors.white)),
+                        backgroundColor: const Color(0xFF13241D),
+                        side: const BorderSide(color: PraharTheme.borderGreen),
+                        padding: EdgeInsets.zero,
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      Chip(
+                        avatar: const Icon(Icons.grass, size: 12, color: PraharTheme.primaryGreen),
+                        label: Text('${_zones.isNotEmpty ? _zones.length : 4} Zones', style: const TextStyle(fontSize: 10, color: Colors.white)),
+                        backgroundColor: const Color(0xFF13241D),
+                        side: const BorderSide(color: PraharTheme.borderGreen),
+                        padding: EdgeInsets.zero,
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      Chip(
+                        avatar: const Icon(Icons.warning_amber_rounded, size: 12, color: PraharTheme.alertAmber),
+                        label: Text('${_alerts.isNotEmpty ? _alerts.length : 3} Alerts', style: const TextStyle(fontSize: 10, color: Colors.white)),
+                        backgroundColor: const Color(0xFF13241D),
+                        side: const BorderSide(color: PraharTheme.alertAmber),
+                        padding: EdgeInsets.zero,
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        ActionChip(
+                          key: const Key('assistant_chip_attention'),
+                          label: Text(AppLocalizations.getText('assistant_chip_attention', _currentLanguage), style: const TextStyle(fontSize: 11, color: Colors.white)),
+                          backgroundColor: const Color(0xFF1A3327),
+                          side: const BorderSide(color: PraharTheme.primaryGreen),
+                          onPressed: () => sendQuery('Which zone needs attention first?'),
+                        ),
+                        const SizedBox(width: 6),
+                        ActionChip(
+                          key: const Key('assistant_chip_farm_status'),
+                          label: const Text('Farm Status', style: TextStyle(fontSize: 11, color: Colors.white)),
+                          backgroundColor: const Color(0xFF1A3327),
+                          side: const BorderSide(color: PraharTheme.primaryGreen),
+                          onPressed: () => sendQuery('What is the current farm status?'),
+                        ),
+                        const SizedBox(width: 6),
+                        ActionChip(
+                          key: const Key('assistant_chip_zone2'),
+                          label: const Text('Zone 2 Moisture', style: TextStyle(fontSize: 11, color: Colors.white)),
+                          backgroundColor: const Color(0xFF1A3327),
+                          side: const BorderSide(color: PraharTheme.primaryGreen),
+                          onPressed: () => sendQuery('Why is Zone 2 under water stress?'),
+                        ),
+                        const SizedBox(width: 6),
+                        ActionChip(
+                          key: const Key('assistant_chip_stress'),
+                          label: Text(AppLocalizations.getText('assistant_chip_stress', _currentLanguage), style: const TextStyle(fontSize: 11, color: Colors.white)),
+                          backgroundColor: const Color(0xFF1A3327),
+                          side: const BorderSide(color: PraharTheme.primaryGreen),
+                          onPressed: () => sendQuery('Why is Zone 2 under water stress?'),
+                        ),
+                        const SizedBox(width: 6),
+                        ActionChip(
+                          key: const Key('assistant_chip_pest'),
+                          label: Text(AppLocalizations.getText('assistant_chip_pest', _currentLanguage), style: const TextStyle(fontSize: 11, color: Colors.white)),
+                          backgroundColor: const Color(0xFF1A3327),
+                          side: const BorderSide(color: PraharTheme.primaryGreen),
+                          onPressed: () => sendQuery('What should I do about the pest detected in South Sector?'),
+                        ),
+                        const SizedBox(width: 6),
+                        ActionChip(
+                          key: const Key('assistant_chip_schemes'),
+                          label: Text(AppLocalizations.getText('assistant_chip_schemes', _currentLanguage), style: const TextStyle(fontSize: 11, color: Colors.white)),
+                          backgroundColor: const Color(0xFF1A3327),
+                          side: const BorderSide(color: PraharTheme.alertSky),
+                          onPressed: () => sendQuery('Which government schemes may be relevant to me?'),
+                        ),
+                        const SizedBox(width: 6),
+                        ActionChip(
+                          key: const Key('assistant_chip_verification'),
+                          label: Text(AppLocalizations.getText('assistant_chip_verification', _currentLanguage), style: const TextStyle(fontSize: 11, color: Colors.white)),
+                          backgroundColor: const Color(0xFF1A3327),
+                          side: const BorderSide(color: PraharTheme.borderGreen),
+                          onPressed: () => sendQuery('Show me what happened after the irrigation action'),
+                        ),
+                        const SizedBox(width: 6),
+                        ActionChip(
+                          key: const Key('assistant_chip_profile'),
+                          label: Text(AppLocalizations.getText('assistant_chip_profile', _currentLanguage), style: const TextStyle(fontSize: 11, color: Colors.white)),
+                          backgroundColor: const Color(0xFF1A3327),
+                          side: const BorderSide(color: PraharTheme.borderGreen),
+                          onPressed: () => sendQuery('Show my farm profile and acres'),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          key: const Key('assistant_input_field'),
+                          controller: textController,
+                          style: const TextStyle(color: Colors.white, fontSize: 13),
+                          decoration: InputDecoration(
+                            hintText: AppLocalizations.getText('assistant_query_hint', _currentLanguage),
+                            hintStyle: TextStyle(color: Colors.grey[500], fontSize: 12),
+                            filled: true,
+                            fillColor: const Color(0xFF09140F),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: const BorderSide(color: PraharTheme.borderGreen),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: const BorderSide(color: PraharTheme.borderGreen),
+                            ),
+                          ),
+                          onSubmitted: sendQuery,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        key: const Key('assistant_send_button'),
+                        icon: isProcessing
+                            ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: PraharTheme.primaryGreen))
+                            : const Icon(Icons.send, color: PraharTheme.primaryGreen),
+                        onPressed: isProcessing ? null : () => sendQuery(textController.text),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  if (assistantError != null)
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      margin: const EdgeInsets.only(bottom: 10),
+                      decoration: BoxDecoration(
+                        color: PraharTheme.alertRose.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(assistantError!, style: const TextStyle(color: PraharTheme.alertRose, fontSize: 11)),
+                    ),
+                  if (latestResponse != null) ...[
+                    Container(
+                      key: const Key('assistant_response_card'),
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF09140F),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: PraharTheme.borderGreen),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                key: const Key('assistant_intent_chip'),
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: PraharTheme.primaryGreen.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  latestResponse!.intent.toWireString(),
+                                  style: const TextStyle(color: PraharTheme.primaryGreen, fontSize: 9, fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                              if (latestResponse!.referencedZone != null) ...[
+                                const SizedBox(width: 6),
+                                Container(
+                                  key: const Key('assistant_zone_chip'),
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: Colors.blue.withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    latestResponse!.referencedZone!,
+                                    style: const TextStyle(color: Colors.lightBlueAccent, fontSize: 9, fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                              ],
+                              const Spacer(),
+                              Container(
+                                key: const Key('assistant_severity_chip'),
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: latestResponse!.severity == 'HIGH'
+                                      ? PraharTheme.alertRose.withValues(alpha: 0.2)
+                                      : (latestResponse!.severity == 'MEDIUM'
+                                          ? PraharTheme.alertAmber.withValues(alpha: 0.2)
+                                          : PraharTheme.primaryGreen.withValues(alpha: 0.2)),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  latestResponse!.severity,
+                                  style: TextStyle(
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.bold,
+                                    color: latestResponse!.severity == 'HIGH'
+                                        ? PraharTheme.alertRose
+                                        : (latestResponse!.severity == 'MEDIUM' ? PraharTheme.alertAmber : PraharTheme.primaryGreen),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            latestResponse!.answer,
+                            key: const Key('assistant_answer_text'),
+                            style: const TextStyle(color: Colors.white, fontSize: 13, height: 1.4),
+                          ),
+                          if (latestResponse!.evidence != null) ...[
+                            const SizedBox(height: 8),
+                            Container(
+                              key: const Key('assistant_evidence_box'),
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF132018),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                'Evidence: ${latestResponse!.evidence!}',
+                                style: TextStyle(color: Colors.grey[300], fontSize: 11),
+                              ),
+                            ),
+                          ],
+                          if (latestResponse!.recommendation != null) ...[
+                            const SizedBox(height: 8),
+                            Container(
+                              key: const Key('assistant_recommendation_box'),
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF162B21),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                'Recommendation: ${latestResponse!.recommendation!}',
+                                style: const TextStyle(color: PraharTheme.primaryGreen, fontSize: 11, fontWeight: FontWeight.w600),
+                              ),
+                            ),
+                          ],
+                          if (latestResponse!.indicativeDisclaimer != null) ...[
+                            const SizedBox(height: 8),
+                            Text(
+                              latestResponse!.indicativeDisclaimer!,
+                              key: const Key('assistant_disclaimer_text'),
+                              style: TextStyle(color: Colors.grey[500], fontSize: 10, fontStyle: FontStyle.italic),
+                            ),
+                          ],
+                          if (latestResponse!.safetyLevel == AssistantSafetyLevel.prohibitedAutonomous) ...[
+                            const SizedBox(height: 12),
+                            Container(
+                              key: const Key('assistant_prohibited_box'),
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: PraharTheme.alertRose.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: PraharTheme.alertRose.withValues(alpha: 0.4)),
+                              ),
+                              child: const Row(
+                                children: [
+                                  Icon(Icons.block, color: PraharTheme.alertRose, size: 16),
+                                  SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      'ACTION PROHIBITED BY SAFETY PROTOCOL',
+                                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: PraharTheme.alertRose),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                          if (latestResponse!.requiresConfirmation) ...[
+                            const SizedBox(height: 12),
+                            Container(
+                              key: const Key('assistant_safety_gate_box'),
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: PraharTheme.alertAmber.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: PraharTheme.alertAmber.withValues(alpha: 0.4)),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Row(
+                                    children: [
+                                      Icon(Icons.shield_outlined, color: PraharTheme.alertAmber, size: 16),
+                                      SizedBox(width: 6),
+                                      Text(
+                                        'CONFIRMATION REQUIRED (Simulation Only)',
+                                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: PraharTheme.alertAmber),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Row(
+                                    children: [
+                                      Checkbox(
+                                        key: const Key('assistant_confirm_checkbox'),
+                                        value: actionConfirmed,
+                                        activeColor: PraharTheme.primaryGreen,
+                                        onChanged: (v) {
+                                          setModalState(() {
+                                            actionConfirmed = v ?? false;
+                                          });
+                                        },
+                                      ),
+                                      Expanded(
+                                        child: Text(
+                                          AppLocalizations.getText('assistant_confirm_action', _currentLanguage),
+                                          style: const TextStyle(fontSize: 12, color: Colors.white),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 6),
+                                  SizedBox(
+                                    width: double.infinity,
+                                    child: ElevatedButton.icon(
+                                      key: const Key('assistant_confirm_button'),
+                                      icon: const Icon(Icons.play_arrow, size: 16),
+                                      label: const Text('Dispatch Simulation Action', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: actionConfirmed ? PraharTheme.primaryGreen : Colors.grey,
+                                        foregroundColor: Colors.black,
+                                      ),
+                                      onPressed: actionConfirmed && !isProcessing ? executeConfirmedAction : null,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 10),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   // Phase 6B-3: Field Evidence Report Viewer
   void _openEvidenceReportDialog() {
     Navigator.push(
@@ -674,7 +1297,11 @@ class _HomeScreenState extends State<HomeScreen> {
           opportunityRepository: _opportunityRepo,
           isHindi: _isHindi,
           currentFarmId: _selectedFarm?.id,
-          landAcres: _selectedFarm != null ? _selectedFarm!.totalHectares * 2.47105 : null,
+          landAcres: _onboardingState?.farm.landAcres ?? (_selectedFarm != null ? _selectedFarm!.totalHectares * 2.47105 : null),
+          cropType: _onboardingState?.crops.mainCrops.isNotEmpty == true ? _onboardingState!.crops.mainCrops.first : null,
+          stateName: _onboardingState?.profile.state ?? 'Maharashtra',
+          irrigationStatus: _onboardingState?.farm.irrigationStatus,
+          ownershipType: _onboardingState?.farm.ownershipType,
         ),
       ),
     );
@@ -806,6 +1433,38 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
           ),
+          // Phase 7A: 4-Language Selector Menu (en, hi, mr, pa)
+          PopupMenuButton<String>(
+            key: const Key('language_selector_menu_button'),
+            icon: const Icon(Icons.translate, color: PraharTheme.primaryGreen, size: 18),
+            tooltip: _isHindi ? 'भाषा चुनें' : 'Select Language',
+            color: const Color(0xFF131F19),
+            onSelected: (String langCode) async {
+              setState(() {
+                _currentLanguage = langCode;
+                _isHindi = langCode == 'hi';
+              });
+              await _offlineStorage.setLanguagePreference(langCode);
+            },
+            itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+              const PopupMenuItem<String>(
+                value: 'en',
+                child: Text('English', style: TextStyle(color: Colors.white, fontSize: 13)),
+              ),
+              const PopupMenuItem<String>(
+                value: 'hi',
+                child: Text('हिन्दी', style: TextStyle(color: Colors.white, fontSize: 13)),
+              ),
+              const PopupMenuItem<String>(
+                value: 'mr',
+                child: Text('मराठी', style: TextStyle(color: Colors.white, fontSize: 13)),
+              ),
+              const PopupMenuItem<String>(
+                value: 'pa',
+                child: Text('ਪੰਜਾਬੀ', style: TextStyle(color: Colors.white, fontSize: 13)),
+              ),
+            ],
+          ),
           IconButton(
             key: const Key('logout_button'),
             visualDensity: VisualDensity.compact,
@@ -821,7 +1480,7 @@ class _HomeScreenState extends State<HomeScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16.0),
         children: [
-          // Phase 3 Offline Sync Status Banner
+          // Phase 7A Demo Data & Backend Status Banner
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             margin: const EdgeInsets.only(bottom: 14),
@@ -833,69 +1492,118 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Icon(
-                      _offlineStorage.isOnline ? Icons.cloud_done : Icons.cloud_off,
-                      color: _offlineStorage.isOnline ? PraharTheme.primaryGreen : PraharTheme.alertAmber,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 10),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _offlineStorage.isOnline
-                              ? (_isHindi ? 'क्लाउड सिंक सक्रिय (ऑनलाइन)' : 'Cloud Sync Active (Online)')
-                              : (_isHindi ? 'ऑफ़लाइन मोड (स्थानीय कैश)' : 'Offline Mode (Local Cache)'),
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Icon(
+                            _offlineStorage.isOnline ? Icons.cloud_done : Icons.cloud_off,
                             color: _offlineStorage.isOnline ? PraharTheme.primaryGreen : PraharTheme.alertAmber,
+                            size: 20,
                           ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(
+                                    _offlineStorage.isOnline
+                                        ? (_isHindi ? 'क्लाउड सिंक सक्रिय (ऑनलाइन)' : 'Backend Sync: Online (Physical Rover Disconnected)')
+                                        : (_isHindi ? 'ऑफ़लाइन मोड (स्थानीय कैश)' : 'Offline Mode (Local Cache)'),
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                      color: _offlineStorage.isOnline ? PraharTheme.primaryGreen : PraharTheme.alertAmber,
+                                    ),
+                                  ),
+                                ),
+                                Text(
+                                  _isHindi
+                                      ? 'लंबित कतार: ${_offlineStorage.pendingCount} कार्य'
+                                      : 'Buffered: ${_offlineStorage.pendingCount} pending events',
+                                  style: TextStyle(color: Colors.grey[400], fontSize: 11),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Offline toggle for field testing
+                        IconButton(
+                          visualDensity: VisualDensity.compact,
+                          padding: const EdgeInsets.all(4),
+                          constraints: const BoxConstraints(),
+                          icon: Icon(
+                            _offlineStorage.isOnline ? Icons.wifi : Icons.wifi_off,
+                            size: 20,
+                            color: Colors.grey[300],
+                          ),
+                          tooltip: 'Toggle Network Connectivity',
+                          onPressed: () {
+                            setState(() {
+                              _offlineStorage.isOnline = !_offlineStorage.isOnline;
+                            });
+                          },
                         ),
-                        Text(
-                          _isHindi
-                              ? 'लंबित कतार: ${_offlineStorage.pendingCount} कार्य'
-                              : 'Buffered: ${_offlineStorage.pendingCount} pending events',
-                          style: TextStyle(color: Colors.grey[400], fontSize: 11),
-                        ),
+                        if (_offlineStorage.pendingCount > 0 && _offlineStorage.isOnline) ...[
+                          const SizedBox(width: 4),
+                          TextButton(
+                            onPressed: _syncNow,
+                            style: TextButton.styleFrom(
+                              backgroundColor: PraharTheme.primaryGreen,
+                              foregroundColor: Colors.black,
+                              visualDensity: VisualDensity.compact,
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            ),
+                            child: Text(
+                              _isHindi ? 'सिंक करें' : 'Sync Now',
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ],
                 ),
+                const SizedBox(height: 8),
+                const Divider(height: 1, color: PraharTheme.borderGreen),
+                const SizedBox(height: 8),
                 Row(
                   children: [
-                    // Offline toggle for field testing
-                    IconButton(
-                      icon: Icon(
-                        _offlineStorage.isOnline ? Icons.wifi : Icons.wifi_off,
-                        size: 20,
-                        color: Colors.grey[300],
+                    Container(
+                      key: const Key('demo_data_source_badge'),
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: PraharTheme.alertAmber.withValues(alpha: 0.18),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: PraharTheme.alertAmber.withValues(alpha: 0.5)),
                       ),
-                      tooltip: 'Toggle Network Connectivity',
-                      onPressed: () {
-                        setState(() {
-                          _offlineStorage.isOnline = !_offlineStorage.isOnline;
-                        });
-                      },
+                      child: Text(
+                        _isHindi ? 'डेटा स्रोत: डेमो रोवर टेलीमेट्री' : 'Data: DEMO ROVER TELEMETRY',
+                        style: const TextStyle(fontSize: 10, color: PraharTheme.alertAmber, fontWeight: FontWeight.bold),
+                      ),
                     ),
-                    if (_offlineStorage.pendingCount > 0 && _offlineStorage.isOnline)
-                      TextButton(
-                        onPressed: _syncNow,
-                        style: TextButton.styleFrom(
-                          backgroundColor: PraharTheme.primaryGreen,
-                          foregroundColor: Colors.black,
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        ),
-                        child: Text(
-                          _isHindi ? 'सिंक करें' : 'Sync Now',
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
-                        ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _isHindi ? 'भौतिक रोवर: डिस्कनेक्टेड' : 'Physical Rover: Disconnected',
+                        style: TextStyle(fontSize: 10, color: Colors.grey[400]),
+                        overflow: TextOverflow.ellipsis,
                       ),
+                    ),
                   ],
                 ),
               ],
@@ -1034,7 +1742,74 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
             )
-          else if (_selectedFarm != null)
+          else if (_selectedFarm != null) ...[
+            // Phase 7A: Farmer & Farm Profile Identity Card
+            Container(
+              key: const Key('farmer_identity_card'),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0F1E17),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: PraharTheme.primaryGreen.withValues(alpha: 0.5)),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: PraharTheme.primaryGreen.withValues(alpha: 0.15),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.person, color: PraharTheme.primaryGreen, size: 20),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                _farmerIdentityTitle,
+                                key: const Key('farmer_identity_title'),
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                              decoration: BoxDecoration(
+                                color: PraharTheme.alertAmber.withValues(alpha: 0.2),
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(color: PraharTheme.alertAmber.withValues(alpha: 0.5)),
+                              ),
+                              child: const Text(
+                                'DEMO FARM',
+                                style: TextStyle(fontSize: 9, color: PraharTheme.alertAmber, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          _farmerIdentitySubtitle,
+                          key: const Key('farmer_identity_subtitle'),
+                          style: TextStyle(color: Colors.grey[300], fontSize: 11),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    key: const Key('onboarding_edit_button'),
+                    icon: const Icon(Icons.edit, size: 16, color: PraharTheme.primaryGreen),
+                    tooltip: _isHindi ? 'प्रोफ़ाइल एवं खेत संपादित करें' : 'Edit Profile & Farm',
+                    onPressed: _openOnboardingEdit,
+                  ),
+                ],
+              ),
+            ),
             Card(
               key: const Key('farm_card'),
               shape: RoundedRectangleBorder(
@@ -1124,10 +1899,64 @@ class _HomeScreenState extends State<HomeScreen> {
                         _buildMetric(_isHindi ? 'रोवर बैटरी' : 'Rover Battery', '${_rover.batteryPct.toInt()}%', PraharTheme.primaryGreen),
                       ],
                     ),
+                    const SizedBox(height: 12),
+                    Container(
+                      key: const Key('simulated_rover_telemetry_card'),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF09140F),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: PraharTheme.borderGreen),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  const Icon(Icons.smart_toy_outlined, color: PraharTheme.primaryGreen, size: 14),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    _isHindi ? 'सिम्युलेटेड रोवर टेलीमेट्री' : 'SIMULATED ROVER TELEMETRY',
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: PraharTheme.primaryGreen),
+                                  ),
+                                ],
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                decoration: BoxDecoration(
+                                  color: PraharTheme.alertAmber.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(3),
+                                ),
+                                child: Text(
+                                  _isHindi ? 'हार्डवेयर अलग है' : 'Benchmark',
+                                  style: const TextStyle(fontSize: 9, color: PraharTheme.alertAmber, fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Rover: ${_rover.roverId} • State: ${_rover.state} • GPS: 20.9320° N, 77.7523° E (Amravati)',
+                            style: TextStyle(color: Colors.grey[300], fontSize: 10),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            _isHindi
+                                ? 'फ़ील्ड कवरेज: 100% (4/4 ज़ोन स्कैन किए गए • डेमोंस्ट्रेशन मोड)'
+                                : 'Field Coverage: 100% (4/4 Zones Scanned • Demo Mode)',
+                            style: TextStyle(color: Colors.grey[400], fontSize: 10),
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
               ),
             ),
+          ],
           const SizedBox(height: 14),
 
           // Monitored Zones Section
@@ -1170,6 +1999,72 @@ class _HomeScreenState extends State<HomeScreen> {
               }).toList(),
             ),
           const SizedBox(height: 14),
+
+          // Phase 7B: PRAHAR Contextual Field Assistant Entry Card
+          Card(
+            color: const Color(0xFF0C1D16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+              side: const BorderSide(color: PraharTheme.primaryGreen, width: 1.5),
+            ),
+            child: InkWell(
+              key: const Key('open_field_assistant_button'),
+              borderRadius: BorderRadius.circular(10),
+              onTap: _openFieldAssistantDialog,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: PraharTheme.primaryGreen.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.smart_toy, color: PraharTheme.primaryGreen, size: 22),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Text(
+                                AppLocalizations.getText('assistant_title', _currentLanguage),
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
+                              ),
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                decoration: BoxDecoration(
+                                  color: PraharTheme.alertAmber.withValues(alpha: 0.2),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: const Text(
+                                  'DEMO AI',
+                                  style: TextStyle(fontSize: 8, color: PraharTheme.alertAmber, fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            AppLocalizations.getText('assistant_query_hint', _currentLanguage),
+                            style: TextStyle(color: Colors.grey[400], fontSize: 11),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(Icons.arrow_forward_ios, size: 14, color: PraharTheme.primaryGreen),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
 
           // Phase 4: Quick Action Hub (Voice Assistant, Evidence Report, Opportunities)
           Row(
@@ -1439,8 +2334,8 @@ class _HomeScreenState extends State<HomeScreen> {
                             children: [
                               Text(
                                 _isHindi
-                                    ? 'प्राथमिक पहचान: Guy 3 Edge YOLOv8 (विश्वास: 88%)'
-                                    : 'Primary Ground Truth: Guy 3 Edge YOLOv8 (Confidence: 88%)',
+                                    ? 'पहचान: डेमो एआई परिदृश्य (YOLOv8-संगत • 89% विश्वास)'
+                                    : 'Detection: Demo AI Scenario (YOLOv8-compatible • 89% Confidence)',
                                 style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: PraharTheme.primaryGreen),
                               ),
                               const SizedBox(height: 3),
@@ -1453,8 +2348,8 @@ class _HomeScreenState extends State<HomeScreen> {
                               const SizedBox(height: 4),
                               Text(
                                 alert.type == HazardType.waterStress
-                                    ? (_isHindi ? 'प्रेक्षित नमी: 17.5% | सुरक्षा सीमा: < 20.0%' : 'Observed Moisture: 17.5% | Safety Threshold: < 20.0%')
-                                    : (_isHindi ? 'प्रेक्षित आर्द्रता: 78.0% | कवक अनुकूल सीमा: > 75.0%' : 'Observed RH: 78.0% | Fungal Favorable: > 75.0%'),
+                                    ? (_isHindi ? 'प्रेक्षित नमी: 16.8% | सुरक्षा सीमा: < 20.0%' : 'Observed Moisture: 16.8% | Safety Threshold: < 20.0%')
+                                    : (_isHindi ? 'प्रेक्षित आर्द्रता: 74.0% | कीट अनुकूल सीमा: > 70.0%' : 'Observed RH: 74.0% | Pest Favorable: > 70.0%'),
                                 style: TextStyle(fontSize: 11, color: Colors.grey[300]),
                               ),
                             ],
@@ -1465,7 +2360,27 @@ class _HomeScreenState extends State<HomeScreen> {
 
                       // Safety Gate Approval Action
                       if (alert.type == HazardType.waterStress) ...[
-                        if (!alert.isApproved)
+                        if (!alert.isApproved) ...[
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            margin: const EdgeInsets.only(bottom: 6),
+                            decoration: BoxDecoration(
+                              color: PraharTheme.alertAmber.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(color: PraharTheme.alertAmber.withValues(alpha: 0.4)),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.sim_card_alert_outlined, size: 12, color: PraharTheme.alertAmber),
+                                const SizedBox(width: 4),
+                                Text(
+                                  _isHindi ? 'सिम्युलेटेड कार्रवाई • कोई भौतिक कमांड नहीं' : 'SIMULATED ACTION • No physical actuator command',
+                                  style: const TextStyle(fontSize: 10, color: PraharTheme.alertAmber, fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
+                          ),
                           SizedBox(
                             width: double.infinity,
                             child: ElevatedButton.icon(
@@ -1480,7 +2395,8 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                               onPressed: () => _approveAndIrrigate(alert),
                             ),
-                          )
+                          ),
+                        ]
                         else
                           Container(
                             padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 10),

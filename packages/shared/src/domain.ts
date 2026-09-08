@@ -7,6 +7,9 @@ export interface Farmer {
   name: string;
   phone: string;
   language: string;
+  state?: string;
+  district?: string;
+  village?: string;
   created_at: string;
 }
 
@@ -17,7 +20,45 @@ export interface Farm {
   boundary_geojson: Record<string, any>;
   crop_type: string;
   area_acres: number;
+  ownership_type?: string; // 'OWNED' | 'TENANT' | 'SHARECROPPER'
+  irrigation_status?: string; // 'IRRIGATED' | 'PARTIAL' | 'RAINFED'
+  water_source?: string; // 'BOREWELL' | 'CANAL' | 'OPEN_WELL' | 'RIVER' | 'RAINFED'
+  soil_type?: string;
+  season?: string; // 'KHARIF' | 'RABI' | 'ZAID' | 'YEAR_ROUND'
+  crop_variety?: string;
+  sowing_date?: string;
   created_at: string;
+}
+
+export interface FarmerProfilePayload {
+  name: string;
+  state: string;
+  district: string;
+  village: string;
+  preferred_language: 'en' | 'hi' | 'mr' | 'pa';
+}
+
+export interface FarmSetupPayload {
+  area_acres: number;
+  ownership_type: 'OWNED' | 'TENANT' | 'SHARECROPPER';
+  irrigation_status: 'IRRIGATED' | 'PARTIAL' | 'RAINFED';
+  water_source: 'BOREWELL' | 'CANAL' | 'OPEN_WELL' | 'RIVER' | 'RAINFED';
+  soil_type: string;
+}
+
+export interface CropSetupPayload {
+  main_crops: string[];
+  season: 'KHARIF' | 'RABI' | 'ZAID' | 'YEAR_ROUND';
+  variety?: string;
+  sowing_date?: string;
+}
+
+export interface FarmerOnboardingState {
+  profile: FarmerProfilePayload;
+  farm: FarmSetupPayload;
+  crops: CropSetupPayload;
+  is_completed: boolean;
+  completed_at?: string;
 }
 
 export interface Zone {
@@ -191,3 +232,119 @@ export interface AnalyticsInterventionsResponse {
   interventions: InterventionHistoryItem[];
   evaluated_at: string;
 }
+
+// ============================================================================
+// Phase 7B: PRAHAR Contextual Field Assistant Contracts
+// ============================================================================
+
+export type AssistantIntent =
+  | 'FIELD_STATUS'
+  | 'ZONE_STATUS'
+  | 'HAZARD_EXPLANATION'
+  | 'RECOMMENDATION_EXPLANATION'
+  | 'ACTION_STATUS'
+  | 'VERIFICATION_STATUS'
+  | 'SCHEME_QUERY'
+  | 'PROFILE_QUERY'
+  | 'GENERAL_FARM_GUIDANCE'
+  | 'UNKNOWN';
+
+export type AssistantSafetyLevel =
+  | 'SAFE_INFORMATIONAL'
+  | 'REQUIRES_CONFIRMATION'
+  | 'PROHIBITED_AUTONOMOUS';
+
+export type AssistantActionType = 'IRRIGATE' | 'RE_SCAN' | 'NONE';
+
+export interface AssistantContextZone {
+  id: string;
+  name: string;
+  soil_type?: string;
+  moisture_pct?: number;
+  temperature_c?: number;
+  ph?: number;
+  active_hazard?: string | null;
+  severity?: string;
+}
+
+export interface AssistantContextAlert {
+  id: string;
+  zone_id: string;
+  hazard_type: string;
+  severity: string;
+  title: string;
+  why_reasoning?: string;
+}
+
+export interface FarmerAssistantContext {
+  data_source: 'DEMO';
+  rover_status: 'DISCONNECTED';
+  farmer?: {
+    id?: string;
+    name?: string;
+    phone?: string;
+    state?: string;
+    district?: string;
+    village?: string;
+    language?: string;
+  };
+  farm?: {
+    id?: string;
+    name?: string;
+    area_acres?: number;
+    ownership_type?: string;
+    irrigation_status?: string;
+    water_source?: string;
+    soil_type?: string;
+    season?: string;
+    crop_type?: string;
+  };
+  zones?: AssistantContextZone[];
+  active_alerts?: AssistantContextAlert[];
+  latest_verification?: {
+    action_id?: string;
+    zone_id?: string;
+    pre_moisture?: number;
+    post_moisture?: number;
+    moisture_delta?: number;
+    summary?: string;
+  } | null;
+  eligible_schemes?: Array<{
+    scheme_id: string;
+    title: string;
+    category?: string;
+    official_url?: string;
+  }>;
+}
+
+export interface AssistantPendingAction {
+  action_type: string;
+  zone_id: string;
+  duration_seconds?: number;
+  volume_liters?: number;
+}
+
+export interface AssistantStructuredResponse {
+  answer: string;
+  intent: AssistantIntent;
+  referenced_zone?: string | null;
+  severity: 'HIGH' | 'MEDIUM' | 'LOW' | 'NONE';
+  evidence?: string | null;
+  recommendation?: string | null;
+  action_required: boolean;
+  action_type: AssistantActionType;
+  requires_confirmation: boolean;
+  safety_level: AssistantSafetyLevel;
+  simulation_status: string;
+  indicative_disclaimer?: string | null;
+  pending_action?: AssistantPendingAction | null;
+}
+
+export interface AssistantQueryRequest {
+  query: string;
+  language?: 'en' | 'hi' | 'mr' | 'pa';
+  session_id?: string;
+  context?: Partial<FarmerAssistantContext>;
+  user_id?: string;
+}
+

@@ -5,6 +5,7 @@ import '../core/api_client.dart';
 import '../core/storage/session_store.dart';
 import '../core/storage/offline_store.dart';
 import 'home_screen.dart';
+import 'onboarding_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   final FarmerAuthService? authService;
@@ -71,17 +72,36 @@ class _RegisterScreenState extends State<RegisterScreen> {
       );
 
       if (success && mounted) {
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(
-            builder: (_) => HomeScreen(
-              authService: _authService,
-              apiClient: _authService.apiClient,
-              offlineStore: widget.offlineStore,
-              initialLanguage: widget.initialLanguage ?? 'en',
+        final hasFarmerId = _authService.currentUser?.farmerId != null &&
+            _authService.currentUser!.farmerId!.isNotEmpty;
+        if (!hasFarmerId) {
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(
+              builder: (_) => OnboardingScreen(
+                authService: _authService,
+                apiClient: _authService.apiClient,
+                sessionStore: widget.sessionStore,
+                offlineStore: widget.offlineStore,
+                prefilledName: _fullNameController.text.trim(),
+                initialLanguage: widget.initialLanguage ?? 'en',
+              ),
             ),
-          ),
-          (route) => false,
-        );
+            (route) => false,
+          );
+        } else {
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(
+              builder: (_) => HomeScreen(
+                authService: _authService,
+                apiClient: _authService.apiClient,
+                sessionStore: widget.sessionStore,
+                offlineStore: widget.offlineStore,
+                initialLanguage: widget.initialLanguage ?? 'en',
+              ),
+            ),
+            (route) => false,
+          );
+        }
       } else if (mounted) {
         setState(() {
           _errorMessage = 'Registration failed. Please try again.';
